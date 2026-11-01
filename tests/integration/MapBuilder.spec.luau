@@ -34,6 +34,30 @@ test("hub has a spawn, a Quick Join pad and returns the spawn point", function()
 	expect(hub.spawn).toBe(Config.Map.HubSpawn)
 end)
 
+test("lobby has three bays with a gate, stats board and board zone each", function()
+	local hub = MapBuilder.buildHub(newFolder())
+	expect(#hub.bays).toBe(#Config.LobbyMap.Bays)
+	local kinds = {}
+	for i, bay in hub.bays do
+		local cfg = Config.LobbyMap.Bays[i]
+		kinds[bay.kind] = true
+		expect(bay.kind).toBe(cfg.Kind)
+		expect(bay.zone.Parent ~= nil).toBeTruthy()
+		expect(bay.gate.CanCollide).toBeTruthy()
+		expect(#bay.arms > 0).toBeTruthy()
+		expect(bay.stats.status ~= nil).toBeTruthy()
+	end
+	expect(kinds.Public and kinds.Party and kinds.Private).toBeTruthy()
+	expect(hub.quickJoinPad).toBe(hub.bays[1].zone)
+end)
+
+test("lobby spawn sits inside the workshop", function()
+	local w = Config.LobbyMap.Workshop
+	local p = Config.Map.HubSpawn.Position
+	expect(p.X > w.X0 and p.X < w.X1).toBeTruthy()
+	expect(p.Z > w.Z0 and p.Z < w.Z1).toBeTruthy()
+end)
+
 test("route has one built stop per planned stop and a sleigh", function()
 	local route, plans, parent = buildRoute(1)
 	expect(#route.stops).toBe(#plans)

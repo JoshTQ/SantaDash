@@ -11,6 +11,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local LobbyMap = require(script.Parent.LobbyMap)
 
 local MapBuilder = {}
 
@@ -188,44 +189,10 @@ end
 -- Hub
 ----------------------------------------------------------------------------
 
-function MapBuilder.buildHub(parent: Instance): { model: Model, quickJoinPad: BasePart, spawn: CFrame }
-	local model = Instance.new("Model")
-	model.Name = "SleighStation"
-
-	newPart(model, "Floor", Vector3.new(220, 2, 220), CFrame.new(0, -1, 0), SNOW, Enum.Material.Snow)
-
-	local spawnCF = Config.Map.HubSpawn
-	local spawn = newPart(
-		model,
-		"Spawn",
-		Vector3.new(12, 1, 12),
-		CFrame.new(spawnCF.Position.X, 0.5, spawnCF.Position.Z),
-		Color3.fromRGB(120, 200, 255),
-		nil,
-		"SpawnLocation"
-	) :: SpawnLocation
-	spawn.Neutral = true
-	spawn.Duration = 0
-
-	local pad = newPart(
-		model,
-		"QuickJoinPad",
-		Vector3.new(18, 1, 18),
-		CFrame.new(0, 0.5, 20),
-		Color3.fromRGB(60, 220, 110),
-		Enum.Material.Neon
-	)
-	addLabel(pad, "QUICK JOIN\nstep on to board", Color3.new(1, 1, 1), 6)
-
-	-- Decorative departure sleigh so the hub reads as a station.
-	MapBuilder.buildSleigh(model, CFrame.new(0, 2, 50) * CFrame.Angles(0, math.pi, 0))
-
-	local sign =
-		newPart(model, "Sign", Vector3.new(40, 10, 1), CFrame.new(0, 12, 75), Color3.fromRGB(40, 50, 80))
-	addLabel(sign, "SLEIGH STATION", GOLD, 0)
-
-	model.Parent = parent
-	return { model = model, quickJoinPad = pad, spawn = spawnCF }
+-- The lobby layout lives in LobbyMap (Naughty Workshop + Sleigh Station).
+-- Returns { model, quickJoinPad, spawn, bays, departureBoards }.
+function MapBuilder.buildHub(parent: Instance)
+	return LobbyMap.build(parent)
 end
 
 ----------------------------------------------------------------------------

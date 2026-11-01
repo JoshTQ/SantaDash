@@ -55,6 +55,23 @@ Config.Places = {
 	ArrivalTimeoutSeconds = 15, -- the run starts with whoever arrived by then
 }
 
+-- Lobby-side matchmaking (cross-server). Public riders and Party groups go into
+-- one MemoryStore queue shared by every lobby server; any lobby server packs
+-- them into crews, reserves a run server and tells the riders' servers to
+-- teleport them. Private sleighs never touch the shared queue.
+Config.Matchmaking = {
+	QueueName = "SleighHeist_PublicCrews_v1",
+	Topic = "SleighHeist_CrewReady_v1",
+	PackEverySeconds = 2, -- how often each lobby server tries to form crews
+	ReadBatch = 50, -- tickets read per pack (MemoryStore max is 100)
+	TicketTTLSeconds = 120, -- a ticket nobody packed in this long is dropped
+	PublicWaitSeconds = 12, -- a crew leaves part-full once its oldest rider waited this long (bots fill)
+	PartyFillSeconds = 8, -- a Party group waits this long for randoms to top it up
+	LocalFallbackSeconds = 25, -- no crew by then (MemoryStore down): leave with whoever is on this server
+	-- Boarding windows at the Sleigh Station (seconds a sleigh boards before it leaves).
+	BoardSeconds = { Public = 12, Party = 20, Private = 20 },
+}
+
 Config.Player = {
 	WalkSpeed = 16,
 }
@@ -236,7 +253,41 @@ Config.Map = {
 	TakeoffOffset = Vector3.new(-150, 60, 0), -- where the sleigh starts, before Stop 1
 	DeckOnRoof = Vector3.new(-4, 1.6, -2), -- sleigh deck on the landing roof
 	DeckSize = Vector3.new(10, 1, 14),
-	HubSpawn = CFrame.new(0, 4, -50),
+	-- Inside the Naughty Workshop on the spawn ring, facing the yard (+Z).
+	HubSpawn = CFrame.lookAt(Vector3.new(0, 4.5, -42), Vector3.new(0, 4.5, 0)),
+}
+
+-- Sleigh Station lobby layout, matching the interactive 3D preview Josh iterated on (1 Nov).
+-- +Z runs from the workshop, through the show-off yard, to the station.
+Config.LobbyMap = {
+	FloorHeight = 1.5, -- workshop floor and station platform
+	Workshop = { X0 = -40, X1 = 40, Z0 = -64, Z1 = -22, Height = 20 },
+	Yard = { X0 = -70, X1 = 70, Z0 = -22, Z1 = 92 },
+	Platform = { X0 = -40, X1 = 40, Z0 = 46, Z1 = 58 },
+	GateZ = 51,
+	GateGap = 8, -- studs between the gate barriers
+	BoardZone = { Z0 = 52, Z1 = 57.5, HalfWidth = 6 }, -- step in here to sit on the sleigh
+	SleighZ = 65,
+	Podium = Vector3.new(-38, 0, 8),
+	Trophy = Vector3.new(16, 0, 14),
+	Wanted = Vector3.new(56, 0, 18),
+	Fork = Vector3.new(-2, 0, 33),
+	Path = { -- main path from the workshop doors to the fork
+		Vector3.new(0, 0, -21),
+		Vector3.new(-4, 0, -8),
+		Vector3.new(-16, 0, 6),
+		Vector3.new(-13, 0, 22),
+		Vector3.new(-2, 0, 33),
+	},
+	-- Bays left to right as you walk up: Public, Party, Private.
+	Bays = {
+		{ Kind = "Public", Number = 1, X = 26, Colour = Color3.fromRGB(47, 191, 91), Sleigh = "Red" },
+		{ Kind = "Party", Number = 2, X = 0, Colour = Color3.fromRGB(61, 123, 255), Sleigh = "Blue" },
+		{ Kind = "Private", Number = 3, X = -26, Colour = Color3.fromRGB(138, 92, 255), Sleigh = "Purple" },
+	},
+	ArriveSeconds = 3, -- sleigh flies in
+	DepartSeconds = 5, -- sleigh takes off
+	GapSeconds = 3, -- empty bay before the next sleigh
 }
 
 return Config
