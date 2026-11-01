@@ -237,7 +237,7 @@ Config.Map = {
 	-- The sleigh lands on the ground at each stop's Sleigh Stop (Josh, 1 Nov
 	-- 2026): a clearing; you're aboard if you're inside it when it leaves.
 	LandingAt = CFrame.new(0, 0, 0), -- stop space: on the road in front of the landing house
-	SleighStopRadius = 17,
+	SleighStopRadius = 17, -- also a safe zone: Krampus ignores anyone inside (Josh, 1 Nov)
 	DeckHeight = 1.6, -- deck centre above the ground, so the runners clear it
 	DeckSize = Vector3.new(10, 1, 14),
 	HubSpawn = CFrame.new(0, 4, -50),
