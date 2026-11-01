@@ -1,13 +1,18 @@
 --[[
-	Sleigh Heist server entry point (greybox).
+	Sleigh Heist server entry point (greybox). The same build runs in both
+	places: the run place hosts one crew (RunHost); anywhere else this is the
+	Sleigh Station lobby. Until the places are published (Config.Places),
+	the lobby also runs the runs itself, all in one server.
 ]]
 
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Handoff = require(ReplicatedStorage.Shared.Handoff)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local MapBuilder = require(script.Parent.MapBuilder)
 local Lobby = require(script.Parent.Lobby)
+local RunHost = require(script.Parent.RunHost)
 
 Remotes.init()
 
@@ -18,4 +23,8 @@ Lighting.OutdoorAmbient = Color3.fromRGB(90, 100, 130)
 Lighting.Ambient = Color3.fromRGB(90, 100, 130)
 
 local hub = MapBuilder.buildHub(workspace)
-Lobby.start(hub)
+if Handoff.isRunPlace(game.PlaceId, workspace:GetAttribute("RunPlace")) then
+	RunHost.start(hub) -- GREYBOX: crews wait in the hub between runs
+else
+	Lobby.start(hub)
+end

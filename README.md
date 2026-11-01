@@ -44,11 +44,26 @@ To build a place file instead: `rojo build -o SleighHeist.rbxl`.
 
 All tuning numbers live in `src/shared/Config.luau`.
 
+## Lobby and run places (cross-server matchmaking)
+
+The same build runs in two places. The **lobby place** queues crews and
+teleports each one into its own reserved server of the **run place**, which
+plays runs back to back for that crew and sends leavers back to the lobby.
+`src/shared/Handoff.luau` is the contract between them: the lobby teleports
+with `TeleportData = Handoff.make(crewId, kind, memberUserIds)`; the run server
+only admits members of that crew and starts when they are all in, or after
+`Config.Places.ArrivalTimeoutSeconds`.
+
+Until both places are published and their IDs are set in `Config.Places`,
+everything runs in one server (the local `Lobby` runs the routes itself). To
+test the run place on its own in Studio, set a `RunPlace = true` attribute on
+Workspace; players with no TeleportData then join as a test crew.
+
 ## Tests
 
 | Layer | What | How |
 | --- | --- | --- |
-| Unit | Pure rules: House Card rolls, stop plans, values, banking, results, Krampus decisions (arrival, targeting, bells, breath, wiggle), elf bot decisions (design mix, present picks), Config invariants | `lune run tests/runner` |
+| Unit | Pure rules: House Card rolls, stop plans, values, banking, results, Krampus decisions (arrival, targeting, bells, breath, wiggle), elf bot decisions (design mix, present picks), lobby-to-run handoff (validation, admission, departure), Config invariants | `lune run tests/runner` |
 | Integration | MapBuilder builds real Instances (Lune's Roblox library) from real plans: counts, prompts, sleigh on the roof, no overlapping houses, Krampus and elf rigs, sleigh seats, vault presents | same command |
 | Static | Format, lint, place build | `stylua --check src tests`, `selene src`, `rojo build` |
 | E2E | Not automated yet; see below | Studio playtest |
@@ -57,7 +72,7 @@ CI (`.github/workflows/ci.yml`) runs all of the above on every pull request.
 Filter tests by file name: `lune run tests/runner Loot`.
 
 The test runner loads modules straight from `src/` with a fake `game`/`script`/
-`require`, so keep rule code in pure modules (`Loot`, `KrampusBrain`, `ElfBrain`, `Util`)
+`require`, so keep rule code in pure modules (`Loot`, `KrampusBrain`, `ElfBrain`, `Handoff`, `Util`)
 and keep `MapBuilder` free of events. Code that needs the live engine (`Run`,
 `Lobby`, `Krampus` and `ElfBot` movement, physics, pathfinding, remotes) is covered by the
 playtest checklist until E2E is set up.
@@ -78,7 +93,9 @@ src/shared/Config.luau        every tuning number
 src/shared/Remotes.luau       RemoteEvents (Hud, LeaveCrew, Input)
 src/shared/Util.luau          clock, character helpers, weighted pick
 src/server/Main.server.luau   entry point
-src/server/Lobby.luau         Quick Join queue, run slots, requeue
+src/server/Lobby.luau         Quick Join queue, run slots, requeue (single-server mode)
+src/server/RunHost.luau       run place: receive a crew, run back to back, return leavers
+src/shared/Handoff.luau       lobby -> run place TeleportData contract
 src/server/Run.luau           one crew's run: stops, phases, grabs, buys, noise, hiding, results
 src/server/Krampus.luau       Krampus movement, snatch, carry, bells, wiggle
 src/server/KrampusBrain.luau  pure Krampus decisions

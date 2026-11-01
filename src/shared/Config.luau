@@ -46,6 +46,15 @@ Config.Lobby = {
 	MaxRunsPerServer = 4, -- concurrent routes built in one server
 }
 
+-- Cross-server matchmaking (Josh, 1 Nov 2026): the lobby place queues crews
+-- and teleports each into its own reserved server of the run place. 0 = not
+-- published yet; then everything runs in one place (Studio, offline tests).
+Config.Places = {
+	Lobby = 0,
+	Run = 0,
+	ArrivalTimeoutSeconds = 15, -- the run starts with whoever arrived by then
+}
+
 Config.Player = {
 	WalkSpeed = 16,
 }
