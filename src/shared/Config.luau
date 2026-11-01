@@ -216,8 +216,8 @@ Config.MapEvents = {
 			NoiseMultiplier = 0.6, -- all street noise while it snows
 			FogEnd = 180, -- studs; keep >= 150 so the sleigh / Lair beams stay readable
 			FogColor = Color3.fromRGB(225, 232, 245),
-			-- Snow piles in stop space (+Z down the street). GREYBOX: white
-			-- blocks until a snowball pile model is approved.
+			-- Snow piles in stop space (+Z down the street): the approved Sparkle
+			-- Drift (Assets "SnowPile"), or a white block if it isn't imported yet.
 			Piles = {
 				Vector3.new(-9, 0, 40),
 				Vector3.new(9, 0, 140),
@@ -225,12 +225,14 @@ Config.MapEvents = {
 				Vector3.new(9, 0, 380),
 			},
 			PileSnowballs = 6, -- per grab; piles never run out
+			PileRegrowSeconds = 6, -- a grabbed ball on the pile model grows back
 			MaxSnowballs = 12,
 			ThrowSpeed = 110, -- studs/s
 			ThrowCooldown = 0.4,
 			SnowballLife = 3, -- seconds before a miss melts
 			-- Crewmates only get a cosmetic splat (no stun): no griefing strangers.
 			SplatSeconds = 1.5,
+			SplatMarkSeconds = 2, -- the blue splat decal where a snowball lands
 		},
 	},
 }

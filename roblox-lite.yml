@@ -26,6 +26,8 @@ globals:
     any: true
   NumberSequence:
     any: true
+  TweenInfo:
+    any: true
   ColorSequence:
     any: true
   Enum:
