@@ -4,7 +4,8 @@
 	built procedurally by MapBuilder from it, so every map gets the full loop.
 
 	Adding a map: add <Id>.luau here, register it in Defs and Maps.Rotation,
-	and add any new feature kinds to server/MapFeatures.luau.
+	and add any new feature kinds to server/MapFeatures.luau and event kinds to
+	server/MapEvents.luau.
 ]]
 
 local Config = require(script.Parent.Config)
@@ -38,12 +39,16 @@ export type Layout = {
 	EndHouseAt: { [string]: CFrame }?,
 }
 
+export type MapEvent = { kind: string, weight: number, [string]: any }
+
 export type Map = {
 	id: string,
 	name: string,
 	palette: { Ground: Look, Road: Look, Path: Look },
 	layout: Layout,
 	features: { { kind: string, [string]: any } },
+	-- Random map events this map can roll: { kind = "<MapEvents key>", weight = n }.
+	events: { MapEvent },
 	dressing: string?, -- ServerStorage.Maps.<dressing>: approved set dressing (art only)
 }
 
@@ -83,6 +88,7 @@ function Maps.get(id: string?): Map
 		palette = table.clone(DEFAULT_PALETTE),
 		layout = defaultLayout(),
 		features = def.features or {},
+		events = def.events or {},
 		dressing = def.dressing,
 	}
 	for k, v in def.palette or {} do

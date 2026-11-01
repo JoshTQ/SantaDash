@@ -22,6 +22,12 @@ globals:
     any: true
   Vector2:
     any: true
+  NumberRange:
+    any: true
+  NumberSequence:
+    any: true
+  ColorSequence:
+    any: true
   Enum:
     any: true
   Random:

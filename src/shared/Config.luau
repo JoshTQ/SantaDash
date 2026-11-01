@@ -194,6 +194,47 @@ Config.Krampus = {
 	Height = 11, -- about 2.2x a Santa
 }
 
+-- Random map events (game-design.md "Random map events"). One roll per run;
+-- a hit plays one event from the map's own pool at one stop. Rules: one big
+-- moment per stop, never in a Krampus stop, never blocks the way back to the
+-- sleigh, always ends before the horn, always has an upside.
+-- Proposed 1 Nov 2026, awaiting Josh's picks.
+Config.MapEvents = {
+	Chance = 0.6, -- per run
+	Stops = { 2 }, -- launch slice: Stop 2 only (Stop 1 = easy, Stop 3 = Lair)
+	WarningSeconds = 8, -- banner + sound before it starts
+	StartAt = 30, -- seconds into the stop
+	MaxSeconds = 55, -- and it always ends before Config.Run.HornAt
+	Events = {
+		-- Heavy snow: fog closes in, snow muffles noise, free snowballs.
+		Blizzard = {
+			Enabled = true, -- off switch
+			Label = "BLIZZARD",
+			Forecast = "Forecast: heavy snow later...",
+			Warning = "BLIZZARD IN %d! Snow muffles your noise. Grab snowballs!",
+			Ended = "The blizzard has passed.",
+			NoiseMultiplier = 0.6, -- all street noise while it snows
+			FogEnd = 180, -- studs; keep >= 150 so the sleigh / Lair beams stay readable
+			FogColor = Color3.fromRGB(225, 232, 245),
+			-- Snow piles in stop space (+Z down the street). GREYBOX: white
+			-- blocks until a snowball pile model is approved.
+			Piles = {
+				Vector3.new(-9, 0, 40),
+				Vector3.new(9, 0, 140),
+				Vector3.new(-9, 0, 260),
+				Vector3.new(9, 0, 380),
+			},
+			PileSnowballs = 6, -- per grab; piles never run out
+			MaxSnowballs = 12,
+			ThrowSpeed = 110, -- studs/s
+			ThrowCooldown = 0.4,
+			SnowballLife = 3, -- seconds before a miss melts
+			-- Crewmates only get a cosmetic splat (no stun): no griefing strangers.
+			SplatSeconds = 1.5,
+		},
+	},
+}
+
 -- Elf bots fill in for missing friends in solo runs (game-design.md "Solo").
 -- Josh, 1 Nov 2026: bots are a random mix of elf designs A and D. Each
 -- variant name is also the Model name to put in ServerStorage.Assets once

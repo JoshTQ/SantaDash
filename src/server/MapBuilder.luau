@@ -254,6 +254,7 @@ export type Stop = {
 	vaultPrompt: ProximityPrompt?,
 	vaultDoor: BasePart?,
 	krampusSpawn: CFrame,
+	origin: CFrame, -- stop space: +Z runs down the street from the landing house
 }
 
 local function buildPresent(parent: Instance, rng: Random, position: Vector3, plan): BuiltPresent
@@ -519,6 +520,7 @@ local function buildStop(
 		hideSpots = {},
 		cocoaPrompt = nil :: any,
 		krampusSpawn = origin * CFrame.new(0, 6, far + map.StreetOverrun - 20), -- past the vault
+		origin = origin,
 	}
 
 	for _, house in plan.houses do

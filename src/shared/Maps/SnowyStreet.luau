@@ -6,5 +6,8 @@ return {
 	palette = {}, -- Ground / Road / Path = { Color3, Enum.Material }
 	layout = {}, -- Slots, SideOffset, RoadWidth, StreetStart, StreetOverrun, StopSpacing, FootPathZ, CocoaMachine
 	features = {}, -- { kind = "<MapFeatures key>", ... }, built at every stop
+	events = { -- { kind = "<MapEvents key>", weight = n }, see Config.MapEvents
+		{ kind = "Blizzard", weight = 1 },
+	},
 	dressing = nil, -- name of an approved Model in ServerStorage.Maps
 }
