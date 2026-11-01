@@ -113,18 +113,4 @@ function CrewPacker.pack(tickets: { Ticket }, now: number): ({ Crew }, { Ticket 
 	return leaving, keep
 end
 
--- Members of a crew that live on this lobby server, in seat order.
-function CrewPacker.localMembers(
-	crew: { members: { number }, servers: { string } },
-	jobId: string
-): { number }
-	local out = {}
-	for i, userId in crew.members do
-		if crew.servers[i] == jobId then
-			table.insert(out, userId)
-		end
-	end
-	return out
-end
-
 return CrewPacker

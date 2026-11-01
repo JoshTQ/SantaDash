@@ -207,10 +207,6 @@ local function secondsLeft(endsAt: number): number
 	return math.max(0, math.ceil(endsAt - Util.now()))
 end
 
-local function clock(seconds: number): string
-	return string.format("%d:%02d", seconds // 60, seconds % 60)
-end
-
 local function showBanner(text: string, seconds: number)
 	bannerToken += 1
 	local token = bannerToken
@@ -375,7 +371,7 @@ end)
 while true do
 	task.wait(0.1)
 	if stopState and stopState.stop > 0 and stopState.phase ~= "Flight" then
-		setText(timerLabel, clock(secondsLeft(stopState.departAt)))
+		setText(timerLabel, Util.clock(secondsLeft(stopState.departAt)))
 	end
 	if queueState then
 		local prefix = if queueState.requeue then "Heist again together! " else ""

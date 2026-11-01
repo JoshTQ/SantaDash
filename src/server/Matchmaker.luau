@@ -33,9 +33,7 @@ local Util = require(ReplicatedStorage.Shared.Util)
 
 local Matchmaker = {}
 
-type Pending = { since: number, kind: string }
-
-local pending: { [Player]: Pending } = {} -- waiting for a crew on this server
+local pending: { [Player]: number } = {} -- waiting for a crew on this server, since when
 local announced: { [string]: boolean } = {} -- crewIds already handled here
 local queue: MemoryStoreQueue? = nil
 local onFailed: ((players: { Player }, reason: string) -> ())? = nil
@@ -44,15 +42,11 @@ function Matchmaker.enabled(): boolean
 	return Config.Places.Lobby ~= 0 and Config.Places.Run ~= 0 and not RunService:IsStudio()
 end
 
-function Matchmaker.isPending(player: Player): boolean
-	return pending[player] ~= nil
-end
-
 -- Players waiting longer than LocalFallbackSeconds (the queue is probably down).
 function Matchmaker.overdue(now: number): { Player }
 	local out = {}
-	for player, p in pending do
-		if now - p.since >= Config.Matchmaking.LocalFallbackSeconds then
+	for player, since in pending do
+		if now - since >= Config.Matchmaking.LocalFallbackSeconds then
 			table.insert(out, player)
 		end
 	end
@@ -103,23 +97,29 @@ local function onCrewReady(message)
 			table.insert(players, player)
 		end
 	end
-	teleport(players, message.code, data)
+	task.spawn(teleport, players, message.code, data)
 end
 
 local function announce(crew: CrewPacker.Crew)
 	local accessCode = TeleportService:ReserveServer(Config.Places.Run)
 	local crewId = HttpService:GenerateGUID(false)
 	local message = { code = accessCode, data = Handoff.make(crewId, crew.kind, crew.members) }
-	-- Our own members go now; everyone else hears it over MessagingService.
-	onCrewReady(message)
-	local others = false
+	-- Other servers hear it over MessagingService; our own members go now.
 	for _, jobId in crew.servers do
 		if jobId ~= game.JobId then
-			others = true
+			MessagingService:PublishAsync(Config.Matchmaking.Topic, message)
+			break
 		end
 	end
-	if others then
-		MessagingService:PublishAsync(Config.Matchmaking.Topic, message)
+	onCrewReady(message)
+end
+
+local function addTicket(ticket)
+	local ok, err = pcall(function()
+		(queue :: MemoryStoreQueue):AddAsync(ticket, Config.Matchmaking.TicketTTLSeconds)
+	end)
+	if not ok then
+		warn("[Matchmaker] could not queue: " .. tostring(err)) -- LocalFallbackSeconds picks them up
 	end
 end
 
@@ -128,7 +128,7 @@ function Matchmaker.enqueue(kind: string, players: { Player }, since: number?)
 	local now = Util.now()
 	local members, servers = {}, {}
 	for _, player in players do
-		pending[player] = { since = now, kind = kind }
+		pending[player] = now
 		table.insert(members, player.UserId)
 		table.insert(servers, game.JobId)
 	end
@@ -139,14 +139,7 @@ function Matchmaker.enqueue(kind: string, players: { Player }, since: number?)
 		servers = servers,
 		since = since or now,
 	}
-	task.spawn(function()
-		local ok, err = pcall(function()
-			(queue :: MemoryStoreQueue):AddAsync(ticket, Config.Matchmaking.TicketTTLSeconds)
-		end)
-		if not ok then
-			warn("[Matchmaker] could not queue: " .. tostring(err)) -- LocalFallbackSeconds picks them up
-		end
-	end)
+	task.spawn(addTicket, ticket)
 end
 
 -- A Party group leaves as soon as it can, topped up by any waiting randoms.
@@ -181,6 +174,9 @@ local function pack()
 	end
 	local now = Util.now()
 	local crews, keep = CrewPacker.pack(CrewPacker.clean(items, now), now)
+	if #crews == 0 then
+		return -- nothing leaves: leave the batch alone; it reappears after InvisibleSeconds
+	end
 	for _, crew in crews do
 		local ok, err = pcall(announce, crew)
 		if not ok then
@@ -191,7 +187,7 @@ local function pack()
 		end
 	end
 	for _, ticket in keep do
-		q:AddAsync(ticket, Config.Matchmaking.TicketTTLSeconds)
+		task.spawn(addTicket, ticket)
 	end
 	q:RemoveAsync(readId)
 end
@@ -199,7 +195,7 @@ end
 -- failed(players, reason) is called when a teleport or reservation fails.
 function Matchmaker.start(failed: (players: { Player }, reason: string) -> ())
 	onFailed = failed
-	queue = MemoryStoreService:GetQueue(Config.Matchmaking.QueueName, 30)
+	queue = MemoryStoreService:GetQueue(Config.Matchmaking.QueueName, Config.Matchmaking.InvisibleSeconds)
 
 	local ok, err = pcall(function()
 		MessagingService:SubscribeAsync(Config.Matchmaking.Topic, function(packet)
@@ -216,8 +212,6 @@ function Matchmaker.start(failed: (players: { Player }, reason: string) -> ())
 			onFailed({ player }, "teleport")
 		end
 	end)
-
-	Players.PlayerRemoving:Connect(Matchmaker.cancel)
 
 	task.spawn(function()
 		while true do

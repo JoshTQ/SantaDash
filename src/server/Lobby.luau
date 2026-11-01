@@ -201,11 +201,9 @@ end
 local function tick()
 	local t = Util.now()
 	local overdue = Matchmaker.overdue(t)
-	while #overdue > 0 do
-		departLocally(table.move(overdue, 1, math.min(#overdue, Config.Lobby.CrewMax), 1, {}))
-		for _ = 1, math.min(#overdue, Config.Lobby.CrewMax) do
-			table.remove(overdue, 1)
-		end
+	local max = Config.Lobby.CrewMax
+	for i = 1, #overdue, max do
+		departLocally(table.move(overdue, i, i + max - 1, 1, {}))
 	end
 	for _, crew in table.clone(crews) do
 		if crew.launching then
@@ -230,9 +228,7 @@ function Lobby.start(hub)
 
 	Station.start(hub, stationHandlers)
 	if Matchmaker.enabled() then
-		Matchmaker.start(function(players)
-			backToHub(players)
-		end)
+		Matchmaker.start(backToHub)
 	end
 
 	Remotes.get("LeaveCrew").OnServerEvent:Connect(function(player)

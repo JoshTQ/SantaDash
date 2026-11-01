@@ -13,6 +13,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local Parts = require(script.Parent.Parts)
 
 local LobbyMap = {}
 
@@ -60,38 +61,27 @@ export type Bay = {
 export type Hub = {
 	model: Model,
 	spawn: CFrame,
-	quickJoinPad: BasePart, -- the Public board zone (kept for the single-server Lobby)
 	bays: { Bay },
 	departureBoards: { TextLabel },
 }
 
-local function part(
-	parent: Instance,
-	name: string,
-	size: Vector3,
-	cf: CFrame,
-	color: Color3,
-	material: Enum.Material?,
-	className: string?
-): BasePart
-	local p = Instance.new(className or "Part") :: BasePart
-	p.Name = name
-	p.Anchored = true
-	p.Size = size
-	p.CFrame = cf
-	p.Color = color
-	p.Material = material or Enum.Material.SmoothPlastic
-	p.TopSurface = Enum.SurfaceType.Smooth
-	p.BottomSurface = Enum.SurfaceType.Smooth
-	p.Parent = parent
-	return p
-end
+local part = Parts.new
 
 local function deco(p: BasePart): BasePart
 	p.CanCollide = false
 	p.CanQuery = false
 	p.CanTouch = false
 	return p
+end
+
+local function surfaceGui(p: BasePart, face: Enum.NormalId): SurfaceGui
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = face
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 40
+	gui.LightInfluence = 0
+	gui.Parent = p
+	return gui
 end
 
 local function surfaceText(
@@ -102,11 +92,7 @@ local function surfaceText(
 	fg: Color3,
 	font: Enum.Font?
 ): TextLabel
-	local gui = Instance.new("SurfaceGui")
-	gui.Face = face
-	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = 40
-	gui.LightInfluence = 0
+	local gui = surfaceGui(p, face)
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundColor3 = bg
@@ -116,7 +102,6 @@ local function surfaceText(
 	label.TextScaled = true
 	label.Font = font or Enum.Font.FredokaOne
 	label.Parent = gui
-	gui.Parent = p
 	return label
 end
 
@@ -209,7 +194,7 @@ local function path(
 			)
 		end
 		if i % 3 == 2 then
-			local arrow = deco(
+			deco(
 				part(
 					parent,
 					"PathArrow",
@@ -222,9 +207,13 @@ local function path(
 					"WedgePart"
 				)
 			)
-			arrow.Size = Vector3.new(0.2, 1.6, 1.6)
 		end
 	end
+end
+
+-- Where a path branch meets its bay's gate.
+local function branchEnd(bay): Vector3
+	return Vector3.new(bay.X, 0, Config.LobbyMap.GateZ - 2.5)
 end
 
 local function buildWorkshop(model: Model, floorH: number): { TextLabel }
@@ -259,7 +248,7 @@ local function buildWorkshop(model: Model, floorH: number): { TextLabel }
 	-- sawtooth roof in candy stripes
 	for i = 0, 5 do
 		local x = w.X0 + 6.7 + i * 13.3
-		local roof = part(
+		part(
 			f,
 			"Roof",
 			Vector3.new(D + 2, 7, 13.3),
@@ -268,7 +257,6 @@ local function buildWorkshop(model: Model, floorH: number): { TextLabel }
 			nil,
 			"WedgePart"
 		)
-		roof.Size = Vector3.new(D + 2, 7, 13.3)
 	end
 	sign(
 		f,
@@ -553,7 +541,7 @@ local function buildPath(model: Model)
 	junction.Shape = Enum.PartType.Cylinder
 	-- three branches in bay colours
 	for _, bay in L.Bays do
-		local finish = Vector3.new(bay.X, 0, L.GateZ - 2.5)
+		local finish = branchEnd(bay)
 		local mid =
 			Vector3.new((L.Fork.X + bay.X) / 2, 0, (L.Fork.Z + finish.Z) / 2 - (if bay.X == 0 then 0 else 3))
 		path(m, { L.Fork + Vector3.new(0, 0, 4), mid, finish }, 5.5, bay.Colour, 16, 7, 2)
@@ -584,8 +572,7 @@ local function buildPath(model: Model)
 			)
 			board.Material = Enum.Material.Wood
 		else
-			local target = Vector3.new(bay.X, 0, L.GateZ - 2.5)
-			local dir = (Vector3.new(target.X, 0, target.Z) - Vector3.new(L.Fork.X, 0, L.Fork.Z)).Unit
+			local dir = (branchEnd(bay) - Vector3.new(L.Fork.X, 0, L.Fork.Z)).Unit
 			local y = if k == 1 then 7.6 else 5.6
 			local origin = Vector3.new(L.Fork.X, y, L.Fork.Z)
 			-- plank runs along dir, text on both faces
@@ -594,7 +581,7 @@ local function buildPath(model: Model)
 			local plank =
 				sign(m, "Sign" .. bay.Kind, label, 6.4, 1.6, cf, C.wood, Color3.fromRGB(74, 42, 20), true)
 			plank.Material = Enum.Material.Wood
-			local tip = part(
+			part(
 				m,
 				"SignTip",
 				Vector3.new(0.6, 1.6, 1.2),
@@ -603,10 +590,15 @@ local function buildPath(model: Model)
 				Enum.Material.Wood,
 				"WedgePart"
 			)
-			tip.Size = Vector3.new(0.6, 1.6, 1.2)
 		end
 	end
 end
+
+local MODE = {
+	Public = "Anyone can hop on",
+	Party = "Your group + randoms",
+	Private = "Just your crew",
+}
 
 local function buildStation(model: Model, floorH: number): { Bay }
 	local L = Config.LobbyMap
@@ -728,12 +720,7 @@ local function buildStation(model: Model, floorH: number): { Bay }
 				C.coal
 			)
 		end
-		local gui = Instance.new("SurfaceGui")
-		gui.Face = Enum.NormalId.Front
-		gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-		gui.PixelsPerStud = 40
-		gui.LightInfluence = 0
-		gui.Parent = statsPart
+		local gui = surfaceGui(statsPart, Enum.NormalId.Front)
 		local bg = Instance.new("Frame")
 		bg.Size = UDim2.fromScale(1, 1)
 		bg.BackgroundColor3 = C.navy
@@ -762,6 +749,7 @@ local function buildStation(model: Model, floorH: number): { Bay }
 		}
 		stats.title.Text = string.format("BAY %d  %s", cfg.Number, string.upper(cfg.Kind))
 		stats.title.TextXAlignment = Enum.TextXAlignment.Center
+		stats.mode.Text = MODE[cfg.Kind] or ""
 		-- BOARDING NOW! sign on the canopy, readable from both sides
 		local boardingSign, boarding = sign(
 			m,
@@ -778,7 +766,7 @@ local function buildStation(model: Model, floorH: number): { Bay }
 		local bz = L.BoardZone
 		local zone = part(
 			m,
-			if cfg.Kind == "Public" then "QuickJoinPad" else cfg.Kind .. "Zone",
+			cfg.Kind .. "Zone",
 			Vector3.new(bz.HalfWidth * 2, 0.2, bz.Z1 - bz.Z0),
 			CFrame.new(bx, floorH + 0.1, (bz.Z0 + bz.Z1) / 2),
 			cfg.Colour,
@@ -814,16 +802,9 @@ function LobbyMap.build(parent: Instance): Hub
 	buildPath(model)
 	local bays = buildStation(model, floorH)
 	model.Parent = parent
-	local quick
-	for _, bay in bays do
-		if bay.kind == "Public" then
-			quick = bay.zone
-		end
-	end
 	return {
 		model = model,
 		spawn = Config.Map.HubSpawn,
-		quickJoinPad = quick,
 		bays = bays,
 		departureBoards = boards,
 	}

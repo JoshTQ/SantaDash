@@ -82,11 +82,3 @@ test("stale, duplicate and malformed tickets are dropped", function()
 	expect(#cleaned).toBe(1)
 	expect(cleaned[1].id).toBe(ok.id)
 end)
-
-test("each lobby server teleports only its own members", function()
-	local crew = { members = { 1, 2, 3 }, servers = { "A", "B", "A" } }
-	local mine = CrewPacker.localMembers(crew, "A")
-	expect(#mine).toBe(2)
-	expect(mine[2]).toBe(3)
-	expect(#CrewPacker.localMembers(crew, "C")).toBe(0)
-end)

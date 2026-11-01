@@ -19,19 +19,20 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local StationClock = require(ReplicatedStorage.Shared.StationClock)
 local Util = require(ReplicatedStorage.Shared.Util)
 local Assets = require(script.Parent.Assets)
+local LobbyMap = require(script.Parent.LobbyMap)
 local MapBuilder = require(script.Parent.MapBuilder)
 
 export type Handlers = {
-	seated: (bay: any, player: Player) -> (),
-	unseated: (bay: any, player: Player) -> (),
-	depart: (bay: any, riders: { Player }) -> (),
+	seated: (bay: LobbyMap.Bay, player: Player) -> (),
+	unseated: (bay: LobbyMap.Bay, player: Player) -> (),
+	depart: (bay: LobbyMap.Bay, riders: { Player }) -> (),
 }
 
 type BayState = {
-	bay: any, -- LobbyMap.Bay
+	bay: LobbyMap.Bay,
 	phase: string?,
 	cycle: number,
-	sleigh: Model?,
+	sleigh: Model, -- built once, parked out of sight between cycles
 	seats: { Seat },
 	riders: { Player },
 	gateOpen: boolean,
@@ -42,49 +43,38 @@ local Station = {}
 local TICK = 0.1
 local RUN_IN = 70 -- studs behind home where an arriving sleigh appears
 local RUN_OUT = 110 -- studs ahead of home where a departing sleigh vanishes
+local PARKED = CFrame.new(0, -300, 0) -- out of sight under the map between cycles
 local ARM_TWEEN = TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
 local states: { BayState } = {}
 local stateOf: { [Player]: BayState } = {}
 local handlers: Handlers
+local shown: { [TextLabel]: string } = {} -- last text written per label
 
 local function ease(a: number): number
 	a = math.clamp(a, 0, 1)
 	return 1 - (1 - a) ^ 3
 end
 
-local function buildSleigh(state: BayState): Model
-	local parent = state.bay.zone.Parent
-	local seats = {}
+-- One sleigh per bay, reused every cycle.
+local function buildSleigh(bay: LobbyMap.Bay): (Model, { Seat })
+	local parent = bay.zone.Parent
 	local template = Assets.clone("Sleigh", { "Body", "Seat1", "Hitch" })
 	local sleigh: Model
+	local seats = {}
 	if template then
-		sleigh = MapBuilder.placeSleighTemplate(parent, template, state.bay.home, Assets.get("Reindeer"))
-		for i = 1, Config.Lobby.CrewMax do
-			local seat = sleigh:FindFirstChild("Seat" .. i, true)
-			if seat and seat:IsA("Seat") then
-				seat.Disabled = false
-				table.insert(seats, seat)
+		sleigh = MapBuilder.placeSleighTemplate(parent, template, bay.home, Assets.get("Reindeer"), true)
+		for _, d in sleigh:GetDescendants() do
+			if d:IsA("Seat") then
+				table.insert(seats, d)
 			end
 		end
 	else
-		sleigh = MapBuilder.buildSleigh(parent, state.bay.home)
-	end
-	if #seats == 0 then
-		for i, offset in MapBuilder.SeatOffsets do
-			local seat = Instance.new("Seat")
-			seat.Name = "Seat" .. i
-			seat.Anchored = true
-			seat.Size = Vector3.new(2, 1, 2)
-			seat.Color = Color3.fromRGB(255, 200, 61)
-			seat.CFrame = state.bay.home * offset * CFrame.new(0, -1.5, 0)
-			seat.Parent = sleigh
-			table.insert(seats, seat)
-		end
+		sleigh = MapBuilder.buildSleigh(parent, bay.home)
+		seats = MapBuilder.addSeats(sleigh)
 	end
 	sleigh.Name = "StationSleigh"
-	state.seats = seats
-	return sleigh
+	return sleigh, seats
 end
 
 local function setGate(state: BayState, open: boolean)
@@ -127,11 +117,6 @@ function Station.release(player: Player)
 	if state then
 		removeRider(state, player, true)
 	end
-end
-
-function Station.riderBay(player: Player): any?
-	local state = stateOf[player]
-	return state and state.bay
 end
 
 local function inZone(zone: BasePart, position: Vector3): boolean
@@ -186,13 +171,17 @@ local function checkRiders(state: BayState)
 	end
 end
 
+-- Skips writes that would not change the label (most ticks).
+local function write(label: TextLabel, text: string)
+	if shown[label] ~= text then
+		shown[label] = text
+		label.Text = text
+	end
+end
+
 local function enter(state: BayState, phase: StationClock.Phase)
-	if phase.name == "Arriving" then
-		if state.sleigh then
-			state.sleigh:Destroy()
-		end
-		state.sleigh = buildSleigh(state)
-	elseif phase.name == "Boarding" then
+	if phase.name == "Boarding" then
+		state.sleigh:PivotTo(state.bay.home)
 		setGate(state, true)
 	elseif phase.name == "Departing" then
 		setGate(state, false)
@@ -210,15 +199,12 @@ local function enter(state: BayState, phase: StationClock.Phase)
 				)
 			)
 		end
-		if state.sleigh then
-			state.sleigh:Destroy()
-			state.sleigh = nil
-		end
+		state.sleigh:PivotTo(PARKED)
 	end
 end
 
 local function statusText(phase: StationClock.Phase, t: number): (string, Color3)
-	local left = StationClock.clock(phase.endsAt - t)
+	local left = Util.clock(phase.endsAt - t)
 	if phase.name == "Boarding" then
 		return "BOARDING NOW!  " .. left, Color3.fromRGB(255, 200, 61)
 	elseif phase.name == "Departing" then
@@ -227,14 +213,8 @@ local function statusText(phase: StationClock.Phase, t: number): (string, Color3
 		return "ARRIVING  " .. left, Color3.fromRGB(120, 200, 255)
 	end
 	local nextBoard = phase.endsAt + Config.LobbyMap.ArriveSeconds
-	return "NEXT SLEIGH  " .. StationClock.clock(nextBoard - t), Color3.fromRGB(200, 205, 230)
+	return "NEXT SLEIGH  " .. Util.clock(nextBoard - t), Color3.fromRGB(200, 205, 230)
 end
-
-local MODE = {
-	Public = "Anyone can hop on",
-	Party = "Your group + randoms",
-	Private = "Just your crew",
-}
 
 local function update(state: BayState, t: number)
 	local bay = state.bay
@@ -245,16 +225,11 @@ local function update(state: BayState, t: number)
 		enter(state, phase)
 	end
 
-	local sleigh = state.sleigh
-	if sleigh then
-		local a = (t - phase.startsAt) / (phase.endsAt - phase.startsAt)
-		if phase.name == "Arriving" then
-			sleigh:PivotTo(bay.home * CFrame.new(0, 0, RUN_IN * (1 - ease(a))))
-		elseif phase.name == "Departing" then
-			sleigh:PivotTo(bay.home * CFrame.new(0, 12 * a * a, -RUN_OUT * a * a))
-		elseif phase.name == "Boarding" then
-			sleigh:PivotTo(bay.home)
-		end
+	local a = (t - phase.startsAt) / (phase.endsAt - phase.startsAt)
+	if phase.name == "Arriving" then
+		state.sleigh:PivotTo(bay.home * CFrame.new(0, 0, RUN_IN * (1 - ease(a))))
+	elseif phase.name == "Departing" then
+		state.sleigh:PivotTo(bay.home * CFrame.new(0, 12 * a * a, -RUN_OUT * a * a))
 	end
 
 	if phase.name == "Boarding" then
@@ -265,28 +240,29 @@ local function update(state: BayState, t: number)
 	end
 
 	local text, colour = statusText(phase, t)
-	bay.stats.status.Text = text
+	write(bay.stats.status, text)
 	bay.stats.status.TextColor3 = colour
-	bay.stats.crew.Text = string.format("CREW %d/%d", #state.riders, Config.Lobby.CrewMax)
-	bay.stats.mode.Text = MODE[bay.kind] or ""
+	write(bay.stats.crew, string.format("CREW %d/%d", #state.riders, Config.Lobby.CrewMax))
 	return text
 end
 
-function Station.start(hub, h: Handlers)
+function Station.start(hub: LobbyMap.Hub, h: Handlers)
 	handlers = h
 	for _, bay in hub.bays do
-		local state = { bay = bay, phase = nil, cycle = -1, seats = {}, riders = {}, gateOpen = true }
+		local sleigh, seats = buildSleigh(bay)
+		sleigh:PivotTo(PARKED)
+		local state: BayState = {
+			bay = bay,
+			phase = nil,
+			cycle = -1,
+			sleigh = sleigh,
+			seats = seats,
+			riders = {},
+			gateOpen = true,
+		}
 		setGate(state, false)
 		table.insert(states, state)
 	end
-
-	Players.PlayerRemoving:Connect(function(player)
-		local state = stateOf[player]
-		if state then
-			removeRider(state, player, false)
-			handlers.unseated(state.bay, player)
-		end
-	end)
 
 	task.spawn(function()
 		while true do
@@ -306,7 +282,7 @@ function Station.start(hub, h: Handlers)
 			end
 			local timetable = table.concat(lines, "\n")
 			for _, label in hub.departureBoards do
-				label.Text = timetable
+				write(label, timetable)
 			end
 		end
 	end)

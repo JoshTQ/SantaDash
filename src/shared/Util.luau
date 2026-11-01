@@ -9,6 +9,12 @@ function Util.now(): number
 	return workspace:GetServerTimeNow()
 end
 
+-- "0:07" style countdown, rounding up.
+function Util.clock(seconds: number): string
+	local s = math.max(0, math.ceil(seconds))
+	return string.format("%d:%02d", s // 60, s % 60)
+end
+
 function Util.humanoidOf(player: Player): Humanoid?
 	local character = player.Character
 	return character and character:FindFirstChildOfClass("Humanoid")

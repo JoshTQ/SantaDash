@@ -10,8 +10,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Handoff = require(ReplicatedStorage.Shared.Handoff)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
-local MapBuilder = require(script.Parent.MapBuilder)
 local Lobby = require(script.Parent.Lobby)
+local LobbyMap = require(script.Parent.LobbyMap)
 local RunHost = require(script.Parent.RunHost)
 
 Remotes.init()
@@ -22,7 +22,7 @@ Lighting.Brightness = 1
 Lighting.OutdoorAmbient = Color3.fromRGB(90, 100, 130)
 Lighting.Ambient = Color3.fromRGB(90, 100, 130)
 
-local hub = MapBuilder.buildHub(workspace)
+local hub = LobbyMap.build(workspace)
 if Handoff.isRunPlace(game.PlaceId, workspace:GetAttribute("RunPlace")) then
 	RunHost.start(hub) -- GREYBOX: crews wait in the hub between runs
 else

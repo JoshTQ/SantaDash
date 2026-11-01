@@ -17,47 +17,6 @@ local function buildRoute(seed)
 	return MapBuilder.buildRoute(parent, 1, rng, plans, onFoot), plans, parent
 end
 
-local function countClass(root, className)
-	local n = 0
-	for _, d in root:GetDescendants() do
-		if d.ClassName == className then
-			n += 1
-		end
-	end
-	return n
-end
-
-test("hub has a spawn, a Quick Join pad and returns the spawn point", function()
-	local hub = MapBuilder.buildHub(newFolder())
-	expect(countClass(hub.model, "SpawnLocation")).toBe(1)
-	expect(hub.quickJoinPad.Name).toBe("QuickJoinPad")
-	expect(hub.spawn).toBe(Config.Map.HubSpawn)
-end)
-
-test("lobby has three bays with a gate, stats board and board zone each", function()
-	local hub = MapBuilder.buildHub(newFolder())
-	expect(#hub.bays).toBe(#Config.LobbyMap.Bays)
-	local kinds = {}
-	for i, bay in hub.bays do
-		local cfg = Config.LobbyMap.Bays[i]
-		kinds[bay.kind] = true
-		expect(bay.kind).toBe(cfg.Kind)
-		expect(bay.zone.Parent ~= nil).toBeTruthy()
-		expect(bay.gate.CanCollide).toBeTruthy()
-		expect(#bay.arms > 0).toBeTruthy()
-		expect(bay.stats.status ~= nil).toBeTruthy()
-	end
-	expect(kinds.Public and kinds.Party and kinds.Private).toBeTruthy()
-	expect(hub.quickJoinPad).toBe(hub.bays[1].zone)
-end)
-
-test("lobby spawn sits inside the workshop", function()
-	local w = Config.LobbyMap.Workshop
-	local p = Config.Map.HubSpawn.Position
-	expect(p.X > w.X0 and p.X < w.X1).toBeTruthy()
-	expect(p.Z > w.Z0 and p.Z < w.Z1).toBeTruthy()
-end)
-
 test("route has one built stop per planned stop and a sleigh", function()
 	local route, plans, parent = buildRoute(1)
 	expect(#route.stops).toBe(#plans)
@@ -222,4 +181,12 @@ test("only vault presents are marked as behind the vault door", function()
 		end
 		expect(inVault).toBe(if stop.vaultDoor then Config.Houses.Types.Vault.Presents else 0)
 	end
+end)
+
+test("a stand-in sleigh gets a real Seat at every rider spot", function()
+	local sleigh = MapBuilder.buildSleigh(newFolder(), CFrame.new(0, 2, 0))
+	local seats = MapBuilder.addSeats(sleigh)
+	expect(#seats).toBe(#MapBuilder.SeatOffsets)
+	expect(seats[1].ClassName).toBe("Seat")
+	expect(seats[1].Parent).toBe(sleigh)
 end)

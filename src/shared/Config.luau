@@ -64,12 +64,11 @@ Config.Matchmaking = {
 	Topic = "SleighHeist_CrewReady_v1",
 	PackEverySeconds = 2, -- how often each lobby server tries to form crews
 	ReadBatch = 50, -- tickets read per pack (MemoryStore max is 100)
+	InvisibleSeconds = 5, -- a read batch is hidden from other servers this long unless removed
 	TicketTTLSeconds = 120, -- a ticket nobody packed in this long is dropped
 	PublicWaitSeconds = 12, -- a crew leaves part-full once its oldest rider waited this long (bots fill)
 	PartyFillSeconds = 8, -- a Party group waits this long for randoms to top it up
 	LocalFallbackSeconds = 25, -- no crew by then (MemoryStore down): leave with whoever is on this server
-	-- Boarding windows at the Sleigh Station (seconds a sleigh boards before it leaves).
-	BoardSeconds = { Public = 12, Party = 20, Private = 20 },
 }
 
 Config.Player = {
@@ -286,6 +285,7 @@ Config.LobbyMap = {
 		{ Kind = "Private", Number = 3, X = -26, Colour = Color3.fromRGB(138, 92, 255), Sleigh = "Purple" },
 	},
 	ArriveSeconds = 3, -- sleigh flies in
+	BoardSeconds = { Public = 12, Party = 20, Private = 20 }, -- gate open, BOARDING NOW! lit
 	DepartSeconds = 5, -- sleigh takes off
 	GapSeconds = 3, -- empty bay before the next sleigh
 }

@@ -133,7 +133,8 @@ src/server/ElfBot.luau        solo elf bots: follow, fetch presents, catch up
 src/server/ElfBrain.luau      pure elf bot decisions
 src/server/Mover.luau         pathfinding for Krampus and elf bots
 src/server/Assets.luau        approved models from ServerStorage.Assets
-src/server/MapBuilder.luau    greybox hub, houses, streets, sleigh, Krampus and elf stand-ins
+src/server/MapBuilder.luau    greybox houses, streets, sleigh, Krampus and elf stand-ins
+src/server/Parts.luau         shared anchored-part helper for the builders
 src/server/Loot.luau          pure House Card rolls, stop plans, loot and results
 src/client/Hud.client.luau    timer, Jingle, sack, noise, bells, breath, wiggle, queue, results
 tests/runner.luau             Lune test runner
