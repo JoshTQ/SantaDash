@@ -17,5 +17,5 @@ Lighting.Brightness = 1
 Lighting.OutdoorAmbient = Color3.fromRGB(90, 100, 130)
 Lighting.Ambient = Color3.fromRGB(90, 100, 130)
 
-local hub = MapBuilder.buildHub()
+local hub = MapBuilder.buildHub(workspace)
 Lobby.start(hub)

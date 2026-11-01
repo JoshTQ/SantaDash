@@ -1,17 +1,18 @@
 --[[
 	Sleigh Heist tuning numbers.
 
-	Every balance number lives here so tuning never touches systems code.
-	Source of truth: game-design.md ("The game cycle", "Distance from the sleigh",
-	"Random events"). Anything marked GREYBOX is a stand-in until the real system
-	(Krampus, threats, elf bots, saving) is built.
+	Every balance and layout number lives here so tuning never touches systems
+	code. Source of truth: game-design.md ("The game cycle", "Distance from the
+	sleigh", "Random events", "Krampus is coming"). Anything marked GREYBOX is a
+	stand-in until the real system or approved model exists.
 ]]
 
 local Config = {}
 
--- One run = 4 stops (3 houses + finale), 2:00 a stop, about 8 minutes.
+-- 15 Nov launch slice: two house stops + Krampus's Lair, 2:00 a stop, about
+-- 6 minutes. The full route (3 streets + finale) follows in late November.
 Config.Run = {
-	Stops = 4,
+	StopKinds = { "Street", "Street", "Finale" },
 	StopSeconds = 120,
 	LightsOnAt = 45, -- 0:00-0:45 sneak phase, then lights come on and Heat rises
 	HornAt = 90, -- horn blasts at 1:30: 30 s to get back on
@@ -19,8 +20,23 @@ Config.Run = {
 	FlightArcHeight = 60,
 	ResultsSeconds = 10,
 	RequeueSeconds = 5, -- "Next run in 5..." auto-requeue
-	FinaleEscapeMultiplier = 2, -- escaping Stop 4 doubles all loot
-	LeaveEarlyWhenAllAboard = true, -- after the horn, leave as soon as the whole crew is on
+}
+
+-- What each kind of stop contains. Slots index Config.Street.Slots.
+Config.StopKinds = {
+	Street = {
+		-- Launch slice: Near and Far rings only. Add 2, 3, 4 for the Mid ring later.
+		Slots = { 1, 5, 6 },
+		EndHouse = "Vault",
+		Banner = "Stop %d: sneak in, grab presents. Further = better loot!",
+	},
+	Finale = {
+		Slots = { 1 },
+		ForceType = "Risky", -- every house but the landing house
+		EndHouse = "Lair",
+		Banner = "KRAMPUS'S LAIR! Steal the Naughty List and escape to double your loot!",
+		EscapeMultiplier = 2, -- escaping the finale doubles all loot
+	},
 }
 
 -- Sleigh Station hub and matchmaking.
@@ -42,15 +58,48 @@ Config.Rings = {
 	Far = { Distance = 440, LootMultiplier = 2.5 },
 }
 
--- House Cards. Threat AI is not in the greybox yet, but the threat count still
--- drives the +25% loot per threat and the extra noise in Risky houses.
+-- Street layout. Side: -1 left of the road, 1 right. Extra: studs past the ring.
+Config.Street = {
+	Slots = {
+		{ Ring = "Near", Side = -1, Extra = 0 }, -- the landing house
+		{ Ring = "Mid", Side = 1, Extra = 0 },
+		{ Ring = "Mid", Side = -1, Extra = 0 },
+		{ Ring = "Mid", Side = 1, Extra = 50 },
+		{ Ring = "Far", Side = -1, Extra = 0 },
+		{ Ring = "Far", Side = 1, Extra = 0 },
+	},
+}
+
+-- House Cards. Threat AI (residents, pets, gadgets) is not in the greybox yet,
+-- but the threat count still drives +25% loot per threat and extra grab noise.
 Config.Houses = {
 	Types = {
 		Cosy = { Threats = 0, Label = "COSY", RoofColor = Color3.fromRGB(150, 215, 255) },
 		Normal = { Threats = 1, Label = "NORMAL", RoofColor = Color3.fromRGB(255, 205, 70) },
-		Risky = { Threats = 2, Label = "RISKY", RoofColor = Color3.fromRGB(230, 60, 60) },
+		Risky = { Threats = 2, Label = "RISKY", RoofColor = Color3.fromRGB(230, 60, 60), ExtraPresents = 1 },
+		-- End-of-street houses: always Far ring, fixed contents.
+		Vault = {
+			Threats = 0,
+			Label = "VAULT",
+			RoofColor = Color3.fromRGB(255, 200, 60),
+			Presents = 3,
+			PresentSize = 2.5,
+			Locked = true, -- opens for the whole crew for Config.Buys.VaultDoor.Cost
+			NoChimney = true,
+			Extra = 60,
+		},
+		Lair = {
+			Threats = 2,
+			Label = "KRAMPUS'S LAIR",
+			RoofColor = Color3.fromRGB(90, 40, 120),
+			Presents = 8,
+			Size = Vector3.new(48, 18, 48),
+			HideSpots = 2,
+			NaughtyList = true,
+			Extra = 30,
+		},
 	},
-	-- Escalation: Stop 1 is mostly Cosy with no Risky houses; Stop 2+ use the street mix.
+	-- Escalation: Stop 1 is mostly Cosy with no Risky houses; later stops use the street mix.
 	StopWeights = {
 		[1] = { Cosy = 70, Normal = 30, Risky = 0 },
 		Default = { Cosy = 40, Normal = 40, Risky = 20 },
@@ -58,31 +107,24 @@ Config.Houses = {
 	MinCosyPerStreet = 1, -- always at least one Cosy house on every street
 	ThreatLootBonus = 0.25,
 	PresentsPerHouse = { Near = 5, Mid = 4, Far = 4 },
-	RiskyExtraPresents = 1,
+	HideSpots = 1, -- wardrobes per house, unless the type says otherwise
 }
 
 -- Present value follows the size-squared rule: value = BaseValue * size^2.
 Config.Presents = {
 	BaseValue = 10,
-	Sizes = {
-		{ Size = 1, Weight = 60 },
-		{ Size = 1.5, Weight = 30 },
-		{ Size = 2, Weight = 10 },
-	},
+	Sizes = { { 1, 60 }, { 1.5, 30 }, { 2, 10 } }, -- { size, weight }
 	GrabHoldSeconds = 0.4,
 	JinglePerGrab = 50, -- multiplied by the ring's loot multiplier
-	VaultPresents = 3,
-	VaultPresentSize = 2.5,
-	OnFootPresents = 3, -- hidden loot on the walk between stops (TranZit)
+	OnFootPresents = 3, -- hidden loot on each walk between stops (TranZit)
 	OnFootMultiplier = 2.5,
 	NaughtyListValue = 250, -- the finale's prize in Krampus's Lair
 }
 
+-- GREYBOX assumption: your sack is banked into the sleigh each time you leave
+-- a stop on board, so the sack limit is per stop.
 Config.Sack = {
 	Capacity = 15,
-	-- GREYBOX assumption: your sack is banked into the sleigh each time you
-	-- leave a stop on board, so the sack limit is per stop.
-	BankOnBoard = true,
 }
 
 -- Jingle: in-run only, gone at the end, NEVER sold for Robux.
@@ -95,7 +137,7 @@ Config.Buys = {
 	PeppermintRush = { Cost = 1500, WalkSpeed = 22 }, -- cocoa machine, Near ring
 }
 
--- Shared street noise meter, reset every stop.
+-- Shared street noise meter, reset every stop. A full meter brings Krampus.
 Config.Noise = {
 	Max = 100,
 	PerGrab = 4,
@@ -103,18 +145,43 @@ Config.Noise = {
 	LightsOnPerSecond = 0.3, -- Heat after the lights come on
 	PerThreatMultiplier = 0.25, -- each threat in the house adds 25% to grab noise
 	StopMultiplier = { 1, 1.25, 1.5, 1.75 }, -- noise fills faster each stop
-	-- GREYBOX: Krampus isn't built (model awaiting approval). Until he is, a full
-	-- meter blows the horn early and the sleigh leaves in EarlyHornSeconds.
-	OnFull = "EarlyHorn",
-	EarlyHornSeconds = 15,
+	Gasp = 10, -- running out of breath in a hiding spot
 }
 
--- Krampus. UNDECIDED: game-design.md says he arrives from Stop 2 in "The game
--- cycle" and "Krampus is coming", but from Stop 3 in "Escalation by stop".
--- Change FirstStop here once Josh picks; no systems code needs to change.
+-- Krampus (game-design.md "The danger: Krampus is coming"). He arrives from
+-- FirstStop (Josh, 1 Nov 2026: Stop 3, the Lair in the launch slice), when the
+-- noise meter fills or automatically after ArriveAt.
+-- Proposed, awaiting Josh: a no-chase tease from TeaseFrom (distant bells).
+-- GREYBOX: block stand-in in the approved Shaggy Goat Grump colours until the
+-- Meshy mesh exists; a Model named "Krampus" in ServerStorage.Assets replaces it.
 Config.Krampus = {
-	FirstStop = 2,
-	Enabled = false, -- GREYBOX: no Krampus AI until his model is approved
+	FirstStop = 3,
+	NoiseArrivalFrom = 3,
+	TeaseEnabled = false,
+	TeaseFrom = 1,
+	TeaseAt = 30, -- seconds into a stop
+	ArriveAt = 45, -- seconds into an automatic stop (with the lights)
+	WarningSeconds = 3, -- "KRAMPUS IS COMING" before he appears
+	WalkSpeed = 14, -- slower than a Santa (16), so running works
+	CarrySpeed = 10,
+	SenseRange = 70, -- sees and sniffs players this close, unless hidden
+	CatchRange = 6,
+	RepathSeconds = 0.75,
+	-- Rescue: ring the hand bells behind him and he spins and drops the basket.
+	BellRange = 10,
+	StunSeconds = 3,
+	BellCooldown = 6,
+	ReleaseGrace = 4, -- seconds a dropped Santa can't be re-snatched
+	-- Wiggle free: taps needed. Solo per the design; crews can too, slower,
+	-- so an AFK team can't leave you stuck.
+	WiggleSolo = 15,
+	WiggleCrew = 30,
+	-- Hiding: breath drains while he is near; tapping refills it.
+	BreathRange = 25,
+	BreathSeconds = 5, -- full to empty with no taps
+	BreathPerTap = 0.08,
+	MaxTapsPerSecond = 8,
+	Height = 11, -- about 2.2x a Santa
 }
 
 -- Results: loot becomes Coal. Not saved yet (DataStore comes with the Grotto).
@@ -127,9 +194,17 @@ Config.Map = {
 	RouteSpacing = 1600, -- studs between concurrent routes
 	RouteOriginZ = 1600, -- first route sits this far from the hub
 	HouseSize = Vector3.new(28, 14, 28),
-	LairSize = Vector3.new(48, 18, 48),
+	DoorSize = Vector3.new(8, 12, 0), -- tall enough for Krampus
 	SideOffset = 34, -- house centre distance from the road centre line
 	RoadWidth = 24,
+	StreetStart = -40, -- road starts this far behind the landing house
+	StreetOverrun = 120, -- road continues this far past the Far ring
+	FootPathZ = -40, -- the on-foot path between stops
+	CocoaMachine = Vector3.new(-14, 3.5, 22),
+	TakeoffOffset = Vector3.new(-150, 60, 0), -- where the sleigh starts, before Stop 1
+	DeckOnRoof = Vector3.new(-4, 1.6, -2), -- sleigh deck on the landing roof
+	DeckSize = Vector3.new(10, 1, 14),
+	HubSpawn = CFrame.new(0, 4, -50),
 }
 
 return Config

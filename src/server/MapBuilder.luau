@@ -1,16 +1,16 @@
 --[[
-	Builds the greybox world from plain Parts: the Sleigh Station hub and one
-	route (4 streets) per running crew. No models or meshes: art only goes in
-	after Josh approves it.
+	Builds the greybox world from plain Parts: the Sleigh Station hub, one route
+	(4 stops) per running crew, and the Krampus stand-in. No models or meshes:
+	art only goes in after Josh approves it.
 
-	MapBuilder owns geometry and simple movement (chimneys). Run owns the rules
-	(grabs, buys, noise), wired through the prompts returned here.
+	MapBuilder only turns plans (from Loot.planStop) into Instances and returns
+	the prompts. It connects no events, so it runs in tests outside Roblox. Run
+	owns every rule and wires the prompts.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
-local Loot = require(script.Parent.Loot)
 
 local MapBuilder = {}
 
@@ -19,6 +19,7 @@ local ROAD = Color3.fromRGB(70, 74, 86)
 local WALL = Color3.fromRGB(190, 185, 175)
 local SLEIGH_RED = Color3.fromRGB(200, 30, 40)
 local GOLD = Color3.fromRGB(255, 200, 60)
+local KRAMPUS_FUR = Color3.fromRGB(125, 85, 55) -- approved Shaggy Goat Grump palette
 local PRESENT_COLOURS = {
 	Color3.fromRGB(230, 50, 60),
 	Color3.fromRGB(40, 170, 90),
@@ -27,19 +28,16 @@ local PRESENT_COLOURS = {
 	Color3.fromRGB(255, 150, 40),
 }
 
-local DOOR_WIDTH = 8
-local DOOR_HEIGHT = 9
 local WALL_THICKNESS = 1
+local FLOOR_TOP = 1 -- house floors sit 1 stud above the street
 
 -- Six rider spots on the sleigh deck, relative to the deck centre.
-MapBuilder.SeatOffsets = {
-	CFrame.new(-2.5, 3.5, -4),
-	CFrame.new(2.5, 3.5, -4),
-	CFrame.new(-2.5, 3.5, 0),
-	CFrame.new(2.5, 3.5, 0),
-	CFrame.new(-2.5, 3.5, 4),
-	CFrame.new(2.5, 3.5, 4),
-}
+MapBuilder.SeatOffsets = {}
+for _, z in { -4, 0, 4 } do
+	for _, x in { -2.5, 2.5 } do
+		table.insert(MapBuilder.SeatOffsets, CFrame.new(x, 3.5, z))
+	end
+end
 
 local function newPart(
 	parent: Instance,
@@ -47,9 +45,10 @@ local function newPart(
 	size: Vector3,
 	cframe: CFrame,
 	color: Color3,
-	material: Enum.Material?
-): Part
-	local part = Instance.new("Part")
+	material: Enum.Material?,
+	className: string?
+): BasePart
+	local part = Instance.new(className or "Part") :: BasePart
 	part.Name = name
 	part.Anchored = true
 	part.Size = size
@@ -96,15 +95,6 @@ local function addLabel(part: BasePart, text: string, color: Color3, offsetY: nu
 	gui.Parent = part
 end
 
-local function teleportCharacter(player: Player, target: CFrame)
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart")
-	if root then
-		(root :: BasePart).AssemblyLinearVelocity = Vector3.zero
-		character:PivotTo(target)
-	end
-end
-
 ----------------------------------------------------------------------------
 -- Sleigh
 ----------------------------------------------------------------------------
@@ -113,27 +103,27 @@ end
 function MapBuilder.buildSleigh(parent: Instance, cframe: CFrame): Model
 	local model = Instance.new("Model")
 	model.Name = "Sleigh"
-	local deck = newPart(model, "Deck", Vector3.new(10, 1, 14), cframe, SLEIGH_RED)
-	newPart(model, "SideL", Vector3.new(1, 3, 14), cframe * CFrame.new(-5.5, 1, 0), SLEIGH_RED)
-	newPart(model, "SideR", Vector3.new(1, 3, 14), cframe * CFrame.new(5.5, 1, 0), SLEIGH_RED)
-	newPart(model, "Front", Vector3.new(12, 5, 1), cframe * CFrame.new(0, 2, -7.5), SLEIGH_RED)
-	newPart(model, "Back", Vector3.new(12, 2, 1), cframe * CFrame.new(0, 1, 7.5), SLEIGH_RED)
+	local deckSize = Config.Map.DeckSize
+	local deck = newPart(model, "Deck", deckSize, cframe, SLEIGH_RED)
+	for _, sx in { -1, 1 } do
+		newPart(model, "Side", Vector3.new(1, 3, deckSize.Z), cframe * CFrame.new(sx * 5.5, 1, 0), SLEIGH_RED)
+		newPart(
+			model,
+			"Runner",
+			Vector3.new(1, 0.6, deckSize.Z + 2),
+			cframe * CFrame.new(sx * 4, -1, 0),
+			GOLD,
+			Enum.Material.Metal
+		)
+	end
 	newPart(
 		model,
-		"RunnerL",
-		Vector3.new(1, 0.6, 16),
-		cframe * CFrame.new(-4, -1, 0),
-		GOLD,
-		Enum.Material.Metal
+		"Front",
+		Vector3.new(12, 5, 1),
+		cframe * CFrame.new(0, 2, -deckSize.Z / 2 - 0.5),
+		SLEIGH_RED
 	)
-	newPart(
-		model,
-		"RunnerR",
-		Vector3.new(1, 0.6, 16),
-		cframe * CFrame.new(4, -1, 0),
-		GOLD,
-		Enum.Material.Metal
-	)
+	newPart(model, "Back", Vector3.new(12, 2, 1), cframe * CFrame.new(0, 1, deckSize.Z / 2 + 0.5), SLEIGH_RED)
 	addLabel(deck, "SLEIGH", Color3.new(1, 1, 1), 9)
 	model.PrimaryPart = deck
 	model.Parent = parent
@@ -142,29 +132,33 @@ end
 
 -- True if a position is standing on (or in) the sleigh at deckCFrame.
 function MapBuilder.isAboard(deckCFrame: CFrame, position: Vector3): boolean
+	local half = Config.Map.DeckSize / 2
 	local rel = deckCFrame:PointToObjectSpace(position)
-	return math.abs(rel.X) <= 6.5 and math.abs(rel.Z) <= 8.5 and rel.Y >= -1 and rel.Y <= 10
+	return math.abs(rel.X) <= half.X + 1.5 and math.abs(rel.Z) <= half.Z + 1.5 and rel.Y >= -1 and rel.Y <= 10
 end
 
 ----------------------------------------------------------------------------
 -- Hub
 ----------------------------------------------------------------------------
 
-function MapBuilder.buildHub(): { model: Model, quickJoinPad: BasePart }
+function MapBuilder.buildHub(parent: Instance): { model: Model, quickJoinPad: BasePart, spawn: CFrame }
 	local model = Instance.new("Model")
 	model.Name = "SleighStation"
 
 	newPart(model, "Floor", Vector3.new(220, 2, 220), CFrame.new(0, -1, 0), SNOW, Enum.Material.Snow)
 
-	local spawn = Instance.new("SpawnLocation")
-	spawn.Name = "Spawn"
-	spawn.Anchored = true
+	local spawnCF = Config.Map.HubSpawn
+	local spawn = newPart(
+		model,
+		"Spawn",
+		Vector3.new(12, 1, 12),
+		CFrame.new(spawnCF.Position.X, 0.5, spawnCF.Position.Z),
+		Color3.fromRGB(120, 200, 255),
+		nil,
+		"SpawnLocation"
+	) :: SpawnLocation
 	spawn.Neutral = true
 	spawn.Duration = 0
-	spawn.Size = Vector3.new(12, 1, 12)
-	spawn.CFrame = CFrame.new(0, 0.5, -50)
-	spawn.Color = Color3.fromRGB(120, 200, 255)
-	spawn.Parent = model
 
 	local pad = newPart(
 		model,
@@ -183,82 +177,140 @@ function MapBuilder.buildHub(): { model: Model, quickJoinPad: BasePart }
 		newPart(model, "Sign", Vector3.new(40, 10, 1), CFrame.new(0, 12, 75), Color3.fromRGB(40, 50, 80))
 	addLabel(sign, "SLEIGH STATION", GOLD, 0)
 
-	model.Parent = workspace
-	return { model = model, quickJoinPad = pad }
+	model.Parent = parent
+	return { model = model, quickJoinPad = pad, spawn = spawnCF }
 end
 
 ----------------------------------------------------------------------------
 -- Houses
 ----------------------------------------------------------------------------
 
-export type House = {
-	model: Model,
-	cframe: CFrame,
-	size: Vector3,
-	typeName: string,
-	ring: string,
-	light: PointLight,
-	door: BasePart?,
+export type Chimney = { down: ProximityPrompt, up: ProximityPrompt, inside: CFrame, roof: CFrame }
+export type HideSpot = { prompt: ProximityPrompt, inside: CFrame, exit: CFrame }
+export type BuiltPresent = { model: Model, prompt: ProximityPrompt, plan: any, taken: boolean? }
+
+export type Stop = {
+	plan: any, -- Loot.StopPlan
+	deckCFrame: CFrame, -- where the sleigh deck sits when landed
+	lights: { PointLight },
+	presents: { BuiltPresent },
+	chimneys: { Chimney },
+	hideSpots: { HideSpot },
+	cocoaPrompt: ProximityPrompt,
+	vaultPrompt: ProximityPrompt?,
+	vaultDoor: BasePart?,
+	krampusSpawn: CFrame,
 }
 
--- cframe: centre of the house on the ground, LookVector pointing out of the front door.
+local function buildPresent(parent: Instance, rng: Random, position: Vector3, plan): BuiltPresent
+	local model = Instance.new("Model")
+	local prompt
+	if plan.naughtyList then
+		model.Name = "NaughtyList"
+		local scroll = newPart(
+			model,
+			"Scroll",
+			Vector3.new(3, 0.6, 4),
+			CFrame.new(position + Vector3.new(0, 2, 0)),
+			GOLD,
+			Enum.Material.Neon
+		)
+		addLabel(scroll, "THE NAUGHTY LIST", GOLD, 3)
+		model.PrimaryPart = scroll
+		prompt = addPrompt(scroll, "Steal", "The Naughty List", 1)
+	else
+		model.Name = "Present"
+		local edge = 1.6 * plan.size
+		local cf = CFrame.new(position + Vector3.new(0, edge / 2, 0))
+			* CFrame.Angles(0, rng:NextNumber(0, math.pi), 0)
+		local colour = PRESENT_COLOURS[rng:NextInteger(1, #PRESENT_COLOURS)]
+		local box = newPart(model, "Box", Vector3.one * edge, cf, colour)
+		for _, size in { Vector3.new(1.03, 1.03, 0.18), Vector3.new(0.18, 1.03, 1.03) } do
+			newPart(model, "Ribbon", size * edge, cf, GOLD).CanCollide = false
+		end
+		model.PrimaryPart = box
+		prompt = addPrompt(box, "Grab", "Present", Config.Presents.GrabHoldSeconds)
+	end
+	model.Parent = parent
+	return { model = model, prompt = prompt, plan = plan }
+end
+
+-- cframe: centre of the house on the street, LookVector pointing out of the front door.
+-- Returns the height of the roof top.
 local function buildHouse(
 	parent: Instance,
-	name: string,
+	stop: Stop,
+	rng: Random,
+	plan,
 	cframe: CFrame,
-	size: Vector3,
-	roofColor: Color3,
-	labelText: string,
-	opts: { locked: boolean?, chimney: boolean? }
-): House
+	labelText: string
+): number
+	local houseType = Config.Houses.Types[plan.typeName]
 	local model = Instance.new("Model")
-	model.Name = name
-	local w, h, d = size.X, size.Y, size.Z
+	model.Name = plan.typeName .. "House"
+	local w, h, d = plan.size.X, plan.size.Y, plan.size.Z
 	local t = WALL_THICKNESS
-	local wallY = 1 + h / 2
+	local wallY = FLOOR_TOP + h / 2
+	local door = Config.Map.DoorSize
 
 	newPart(
 		model,
 		"Floor",
 		Vector3.new(w, 1, d),
-		cframe * CFrame.new(0, 0.5, 0),
+		cframe * CFrame.new(0, FLOOR_TOP - 0.5, 0),
 		Color3.fromRGB(150, 110, 80)
 	)
 	newPart(model, "WallBack", Vector3.new(w, h, t), cframe * CFrame.new(0, wallY, d / 2 - t / 2), WALL)
-	newPart(model, "WallL", Vector3.new(t, h, d), cframe * CFrame.new(-w / 2 + t / 2, wallY, 0), WALL)
-	newPart(model, "WallR", Vector3.new(t, h, d), cframe * CFrame.new(w / 2 - t / 2, wallY, 0), WALL)
+	for _, sx in { -1, 1 } do
+		newPart(
+			model,
+			"WallSide",
+			Vector3.new(t, h, d),
+			cframe * CFrame.new(sx * (w / 2 - t / 2), wallY, 0),
+			WALL
+		)
+	end
 
-	-- Front wall with a doorway (front = local -Z = LookVector).
-	local segW = (w - DOOR_WIDTH) / 2
+	-- Front wall with a doorway (front = local -Z = LookVector), and a ramp up to it.
+	local segW = (w - door.X) / 2
 	local frontZ = -d / 2 + t / 2
-	newPart(
-		model,
-		"FrontL",
-		Vector3.new(segW, h, t),
-		cframe * CFrame.new(-(DOOR_WIDTH + segW) / 2, wallY, frontZ),
-		WALL
-	)
-	newPart(
-		model,
-		"FrontR",
-		Vector3.new(segW, h, t),
-		cframe * CFrame.new((DOOR_WIDTH + segW) / 2, wallY, frontZ),
-		WALL
-	)
+	for _, sx in { -1, 1 } do
+		newPart(
+			model,
+			"Front",
+			Vector3.new(segW, h, t),
+			cframe * CFrame.new(sx * (door.X + segW) / 2, wallY, frontZ),
+			WALL
+		)
+	end
 	newPart(
 		model,
 		"Lintel",
-		Vector3.new(DOOR_WIDTH, h - DOOR_HEIGHT, t),
-		cframe * CFrame.new(0, 1 + DOOR_HEIGHT + (h - DOOR_HEIGHT) / 2, frontZ),
+		Vector3.new(door.X, h - door.Y, t),
+		cframe * CFrame.new(0, FLOOR_TOP + door.Y + (h - door.Y) / 2, frontZ),
 		WALL
 	)
+	newPart(
+		model,
+		"Ramp",
+		Vector3.new(door.X, FLOOR_TOP, 3),
+		cframe * CFrame.new(0, FLOOR_TOP / 2, -d / 2 - 1.5),
+		Color3.fromRGB(150, 110, 80),
+		nil,
+		"WedgePart"
+	)
 
-	local roof =
-		newPart(model, "Roof", Vector3.new(w + 2, 1, d + 2), cframe * CFrame.new(0, 1.5 + h, 0), roofColor)
-	addLabel(roof, labelText, roofColor, 10)
+	local roofTop = FLOOR_TOP + h + 1
+	local roof = newPart(
+		model,
+		"Roof",
+		Vector3.new(w + 2, 1, d + 2),
+		cframe * CFrame.new(0, roofTop - 0.5, 0),
+		houseType.RoofColor
+	)
+	addLabel(roof, labelText, houseType.RoofColor, 10)
 
-	local lamp =
-		newPart(model, "Lamp", Vector3.new(1, 1, 1), cframe * CFrame.new(0, h - 1, 0), Color3.new(1, 1, 1))
+	local lamp = newPart(model, "Lamp", Vector3.one, cframe * CFrame.new(0, h - 1, 0), Color3.new(1, 1, 1))
 	lamp.Transparency = 1
 	lamp.CanCollide = false
 	local light = Instance.new("PointLight")
@@ -267,22 +319,22 @@ local function buildHouse(
 	light.Color = Color3.fromRGB(255, 220, 160)
 	light.Enabled = false
 	light.Parent = lamp
+	table.insert(stop.lights, light)
 
-	local door: BasePart? = nil
-	if opts.locked then
+	if plan.locked then
 		local vaultDoor = newPart(
 			model,
 			"VaultDoor",
-			Vector3.new(DOOR_WIDTH, DOOR_HEIGHT, t + 0.4),
-			cframe * CFrame.new(0, 1 + DOOR_HEIGHT / 2, frontZ),
+			Vector3.new(door.X, door.Y, t + 0.4),
+			cframe * CFrame.new(0, FLOOR_TOP + door.Y / 2, frontZ),
 			GOLD,
 			Enum.Material.Neon
 		)
-		door = vaultDoor
+		stop.vaultDoor = vaultDoor
+		stop.vaultPrompt = addPrompt(vaultDoor, "Open vault", Config.Buys.VaultDoor.Cost .. " Jingle", 0.5)
 	end
 
-	if opts.chimney ~= false then
-		local roofTop = 2 + h
+	if plan.chimney then
 		local chimney = newPart(
 			model,
 			"Chimney",
@@ -295,302 +347,119 @@ local function buildHouse(
 			model,
 			"Fireplace",
 			Vector3.new(6, 4, 2),
-			cframe * CFrame.new(0, 3, d / 2 - 2),
+			cframe * CFrame.new(0, FLOOR_TOP + 2, d / 2 - 2),
 			Color3.fromRGB(120, 50, 40),
 			Enum.Material.Brick
 		)
-		local inside = cframe * CFrame.new(0, 4, d / 2 - 6)
-		local onRoof = cframe * CFrame.new(-w / 4, roofTop + 3, 0)
-		addPrompt(chimney, "Slide down", "Chimney").Triggered:Connect(function(player)
-			teleportCharacter(player, inside)
-		end)
-		addPrompt(fireplace, "Climb up", "Chimney").Triggered:Connect(function(player)
-			teleportCharacter(player, onRoof)
-		end)
+		table.insert(stop.chimneys, {
+			down = addPrompt(chimney, "Slide down", "Chimney"),
+			up = addPrompt(fireplace, "Climb up", "Chimney"),
+			inside = cframe * CFrame.new(0, FLOOR_TOP + 3, d / 2 - 6),
+			roof = cframe * CFrame.new(-w / 4, roofTop + 3, 0),
+		})
 
 		-- Ladder up the side so the roof (and the sleigh) can be reached from the street.
-		local ladder = Instance.new("TrussPart")
-		ladder.Name = "Ladder"
-		ladder.Anchored = true
-		ladder.Size = Vector3.new(2, roofTop, 2)
-		ladder.CFrame = cframe * CFrame.new(w / 2 + 1, roofTop / 2, -d / 4)
-		ladder.Color = Color3.fromRGB(110, 80, 60)
-		ladder.Parent = model
+		newPart(
+			model,
+			"Ladder",
+			Vector3.new(2, roofTop, 2),
+			cframe * CFrame.new(w / 2 + 1, roofTop / 2, -d / 4),
+			Color3.fromRGB(110, 80, 60),
+			nil,
+			"TrussPart"
+		)
+	end
+
+	-- Wardrobes to hide in from Krampus, along the side walls.
+	for i = 1, plan.hideSpots do
+		local sx = if i % 2 == 1 then -1 else 1
+		local x = sx * (w / 2 - t - 1.5)
+		local wardrobe = newPart(
+			model,
+			"Wardrobe",
+			Vector3.new(3, 9, 5),
+			cframe * CFrame.new(x, FLOOR_TOP + 4.5, d / 4),
+			Color3.fromRGB(110, 70, 45),
+			Enum.Material.Wood
+		)
+		table.insert(stop.hideSpots, {
+			prompt = addPrompt(wardrobe, "Hide", "Wardrobe"),
+			inside = cframe * CFrame.new(x, FLOOR_TOP + 3, d / 4),
+			exit = cframe * CFrame.new(x - sx * 4, FLOOR_TOP + 3, d / 4),
+		})
+	end
+
+	-- Presents on the floor, clear of the walls and the fireplace.
+	for _, presentPlan in plan.presents do
+		local offset = if presentPlan.naughtyList
+			then CFrame.new(0, FLOOR_TOP, 0)
+			else CFrame.new(
+				rng:NextNumber(-w / 2 + 5, w / 2 - 5),
+				FLOOR_TOP,
+				rng:NextNumber(-d / 2 + 4, d / 2 - 8)
+			)
+		table.insert(stop.presents, buildPresent(model, rng, (cframe * offset).Position, presentPlan))
 	end
 
 	model.Parent = parent
-	return {
-		model = model,
-		cframe = cframe,
-		size = size,
-		typeName = "",
-		ring = "",
-		light = light,
-		door = door,
-	}
-end
-
-----------------------------------------------------------------------------
--- Presents
-----------------------------------------------------------------------------
-
-export type Present = {
-	model: Model,
-	prompt: ProximityPrompt,
-	value: number,
-	ringMultiplier: number,
-	threats: number,
-	kind: string, -- "Present" | "Vault" | "OnFoot" | "NaughtyList"
-}
-
-local function buildPresent(
-	parent: Instance,
-	rng: Random,
-	position: Vector3,
-	size: number,
-	value: number
-): Model
-	local model = Instance.new("Model")
-	model.Name = "Present"
-	local edge = 1.6 * size
-	local cf = CFrame.new(position + Vector3.new(0, edge / 2, 0))
-		* CFrame.Angles(0, rng:NextNumber(0, math.pi), 0)
-	local colour = PRESENT_COLOURS[rng:NextInteger(1, #PRESENT_COLOURS)]
-	local box = newPart(model, "Box", Vector3.one * edge, cf, colour)
-	newPart(model, "RibbonA", Vector3.new(edge + 0.05, edge + 0.05, edge * 0.18), cf, GOLD).CanCollide = false
-	newPart(model, "RibbonB", Vector3.new(edge * 0.18, edge + 0.05, edge + 0.05), cf, GOLD).CanCollide = false
-	model.PrimaryPart = box
-	model:SetAttribute("Value", value)
-	model.Parent = parent
-	return model
-end
-
-local function makePresent(
-	parent: Instance,
-	rng: Random,
-	position: Vector3,
-	size: number,
-	ringMultiplier: number,
-	threats: number,
-	kind: string
-): Present
-	local value = Loot.presentValue(size, ringMultiplier, threats)
-	local model = buildPresent(parent, rng, position, size, value)
-	local prompt =
-		addPrompt(model.PrimaryPart :: BasePart, "Grab", "Present", Config.Presents.GrabHoldSeconds)
-	return {
-		model = model,
-		prompt = prompt,
-		value = value,
-		ringMultiplier = ringMultiplier,
-		threats = threats,
-		kind = kind,
-	}
-end
-
-local function randomFloorPoint(rng: Random, house: House): Vector3
-	local w, d = house.size.X, house.size.Z
-	local x = rng:NextNumber(-w / 2 + 4, w / 2 - 4)
-	local z = rng:NextNumber(-d / 2 + 4, d / 2 - 8) -- keep clear of the fireplace
-	return (house.cframe * CFrame.new(x, 1, z)).Position
+	return roofTop
 end
 
 ----------------------------------------------------------------------------
 -- Streets and routes
 ----------------------------------------------------------------------------
 
-export type Stop = {
-	index: number,
-	isFinale: boolean,
-	origin: CFrame,
-	deckCFrame: CFrame, -- where the sleigh deck sits when landed
-	houses: { House },
-	presents: { Present },
-	cocoaPrompt: ProximityPrompt,
-	vaultPrompt: ProximityPrompt?,
-	vaultDoor: BasePart?,
-}
-
 export type Route = {
 	model: Model,
 	sleigh: Model,
 	startDeck: CFrame,
 	stops: { Stop },
-	onFootPresents: { Present },
+	onFootPresents: { BuiltPresent },
 }
 
-local function facingRoad(pos: Vector3): CFrame
-	local dir = if pos.X < 0 then Vector3.xAxis else -Vector3.xAxis
-	return CFrame.lookAt(pos, pos + dir)
-end
-
--- House slots on a normal street, in stop-local studs. Slot 1 is the landing house.
-local function streetSlots(): { { ring: string, pos: Vector3 } }
-	local s = Config.Map.SideOffset
-	local mid = Config.Rings.Mid.Distance
-	local far = Config.Rings.Far.Distance
-	return {
-		{ ring = "Near", pos = Vector3.new(-s, 0, 0) },
-		{ ring = "Mid", pos = Vector3.new(s, 0, mid) },
-		{ ring = "Mid", pos = Vector3.new(-s, 0, mid) },
-		{ ring = "Mid", pos = Vector3.new(s, 0, mid + 50) },
-		{ ring = "Far", pos = Vector3.new(-s, 0, far) },
-		{ ring = "Far", pos = Vector3.new(s, 0, far) },
-	}
-end
-
-local function buildStop(parent: Instance, rng: Random, index: number, origin: CFrame): Stop
-	local isFinale = index == Config.Run.Stops
+local function buildStop(parent: Instance, rng: Random, plan, origin: CFrame): Stop
 	local model = Instance.new("Model")
-	model.Name = if isFinale then "Stop" .. index .. "_KrampusLair" else "Stop" .. index
+	model.Name = "Stop" .. plan.index .. "_" .. plan.kindName
+	local map = Config.Map
 	local far = Config.Rings.Far.Distance
-	local streetLength = far + 120
+	local streetLength = far + map.StreetOverrun - map.StreetStart
 
 	newPart(
 		model,
 		"Road",
-		Vector3.new(Config.Map.RoadWidth, 0.2, streetLength),
-		origin * CFrame.new(0, 0.1, streetLength / 2 - 40),
+		Vector3.new(map.RoadWidth, 0.2, streetLength),
+		origin * CFrame.new(0, 0.1, map.StreetStart + streetLength / 2),
 		ROAD
 	)
 
-	local slots = streetSlots()
-	if isFinale then
-		-- Finale street: landing house plus two Mid houses, then the Lair at the far end.
-		slots = { slots[1], slots[2], slots[3] }
-	end
-	local types = Loot.rollStreet(rng, index, #slots)
-	if isFinale then
-		for i = 2, #types do
-			types[i] = "Risky"
-		end
-	end
-
 	local stop: Stop = {
-		index = index,
-		isFinale = isFinale,
-		origin = origin,
+		plan = plan,
 		deckCFrame = CFrame.new(),
-		houses = {},
+		lights = {},
 		presents = {},
+		chimneys = {},
+		hideSpots = {},
 		cocoaPrompt = nil :: any,
+		krampusSpawn = origin * CFrame.new(0, 6, far + map.StreetOverrun - 20), -- past the vault
 	}
 
-	for i, slot in slots do
-		local typeName = types[i]
-		local houseType = Config.Houses.Types[typeName]
-		local ringInfo = Config.Rings[slot.ring]
-		local cf = origin * facingRoad(slot.pos)
-		local label = houseType.Label .. " · " .. string.upper(slot.ring)
-		local house =
-			buildHouse(model, "House" .. i, cf, Config.Map.HouseSize, houseType.RoofColor, label, {})
-		house.typeName = typeName
-		house.ring = slot.ring
-		table.insert(stop.houses, house)
-
-		local count = Config.Houses.PresentsPerHouse[slot.ring]
-		if typeName == "Risky" then
-			count += Config.Houses.RiskyExtraPresents
+	for _, house in plan.houses do
+		local cf
+		if house.side == 0 then
+			-- End-of-street house, facing back up the street.
+			cf = origin * CFrame.lookAt(Vector3.new(0, 0, house.distance), Vector3.zero)
+		else
+			local pos = Vector3.new(house.side * map.SideOffset, 0, house.distance)
+			cf = origin * CFrame.lookAt(pos, pos - Vector3.xAxis * house.side)
 		end
-		for _ = 1, count do
-			local p = makePresent(
-				model,
-				rng,
-				randomFloorPoint(rng, house),
-				Loot.rollSize(rng),
-				ringInfo.LootMultiplier,
-				houseType.Threats,
-				"Present"
-			)
-			table.insert(stop.presents, p)
+		local label = Config.Houses.Types[house.typeName].Label .. " · " .. string.upper(house.ring)
+		local roofTop = buildHouse(model, stop, rng, house, cf, label)
+		if house.isLanding then
+			stop.deckCFrame = cf * CFrame.new(map.DeckOnRoof + Vector3.new(0, roofTop, 0))
 		end
-
-		if i == 1 then
-			-- Sleigh lands on this roof, clear of the chimney.
-			local h = Config.Map.HouseSize.Y
-			stop.deckCFrame = cf * CFrame.new(-4, 2 + h + 1.6, -2)
+		if house.typeName == "Lair" then
+			stop.krampusSpawn = cf * CFrame.new(0, 6, house.size.Z / 4)
 		end
-	end
-
-	local farMult = Config.Rings.Far.LootMultiplier
-	if isFinale then
-		local lairCF = origin * CFrame.lookAt(Vector3.new(0, 0, far + 30), Vector3.new(0, 0, 0))
-		local lair = buildHouse(
-			model,
-			"KrampusLair",
-			lairCF,
-			Config.Map.LairSize,
-			Color3.fromRGB(90, 40, 120),
-			"KRAMPUS'S LAIR · FAR",
-			{}
-		)
-		lair.typeName = "Risky"
-		lair.ring = "Far"
-		table.insert(stop.houses, lair)
-		for _ = 1, Config.Houses.PresentsPerHouse.Far * 2 do
-			local p = makePresent(
-				model,
-				rng,
-				randomFloorPoint(rng, lair),
-				Loot.rollSize(rng),
-				farMult,
-				2,
-				"Present"
-			)
-			table.insert(stop.presents, p)
-		end
-		-- The Naughty List: a flat golden "present" in the middle of the Lair.
-		local listModel = Instance.new("Model")
-		listModel.Name = "NaughtyList"
-		local listPart = newPart(
-			listModel,
-			"Scroll",
-			Vector3.new(3, 0.6, 4),
-			lairCF * CFrame.new(0, 3, 0),
-			GOLD,
-			Enum.Material.Neon
-		)
-		addLabel(listPart, "THE NAUGHTY LIST", GOLD, 3)
-		listModel.PrimaryPart = listPart
-		listModel.Parent = model
-		table.insert(stop.presents, {
-			model = listModel,
-			prompt = addPrompt(listPart, "Steal", "The Naughty List", 1),
-			value = Config.Presents.NaughtyListValue,
-			ringMultiplier = farMult,
-			threats = 2,
-			kind = "NaughtyList",
-		})
-	else
-		-- Far ring vault: locked room with big presents, 1,000 Jingle to open.
-		local vaultCF = origin * CFrame.lookAt(Vector3.new(0, 0, far + 60), Vector3.new(0, 0, 0))
-		local vault = buildHouse(
-			model,
-			"Vault",
-			vaultCF,
-			Config.Map.HouseSize,
-			GOLD,
-			"VAULT · FAR",
-			{ locked = true, chimney = false }
-		)
-		vault.typeName = "Normal"
-		vault.ring = "Far"
-		table.insert(stop.houses, vault)
-		for _ = 1, Config.Presents.VaultPresents do
-			local p = makePresent(
-				model,
-				rng,
-				randomFloorPoint(rng, vault),
-				Config.Presents.VaultPresentSize,
-				farMult,
-				0,
-				"Vault"
-			)
-			table.insert(stop.presents, p)
-		end
-		stop.vaultDoor = vault.door
-		stop.vaultPrompt =
-			addPrompt(vault.door :: BasePart, "Open vault", Config.Buys.VaultDoor.Cost .. " Jingle", 0.5)
 	end
 
 	-- Cocoa machine (Peppermint Rush) by the landing house, Near ring.
@@ -598,7 +467,7 @@ local function buildStop(parent: Instance, rng: Random, index: number, origin: C
 		model,
 		"CocoaMachine",
 		Vector3.new(4, 7, 3),
-		origin * CFrame.new(-14, 3.5, 22),
+		origin * CFrame.new(map.CocoaMachine),
 		Color3.fromRGB(120, 70, 40)
 	)
 	addLabel(
@@ -613,19 +482,56 @@ local function buildStop(parent: Instance, rng: Random, index: number, origin: C
 	return stop
 end
 
-function MapBuilder.buildRoute(slot: number, rng: Random): Route
+-- The snowy path from one stop to the next, with hidden presents behind snow mounds.
+local function buildFootPath(parent: Instance, rng: Random, origin: CFrame, presents, out: { BuiltPresent })
+	local spacing = Config.Map.StopSpacing
+	local z = Config.Map.FootPathZ
+	newPart(
+		parent,
+		"FootPath",
+		Vector3.new(spacing, 0.2, 10),
+		origin * CFrame.new(spacing / 2, 0.1, z),
+		Color3.fromRGB(200, 210, 230)
+	)
+	for n, plan in presents do
+		local along = spacing * n / (#presents + 1)
+		local side = z + (if n % 2 == 0 then -20 else 18)
+		local mound = newPart(
+			parent,
+			"SnowMound",
+			Vector3.new(10, 5, 10),
+			origin * CFrame.new(along, 2.5, side - 8),
+			SNOW,
+			Enum.Material.Snow
+		)
+		mound.Shape = Enum.PartType.Ball
+		table.insert(out, buildPresent(parent, rng, (origin * CFrame.new(along, 0, side)).Position, plan))
+	end
+end
+
+-- plans: one Loot.StopPlan per stop; onFoot: one present list per gap between stops.
+-- yieldEach: optional function called between stops to spread the build over frames.
+function MapBuilder.buildRoute(
+	parent: Instance,
+	slot: number,
+	rng: Random,
+	plans: { any },
+	onFoot: { any },
+	yieldEach: (() -> ())?
+): Route
 	local model = Instance.new("Model")
 	model.Name = "Route" .. slot
-	local spacing = Config.Map.StopSpacing
-	local stopsCount = Config.Run.Stops
-	local base = CFrame.new(0, 0, Config.Map.RouteOriginZ + (slot - 1) * Config.Map.RouteSpacing)
+	local map = Config.Map
+	local spacing = map.StopSpacing
+	local base = CFrame.new(0, 0, map.RouteOriginZ + (slot - 1) * map.RouteSpacing)
+	local length = (#plans - 1) * spacing
+	local far = Config.Rings.Far.Distance
 
-	local widthX = (stopsCount - 1) * spacing + 400
 	newPart(
 		model,
 		"Ground",
-		Vector3.new(widthX, 2, 760),
-		base * CFrame.new((stopsCount - 1) * spacing / 2, -1, 260),
+		Vector3.new(length + 400, 2, far + 320),
+		base * CFrame.new(length / 2, -1, far / 2 + 40),
 		SNOW,
 		Enum.Material.Snow
 	)
@@ -633,57 +539,102 @@ function MapBuilder.buildRoute(slot: number, rng: Random): Route
 	local route: Route = {
 		model = model,
 		sleigh = nil :: any,
-		startDeck = base * CFrame.new(-150, 60, 0),
+		startDeck = base * CFrame.new(map.TakeoffOffset),
 		stops = {},
 		onFootPresents = {},
 	}
-
-	for i = 1, stopsCount do
+	for i, plan in plans do
 		local origin = base * CFrame.new((i - 1) * spacing, 0, 0)
-		route.stops[i] = buildStop(model, rng, i, origin)
-
-		if i < stopsCount then
-			-- The snowy path you run along if you miss the sleigh, with hidden loot.
-			newPart(
-				model,
-				"FootPath" .. i,
-				Vector3.new(spacing, 0.2, 10),
-				origin * CFrame.new(spacing / 2, 0.1, -40),
-				Color3.fromRGB(200, 210, 230)
-			)
-			for n = 1, Config.Presents.OnFootPresents do
-				local along = spacing * n / (Config.Presents.OnFootPresents + 1)
-				local side = if n % 2 == 0 then -60 else -22
-				local mound = newPart(
-					model,
-					"SnowMound",
-					Vector3.new(10, 5, 10),
-					origin * CFrame.new(along, 2.5, side - 8),
-					SNOW,
-					Enum.Material.Snow
-				)
-				mound.Shape = Enum.PartType.Ball
-				local pos = (origin * CFrame.new(along, 0, side)).Position
-				local p = makePresent(
-					model,
-					rng,
-					pos,
-					Loot.rollSize(rng),
-					Config.Presents.OnFootMultiplier,
-					0,
-					"OnFoot"
-				)
-				table.insert(route.onFootPresents, p)
-			end
+		route.stops[i] = buildStop(model, rng, plan, origin)
+		if onFoot[i] then
+			buildFootPath(model, rng, origin, onFoot[i], route.onFootPresents)
+		end
+		if yieldEach then
+			yieldEach()
 		end
 	end
 
 	route.sleigh = MapBuilder.buildSleigh(model, route.startDeck)
-	model.Parent = workspace
+	model.Parent = parent
 	return route
 end
 
--- Teleport helper reused by Run (respawns, take-off, results).
-MapBuilder.teleportCharacter = teleportCharacter
+----------------------------------------------------------------------------
+-- Krampus stand-in (GREYBOX blocks until the Meshy mesh exists)
+----------------------------------------------------------------------------
+
+export type KrampusBody = {
+	model: Model,
+	humanoid: Humanoid,
+	root: BasePart,
+	basket: BasePart,
+	bellPrompt: ProximityPrompt,
+}
+
+-- cframe: where his root part starts. Only the root collides; the rest is welded on.
+function MapBuilder.buildKrampus(parent: Instance, cframe: CFrame): KrampusBody
+	local model = Instance.new("Model")
+	model.Name = "KrampusStandIn"
+	local height = Config.Krampus.Height
+	local hip = 3
+
+	local root = newPart(model, "HumanoidRootPart", Vector3.new(4, 5, 3), cframe, KRAMPUS_FUR)
+	root.Transparency = 1
+	local function limb(name: string, size: Vector3, offset: CFrame, color: Color3?): BasePart
+		local part = newPart(model, name, size, cframe * offset, color or KRAMPUS_FUR)
+		part.CanCollide = false
+		part.Massless = true
+		part.Anchored = false
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = root
+		weld.Part1 = part
+		weld.Parent = part
+		return part
+	end
+	-- Root centre is hip + 2.5 above the floor; build up from the feet.
+	local feet = -(hip + 2.5)
+	for _, sx in { -1, 1 } do
+		limb("Leg", Vector3.new(1.6, hip, 1.6), CFrame.new(sx * 1.2, feet + hip / 2, 0))
+		limb(
+			"Horn",
+			Vector3.new(0.8, 2.5, 0.8),
+			CFrame.new(sx * 1.6, feet + height - 0.5, 0) * CFrame.Angles(0, 0, sx * -0.4),
+			Color3.fromRGB(240, 230, 200)
+		)
+		limb(
+			"Eye",
+			Vector3.new(0.6, 0.6, 0.2),
+			CFrame.new(sx * 0.8, feet + hip + 7, -1.85),
+			Color3.fromRGB(255, 220, 60)
+		).Material =
+			Enum.Material.Neon
+	end
+	limb("Body", Vector3.new(6, 5.5, 4), CFrame.new(0, feet + hip + 2.75, 0))
+	limb("Head", Vector3.new(3.5, 2.5, 3), CFrame.new(0, feet + hip + 6.75, -0.3))
+	-- The basket on his back (+Z), where snatched Santas ride. Ring the bells here.
+	local basket =
+		limb("Basket", Vector3.new(5, 4, 3), CFrame.new(0, feet + hip + 3, 3.6), Color3.fromRGB(170, 120, 60))
+	basket.Material = Enum.Material.WoodPlanks
+	addLabel(root, "KRAMPUS (stand-in)", Color3.fromRGB(255, 120, 120), 9)
+
+	local humanoid = Instance.new("Humanoid")
+	humanoid.HipHeight = hip
+	humanoid.WalkSpeed = Config.Krampus.WalkSpeed
+	humanoid.RequiresNeck = false
+	humanoid.BreakJointsOnDeath = false
+	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+	humanoid.Parent = model
+
+	root.Anchored = false
+	model.PrimaryPart = root
+	model.Parent = parent
+	return {
+		model = model,
+		humanoid = humanoid,
+		root = root,
+		basket = basket,
+		bellPrompt = addPrompt(basket, "Ring bells", "Krampus", 0.3),
+	}
+end
 
 return MapBuilder

@@ -1,9 +1,10 @@
 --[[
-	One crew's run: take-off, 4 stops of 2:00, results.
+	One crew's run: take-off, the house stops and Krampus's Lair, then results.
 
 	Each stop: 0:00-0:45 sneak, 0:45 lights on (Heat rises), 1:30 horn,
 	2:00 the sleigh leaves with or without you. Miss it and you run to the next
-	stop on foot. Stop 4 is the finale; escaping it doubles your loot.
+	stop on foot. Krampus is heard from Stop 1, arrives on a full noise meter
+	from Stop 2, and is always home in his Lair. Escaping the Lair doubles loot.
 ]]
 
 local Players = game:GetService("Players")
@@ -12,55 +13,59 @@ local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Util = require(ReplicatedStorage.Shared.Util)
 local Loot = require(script.Parent.Loot)
+local KrampusBrain = require(script.Parent.KrampusBrain)
+local Krampus = require(script.Parent.Krampus)
 local MapBuilder = require(script.Parent.MapBuilder)
 
-type PlayerState = {
-	jingle: number,
-	sackCount: number,
-	sackValue: number,
-	banked: number,
-	grabs: number,
+local now, rootOf, humanoidOf = Util.now, Util.rootOf, Util.humanoidOf
+
+-- Run-only fields on top of Loot.PlayerState.
+type PlayerState = Loot.PlayerState & {
 	perks: { [string]: boolean },
-	escaped: boolean,
+	hidden: any?, -- the MapBuilder.HideSpot they are in
+	captive: boolean,
+	breath: number,
+	lastTapAt: number,
+	characterConnection: RBXScriptConnection,
 }
+
+local TICK = 0.25
+local NOISY_PHASES = { Sneak = true, LightsOn = true, Horn = true }
 
 local Run = {}
 Run.__index = Run
 
-local TICK = 0.25
-
-local function now(): number
-	return workspace:GetServerTimeNow()
-end
-
-local function rootOf(player: Player): BasePart?
-	local character = player.Character
-	return character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-end
-
-local function humanoidOf(player: Player): Humanoid?
-	local character = player.Character
-	return character and character:FindFirstChildOfClass("Humanoid")
-end
-
 function Run.new(slot: number, crew: { Player }, onFinished: (run: any, survivors: { Player }) -> ())
 	local self = setmetatable({}, Run)
 	self.slot = slot
-	self.rng = Random.new()
-	self.route = MapBuilder.buildRoute(slot, self.rng)
-	self.onFinished = onFinished
 	self.hud = Remotes.get("Hud")
+	self.onFinished = onFinished
 	self.players = {} :: { [Player]: PlayerState }
 	self.order = {} :: { Player } -- join order, for seats
-	self.connections = {} :: { RBXScriptConnection }
-	self.stopIndex = 0
 	self.phase = "Takeoff"
+	self.stopIndex = 0
 	self.noise = 0
-	self.deck = self.route.startDeck
+	self.sentNoise = -1
+	self.noiseFull = false
+	self.lastNoisePos = nil :: Vector3?
+	self.krampus = nil
 	self.ended = false
-	self.times = { lightsAt = 0, hornAt = 0, departAt = 0 }
-	self.vaultOpened = {} :: { [number]: boolean }
+	self.times = { departAt = 0 }
+
+	local rng = Random.new()
+	local stopCount = #Config.Run.StopKinds
+	local plans, onFoot = {}, {}
+	for i = 1, stopCount do
+		plans[i] = Loot.planStop(rng, i)
+		if i < stopCount then
+			onFoot[i] = Loot.planOnFoot(rng)
+		end
+	end
+	-- Yield between stops so building a route doesn't stall the server.
+	self.route = MapBuilder.buildRoute(workspace, slot, rng, plans, onFoot, task.wait)
+	self.deck = self.route.startDeck
 
 	for _, player in crew do
 		self:_addPlayer(player)
@@ -73,56 +78,51 @@ end
 -- Messaging
 ----------------------------------------------------------------------------
 
-function Run:_send(player: Player, kind: string, data: any)
-	if player.Parent == Players then
-		self.hud:FireClient(player, kind, data)
+-- target nil = everyone in the run.
+function Run:_send(target: Player?, kind: string, data: any)
+	if target then
+		if target.Parent == Players then
+			self.hud:FireClient(target, kind, data)
+		end
+		return
 	end
-end
-
-function Run:_sendAll(kind: string, data: any)
 	for player in self.players do
 		self:_send(player, kind, data)
 	end
 end
 
-function Run:_banner(player: Player?, text: string, seconds: number?)
-	local data = { text = text, seconds = seconds or 3 }
-	if player then
-		self:_send(player, "Banner", data)
-	else
-		self:_sendAll("Banner", data)
-	end
+function Run:_banner(target: Player?, text: string, seconds: number?)
+	self:_send(target, "Banner", { text = text, seconds = seconds or 3 })
 end
 
 function Run:_sendPlayer(player: Player)
 	local st = self.players[player]
-	if not st then
-		return
+	if st then
+		self:_send(player, "Player", {
+			jingle = st.jingle,
+			sackCount = st.sackCount,
+			sackValue = st.sackValue,
+			banked = st.banked,
+			rush = st.perks.PeppermintRush == true,
+		})
 	end
-	self:_send(player, "Player", {
-		jingle = st.jingle,
-		sackCount = st.sackCount,
-		sackCapacity = Config.Sack.Capacity,
-		sackValue = st.sackValue,
-		banked = st.banked,
-		perks = st.perks,
+end
+
+function Run:_sendStop()
+	local stop = self.route.stops[self.stopIndex]
+	self:_send(nil, "Stop", {
+		stop = self.stopIndex,
+		isFinale = stop ~= nil and stop.plan.escapeMultiplier ~= nil,
+		phase = self.phase,
+		departAt = self.times.departAt,
 	})
 end
 
-function Run:_sendStop(player: Player?)
-	local data = {
-		stop = self.stopIndex,
-		total = Config.Run.Stops,
-		isFinale = self.stopIndex == Config.Run.Stops,
-		phase = self.phase,
-		lightsAt = self.times.lightsAt,
-		hornAt = self.times.hornAt,
-		departAt = self.times.departAt,
-	}
-	if player then
-		self:_send(player, "Stop", data)
-	else
-		self:_sendAll("Stop", data)
+function Run:_sendNoise()
+	local rounded = math.floor(self.noise)
+	if rounded ~= self.sentNoise then
+		self.sentNoise = rounded
+		self:_send(nil, "Noise", { value = rounded })
 	end
 end
 
@@ -131,28 +131,28 @@ end
 ----------------------------------------------------------------------------
 
 function Run:_addPlayer(player: Player)
-	self.players[player] = {
-		jingle = Config.Jingle.Start,
-		sackCount = 0,
-		sackValue = 0,
-		banked = 0,
-		grabs = 0,
-		perks = {},
-		escaped = false,
-	}
-	table.insert(self.order, player)
+	local st = Loot.newPlayerState() :: PlayerState
+	st.perks = {}
+	st.captive = false
+	st.breath = 1
+	st.lastTapAt = 0
 	-- Respawns (reset button, falling off the map) put you back on the sleigh.
-	table.insert(
-		self.connections,
-		player.CharacterAdded:Connect(function(character)
-			character:WaitForChild("HumanoidRootPart", 5)
-			if self.ended or not self.players[player] then
-				return
+	st.characterConnection = player.CharacterAdded:Connect(function(character)
+		character:WaitForChild("HumanoidRootPart", 5)
+		if self.players[player] == st then
+			if st.hidden then
+				st.hidden.occupant = nil
+				st.hidden = nil
+			end
+			if st.captive and self.krampus then
+				self.krampus:release()
 			end
 			self:_applyPerks(player)
-			MapBuilder.teleportCharacter(player, self.deck * MapBuilder.SeatOffsets[1])
-		end)
-	)
+			Util.teleport(player, self.deck * MapBuilder.SeatOffsets[1])
+		end
+	end)
+	self.players[player] = st
+	table.insert(self.order, player)
 end
 
 function Run:hasPlayer(player: Player): boolean
@@ -160,20 +160,27 @@ function Run:hasPlayer(player: Player): boolean
 end
 
 function Run:removePlayer(player: Player)
-	if not self.players[player] then
+	local st = self.players[player]
+	if not st then
 		return
 	end
-	self.players[player] = nil
-	local index = table.find(self.order, player)
-	if index then
-		table.remove(self.order, index)
+	if st.captive and self.krampus then
+		self.krampus:release()
 	end
+	self:_unhide(player)
+	st.characterConnection:Disconnect()
+	self.players[player] = nil
+	Util.removeValue(self.order, player)
 	self:_resetCharacter(player)
 	self:_send(player, "RunEnd", {})
 end
 
 function Run:_isEmpty(): boolean
 	return next(self.players) == nil
+end
+
+function Run:crewSize(): number
+	return #self.order
 end
 
 function Run:_applyPerks(player: Player)
@@ -197,71 +204,86 @@ function Run:_resetCharacter(player: Player)
 	end
 end
 
+-- The state of a Santa who is free to act (not snatched, not in a wardrobe).
+function Run:_free(player: Player): PlayerState?
+	local st = self.players[player]
+	if st and not st.captive and not st.hidden and not self.ended then
+		return st
+	end
+	return nil
+end
+
 ----------------------------------------------------------------------------
--- Grabs, buys, noise
+-- Prompts: grabs, buys, chimneys, hiding
 ----------------------------------------------------------------------------
 
 function Run:_wirePrompts()
-	local function wirePresent(present)
-		table.insert(
-			self.connections,
-			present.prompt.Triggered:Connect(function(player)
+	-- Prompts live under the route model, so destroying it disconnects these.
+	local function on(prompt: ProximityPrompt, handler: (Player) -> ())
+		prompt.Triggered:Connect(handler)
+	end
+	local function wirePresents(list)
+		for _, present in list do
+			on(present.prompt, function(player)
 				self:_grab(player, present)
 			end)
-		)
+		end
 	end
 	for _, stop in self.route.stops do
-		for _, present in stop.presents do
-			wirePresent(present)
-		end
-		table.insert(
-			self.connections,
-			stop.cocoaPrompt.Triggered:Connect(function(player)
-				self:_buyPeppermintRush(player)
-			end)
-		)
+		wirePresents(stop.presents)
+		on(stop.cocoaPrompt, function(player)
+			self:_buyPeppermintRush(player)
+		end)
 		if stop.vaultPrompt then
-			table.insert(
-				self.connections,
-				stop.vaultPrompt.Triggered:Connect(function(player)
-					self:_buyVault(player, stop)
-				end)
-			)
+			on(stop.vaultPrompt, function(player)
+				self:_buyVault(player, stop)
+			end)
+		end
+		for _, chimney in stop.chimneys do
+			on(chimney.down, function(player)
+				if self:_free(player) then
+					Util.teleport(player, chimney.inside)
+				end
+			end)
+			on(chimney.up, function(player)
+				if self:_free(player) then
+					Util.teleport(player, chimney.roof)
+				end
+			end)
+		end
+		for _, spot in stop.hideSpots do
+			on(spot.prompt, function(player)
+				self:_hide(player, spot)
+			end)
 		end
 	end
-	for _, present in self.route.onFootPresents do
-		wirePresent(present)
-	end
+	wirePresents(self.route.onFootPresents)
 end
 
 function Run:_grab(player: Player, present)
-	local st = self.players[player]
-	if not st or present.taken or self.ended then
+	local st = self:_free(player)
+	if not st or present.taken then
 		return
 	end
-	if st.sackCount >= Config.Sack.Capacity then
+	if not Loot.grab(st, present.plan) then
 		self:_banner(player, "Sack full! Get back on the sleigh to bank it.", 2)
 		return
 	end
 	present.taken = true
+	local root = rootOf(player)
+	self.lastNoisePos = root and root.Position
 	present.model:Destroy()
-
-	st.sackCount += 1
-	st.sackValue += present.value
-	st.grabs += 1
-	st.jingle += Loot.jingleForGrab(present.ringMultiplier)
-	self:_addNoise(Loot.noiseForGrab(math.max(self.stopIndex, 1), present.threats))
+	self:_addNoise(Loot.noiseForGrab(math.max(self.stopIndex, 1), present.plan.threats))
 	self:_sendPlayer(player)
-
-	if present.kind == "NaughtyList" then
+	if present.plan.naughtyList then
 		self:_banner(nil, player.DisplayName .. " stole the Naughty List! Get to the sleigh!", 4)
 	end
 end
 
--- Spends Jingle; returns true on success.
+-- Spends Jingle; returns true on success. Callers send the Player update.
 function Run:_spend(player: Player, cost: number): boolean
-	local st = self.players[player]
-	if not st or self.ended then
+	local st = self:_free(player)
+	if not st then
 		return false
 	end
 	if st.jingle < cost then
@@ -270,70 +292,187 @@ function Run:_spend(player: Player, cost: number): boolean
 	end
 	st.jingle -= cost
 	self:_addNoise(Config.Noise.PerBuy)
-	self:_sendPlayer(player)
 	return true
 end
 
 function Run:_buyPeppermintRush(player: Player)
 	local st = self.players[player]
-	if not st then
-		return
-	end
-	if st.perks.PeppermintRush then
+	if st and st.perks.PeppermintRush then
 		self:_banner(player, "You already have Peppermint Rush", 2)
-		return
-	end
-	if self:_spend(player, Config.Buys.PeppermintRush.Cost) then
+	elseif st and self:_spend(player, Config.Buys.PeppermintRush.Cost) then
 		st.perks.PeppermintRush = true
 		self:_applyPerks(player)
 		self:_sendPlayer(player)
-		self:_banner(player, "Peppermint Rush! You're faster for the rest of the run.", 3)
+		self:_banner(player, "Peppermint Rush! You're faster until Krampus catches you.", 3)
 	end
 end
 
 function Run:_buyVault(player: Player, stop)
-	if self.vaultOpened[stop.index] then
-		return
-	end
-	if self:_spend(player, Config.Buys.VaultDoor.Cost) then
-		self.vaultOpened[stop.index] = true
-		local door = stop.vaultDoor
-		if door then
-			door.CanCollide = false
-			door.Transparency = 0.85
-		end
-		if stop.vaultPrompt then
-			stop.vaultPrompt.Enabled = false
-		end
+	local prompt = stop.vaultPrompt
+	if prompt.Enabled and self:_spend(player, Config.Buys.VaultDoor.Cost) then
+		prompt.Enabled = false
+		stop.vaultDoor.CanCollide = false
+		stop.vaultDoor.Transparency = 0.85
+		self:_sendPlayer(player)
 		self:_banner(nil, player.DisplayName .. " opened the vault!", 3)
 	end
 end
 
+function Run:_hide(player: Player, spot)
+	local st = self:_free(player)
+	local root = rootOf(player)
+	if not st or not root or spot.occupant then
+		return
+	end
+	spot.occupant = player
+	st.hidden = spot
+	st.breath = 1
+	root.Anchored = true
+	root.CFrame = spot.inside
+	self:_send(player, "Hide", { hidden = true, breath = 1 })
+end
+
+function Run:_unhide(player: Player)
+	local st = self.players[player]
+	if not st or not st.hidden then
+		return
+	end
+	local spot = st.hidden
+	spot.occupant = nil
+	st.hidden = nil
+	local root = rootOf(player)
+	if root then
+		root.Anchored = false
+	end
+	Util.teleport(player, spot.exit)
+	self:_send(player, "Hide", { hidden = false })
+end
+
+-- Client input: taps (breath while hiding, wiggling while snatched) and leaving a hiding spot.
+function Run:onInput(player: Player, action: string)
+	local st = self.players[player]
+	if not st or self.ended then
+		return
+	end
+	if action == "Unhide" then
+		self:_unhide(player)
+	elseif action == "Tap" then
+		local t = now()
+		if not KrampusBrain.tapAllowed(st.lastTapAt, t) then
+			return
+		end
+		st.lastTapAt = t
+		if st.captive and self.krampus then
+			self.krampus:wiggle(player)
+		elseif st.hidden then
+			st.breath = KrampusBrain.tapBreath(st.breath)
+			self:_send(player, "Hide", { hidden = true, breath = st.breath })
+		end
+	end
+end
+
 function Run:_addNoise(amount: number)
-	if self.phase == "Takeoff" or self.phase == "Flight" or self.phase == "Results" then
+	if not NOISY_PHASES[self.phase] then
 		return
 	end
 	self.noise = math.min(Config.Noise.Max, self.noise + amount)
-	if self.noise >= Config.Noise.Max and not self.noiseFull then
-		self.noiseFull = true
-		self:_onNoiseFull()
+	self.noiseFull = self.noiseFull or self.noise >= Config.Noise.Max
+	self:_sendNoise()
+end
+
+----------------------------------------------------------------------------
+-- Krampus hooks (called by Krampus.luau)
+----------------------------------------------------------------------------
+
+function Run:krampusCandidates(ignore: { [Player]: number }): { KrampusBrain.Candidate }
+	local list = {}
+	for player, st in self.players do
+		local root = rootOf(player)
+		if root then
+			table.insert(list, {
+				player = player,
+				position = root.Position,
+				hidden = st.hidden ~= nil,
+				captive = st.captive,
+				aboard = MapBuilder.isAboard(self.deck, root.Position),
+				ignoreUntil = ignore[player],
+			})
+		end
+	end
+	return list
+end
+
+-- Breath for every hidden Santa, given Krampus's position. Running out = a loud gasp.
+function Run:krampusBreath(from: Vector3, dt: number)
+	for player, st in self.players do
+		local spot = st.hidden
+		if spot then
+			local before = st.breath
+			st.breath = KrampusBrain.breathStep(st.breath, (spot.inside.Position - from).Magnitude, dt)
+			if st.breath <= 0 then
+				self:_unhide(player)
+				self.lastNoisePos = spot.exit.Position
+				self:_addNoise(Config.Noise.Gasp)
+				self:_banner(nil, player.DisplayName .. " gasped for air!", 2)
+			elseif st.breath ~= before then
+				self:_send(player, "Hide", { hidden = true, breath = st.breath })
+			end
+		end
 	end
 end
 
-function Run:_onNoiseFull()
-	-- GREYBOX placeholder until Krampus exists: the horn blows early.
-	if Config.Noise.OnFull == "EarlyHorn" then
-		local t = now()
-		self.times.hornAt = math.min(self.times.hornAt, t)
-		self.times.departAt = math.min(self.times.departAt, t + Config.Noise.EarlyHornSeconds)
-		self:_banner(nil, "TOO NOISY! The sleigh is spooked and leaving early!", 3)
-		self:_sendStop()
+function Run:onSnatched(player: Player)
+	local st = self.players[player]
+	if not st then
+		return
 	end
+	self:_unhide(player)
+	st.captive = true
+	st.perks = {} -- cocoa perks are lost when snatched
+	self:_applyPerks(player)
+	self:_sendPlayer(player)
+	local root = rootOf(player)
+	if root then
+		root.Anchored = true
+	end
+	self:_banner(nil, "Krampus snatched " .. player.DisplayName .. "! Ring the bells behind him!", 3)
+	self:_send(
+		player,
+		"Captive",
+		{ captive = true, wiggles = 0, needed = KrampusBrain.wiggleNeeded(#self.order) }
+	)
 end
 
--- Hook for the Krampus system (not built: his model is awaiting approval).
-function Run:_startKrampus(_stop)
-	-- Intentionally empty. Config.Krampus.FirstStop decides which stop calls this.
+function Run:onReleased(player: Player, at: CFrame)
+	local st = self.players[player]
+	if not st then
+		return
+	end
+	st.captive = false
+	local root = rootOf(player)
+	if root then
+		root.Anchored = false
+	end
+	Util.teleport(player, at)
+	self:_send(player, "Captive", { captive = false })
+end
+
+function Run:_startKrampus(stop)
+	self:_banner(nil, "KRAMPUS IS COMING!", Config.Krampus.WarningSeconds)
+	for _, light in stop.lights do
+		light.Enabled = true
+		light.Color = Color3.fromRGB(255, 60, 60)
+	end
+	self.krampus = Krampus.new(self, stop)
+	self:_send(nil, "Krampus", { model = self.krampus.body.model })
+end
+
+function Run:_stopKrampus()
+	if self.krampus then
+		self.krampus:destroy()
+		self.krampus = nil
+		self:_send(nil, "Krampus", {})
+	end
 end
 
 ----------------------------------------------------------------------------
@@ -344,45 +483,36 @@ function Run:_fly(fromDeck: CFrame, toDeck: CFrame, riders: { Player })
 	self.phase = "Flight"
 	self:_sendStop()
 
-	local seats: { [Player]: CFrame } = {}
+	local seats: { [BasePart]: CFrame } = {}
 	for i, player in riders do
 		local root = rootOf(player)
 		if root then
-			seats[player] = MapBuilder.SeatOffsets[(i - 1) % #MapBuilder.SeatOffsets + 1]
+			seats[root] = MapBuilder.SeatOffsets[(i - 1) % #MapBuilder.SeatOffsets + 1]
 			root.Anchored = true
-			root.CFrame = fromDeck * seats[player]
 		end
 	end
 
 	local sleigh = self.route.sleigh
-	local duration = Config.Run.FlightSeconds
-	local started = os.clock()
 	local function place(deck: CFrame)
 		self.deck = deck
 		sleigh:PivotTo(deck)
-		for player, seat in seats do
-			local root = rootOf(player)
-			if root and self.players[player] then
+		for root, seat in seats do
+			if root.Parent then
 				root.CFrame = deck * seat
 			end
 		end
 	end
 
+	local started = os.clock()
 	local connection = RunService.Heartbeat:Connect(function()
-		local a = math.clamp((os.clock() - started) / duration, 0, 1)
-		local pos = fromDeck.Position:Lerp(toDeck.Position, a)
-			+ Vector3.yAxis * math.sin(a * math.pi) * Config.Run.FlightArcHeight
-		place(CFrame.new(pos) * fromDeck.Rotation:Lerp(toDeck.Rotation, a))
+		local a = math.clamp((os.clock() - started) / Config.Run.FlightSeconds, 0, 1)
+		place(fromDeck:Lerp(toDeck, a) + Vector3.yAxis * math.sin(a * math.pi) * Config.Run.FlightArcHeight)
 	end)
-	task.wait(duration)
+	task.wait(Config.Run.FlightSeconds)
 	connection:Disconnect()
 	place(toDeck)
-
-	for player in seats do
-		local root = rootOf(player)
-		if root then
-			root.Anchored = false
-		end
+	for root in seats do
+		root.Anchored = false
 	end
 end
 
@@ -402,80 +532,86 @@ end
 
 -- Plays one stop and returns the players on board when the sleigh leaves.
 function Run:_playStop(stop): { Player }
+	local plan = stop.plan
 	local t0 = now()
-	self.stopIndex = stop.index
+	self.stopIndex = plan.index
 	self.noise = 0
 	self.noiseFull = false
+	self.lastNoisePos = nil
 	self.phase = "Sneak"
-	self.times = {
-		lightsAt = t0 + Config.Run.LightsOnAt,
-		hornAt = t0 + Config.Run.HornAt,
-		departAt = t0 + Config.Run.StopSeconds,
-	}
+	self.times = { departAt = t0 + Config.Run.StopSeconds }
 	self:_sendStop()
+	self:_sendNoise()
+	self:_banner(nil, plan.banner, 4)
 
-	if stop.isFinale then
-		self:_banner(nil, "KRAMPUS'S LAIR! Steal the Naughty List and escape to double your loot!", 4)
-	else
-		self:_banner(nil, "Stop " .. stop.index .. ": sneak in, grab presents. Further = better loot!", 4)
-	end
-	if Config.Krampus.Enabled and stop.index >= Config.Krampus.FirstStop then
-		self:_startKrampus(stop)
-	end
+	-- Timed phases, entered in order once their time has passed.
+	local phases = {
+		{
+			at = t0 + Config.Run.LightsOnAt,
+			phase = "LightsOn",
+			enter = function()
+				for _, light in stop.lights do
+					light.Enabled = true
+				end
+				self:_banner(nil, "The lights are on! Heat is rising.", 3)
+			end,
+		},
+		{
+			at = t0 + Config.Run.HornAt,
+			phase = "Horn",
+			enter = function()
+				local left = Config.Run.StopSeconds - Config.Run.HornAt
+				self:_banner(nil, "HONK! The sleigh leaves in " .. left .. " seconds!", 3)
+			end,
+		},
+	}
+	local nextPhase = 1
+	local teased = false
 
 	while true do
 		task.wait(TICK)
 		if self.ended or self:_isEmpty() then
-			return {}
+			break
 		end
 		local t = now()
-		if self.phase == "Sneak" and t >= self.times.lightsAt and t < self.times.hornAt then
-			self.phase = "LightsOn"
-			for _, house in stop.houses do
-				house.light.Enabled = true
-			end
-			self:_banner(nil, "The lights are on! Heat is rising.", 3)
+		while phases[nextPhase] and t >= phases[nextPhase].at do
+			local p = phases[nextPhase]
+			nextPhase += 1
+			self.phase = p.phase
+			p.enter()
 			self:_sendStop()
 		end
 		if self.phase ~= "Sneak" then
 			self:_addNoise(Config.Noise.LightsOnPerSecond * TICK)
 		end
-		if self.phase ~= "Horn" and t >= self.times.hornAt then
-			self.phase = "Horn"
-			local left = math.max(0, math.floor(self.times.departAt - t + 0.5))
-			self:_banner(nil, "HONK! The sleigh leaves in " .. left .. " seconds!", 3)
-			self:_sendStop()
+		if not self.krampus then
+			if KrampusBrain.shouldArrive(plan.index, plan.kindName, t - t0, self.noiseFull) then
+				self:_startKrampus(stop)
+			elseif not teased and KrampusBrain.shouldTease(plan.index, t - t0) then
+				teased = true -- heard, not seen: no chase yet
+				self:_banner(nil, "Distant sleigh bells... something big is out there. Stay quiet!", 4)
+				self:_send(nil, "KrampusTease", {})
+			end
 		end
-		self:_sendAll("Noise", { value = self.noise, max = Config.Noise.Max })
-
 		if t >= self.times.departAt then
 			break
 		end
-		if
-			self.phase == "Horn"
-			and Config.Run.LeaveEarlyWhenAllAboard
-			and self:_allAboard(stop.deckCFrame)
-		then
-			break
+		if self.phase == "Horn" and self:_allAboard(stop.deckCFrame) then
+			break -- the whole crew is on: no need to wait
 		end
 	end
 
+	self:_stopKrampus()
 	local aboard = {}
-	for _, player in self.order do
+	for _, player in table.clone(self.order) do
 		local st = self.players[player]
 		local root = rootOf(player)
+		self:_unhide(player)
 		if st and root and MapBuilder.isAboard(stop.deckCFrame, root.Position) then
 			table.insert(aboard, player)
-			if Config.Sack.BankOnBoard or stop.isFinale then
-				st.banked += st.sackValue
-				st.sackValue = 0
-				st.sackCount = 0
-			end
-			if stop.isFinale then
-				st.escaped = true
-			end
+			Loot.bank(st, plan.escapeMultiplier)
 			self:_sendPlayer(player)
-		elseif st and not stop.isFinale then
+		elseif st and not plan.escapeMultiplier then
 			self:_banner(player, "You missed the sleigh! Follow the path to the next stop.", 4)
 		end
 	end
@@ -488,18 +624,16 @@ end
 
 function Run:start()
 	task.spawn(function()
-		local ok, err = pcall(function()
-			self:_main()
-		end)
+		local ok, err = pcall(self._main, self)
 		if not ok then
 			warn("[Run] slot " .. self.slot .. " crashed: " .. tostring(err))
-			self:_finish()
 		end
+		self:_finish()
 	end)
 end
 
 function Run:_main()
-	self:_banner(nil, "Take-off! Rob 3 houses, then Krampus's Lair.", 4)
+	self:_banner(nil, "Take-off! Rob the houses, then escape Krampus's Lair.", 4)
 	for player in self.players do
 		self:_sendPlayer(player)
 	end
@@ -508,59 +642,38 @@ function Run:_main()
 	self:_fly(self.route.startDeck, stops[1].deckCFrame, table.clone(self.order))
 	for i, stop in stops do
 		if self.ended or self:_isEmpty() then
-			break
+			return
 		end
 		local aboard = self:_playStop(stop)
-		if i < #stops and not self:_isEmpty() then
+		if stops[i + 1] and not self:_isEmpty() then
 			self:_fly(stop.deckCFrame, stops[i + 1].deckCFrame, aboard)
 		end
 	end
 
-	if not self.ended and not self:_isEmpty() then
-		self:_results()
-	end
-	self:_finish()
-end
-
-function Run:_results()
-	self.phase = "Results"
-	local rows = {}
-	for player, st in self.players do
-		local loot = st.banked
-		if st.escaped then
-			loot *= Config.Run.FinaleEscapeMultiplier
+	if not self:_isEmpty() then
+		self.phase = "Results"
+		local entries = {}
+		for player, st in self.players do
+			table.insert(entries, { player.DisplayName, st })
 		end
-		table.insert(rows, {
-			name = player.DisplayName,
-			loot = loot,
-			coal = math.floor(loot * Config.Coal.PerLootValue),
-			escaped = st.escaped,
-			grabs = st.grabs,
+		self:_send(nil, "Results", {
+			rows = Loot.results(entries),
+			endsAt = now() + Config.Run.ResultsSeconds + Config.Run.RequeueSeconds,
 		})
+		task.wait(Config.Run.ResultsSeconds)
 	end
-	table.sort(rows, function(a, b)
-		return a.loot > b.loot
-	end)
-	self:_sendAll("Results", {
-		rows = rows,
-		bestThief = if rows[1] then rows[1].name else nil,
-		seconds = Config.Run.ResultsSeconds,
-		nextRunIn = Config.Run.RequeueSeconds,
-	})
-	task.wait(Config.Run.ResultsSeconds)
 end
 
 function Run:_finish()
 	if self.ended then
 		return
 	end
+	self:_stopKrampus()
 	self.ended = true
-	for _, connection in self.connections do
-		connection:Disconnect()
-	end
 	local survivors = {}
 	for _, player in self.order do
-		if self.players[player] and player.Parent == Players then
+		self.players[player].characterConnection:Disconnect()
+		if player.Parent == Players then
 			table.insert(survivors, player)
 			self:_resetCharacter(player)
 			self:_send(player, "RunEnd", {})

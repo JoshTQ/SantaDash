@@ -15,7 +15,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
-local MapBuilder = require(script.Parent.MapBuilder)
+local Util = require(ReplicatedStorage.Shared.Util)
 local Run = require(script.Parent.Run)
 
 type Crew = {
@@ -23,6 +23,7 @@ type Crew = {
 	departAt: number,
 	requeue: boolean,
 	waiting: boolean,
+	launching: boolean,
 }
 
 local Lobby = {}
@@ -32,23 +33,36 @@ local runsBySlot: { [number]: any } = {}
 local runOf: { [Player]: any } = {}
 local crewOf: { [Player]: Crew } = {}
 local hud: RemoteEvent
+local hubSpawn: CFrame
 
-local HUB_RETURN = CFrame.new(0, 4, -50)
-
-local function now(): number
-	return workspace:GetServerTimeNow()
+local function send(player: Player, kind: string, data: any)
+	if player.Parent == Players then
+		hud:FireClient(player, kind, data)
+	end
 end
 
 local function sendCrew(crew: Crew)
+	local data = {
+		departAt = crew.departAt,
+		count = #crew.players,
+		requeue = crew.requeue,
+		waiting = crew.waiting,
+	}
 	for _, player in crew.players do
-		hud:FireClient(player, "Queue", {
-			departAt = crew.departAt,
-			count = #crew.players,
-			max = Config.Lobby.CrewMax,
-			requeue = crew.requeue,
-			waiting = crew.waiting,
-		})
+		send(player, "Queue", data)
 	end
+end
+
+local function newCrew(delay: number, requeue: boolean): Crew
+	local crew = {
+		players = {},
+		departAt = Util.now() + delay,
+		requeue = requeue,
+		waiting = false,
+		launching = false,
+	}
+	table.insert(crews, crew)
+	return crew
 end
 
 local function freeSlot(): number?
@@ -60,44 +74,46 @@ local function freeSlot(): number?
 	return nil
 end
 
-local function removeCrew(crew: Crew)
-	local index = table.find(crews, crew)
-	if index then
-		table.remove(crews, index)
-	end
-end
-
 local function onRunFinished(run, survivors: { Player })
 	runsBySlot[run.slot] = nil
-	local crew: Crew = {
-		players = {},
-		departAt = now() + Config.Run.RequeueSeconds,
-		requeue = true,
-		waiting = false,
-	}
+	local crew = newCrew(Config.Run.RequeueSeconds, true)
 	for i, player in survivors do
 		runOf[player] = nil
-		MapBuilder.teleportCharacter(player, HUB_RETURN * CFrame.new((i - 1) * 4, 0, 0))
+		Util.teleport(player, hubSpawn * CFrame.new((i - 1) * 4, 0, 0))
 		table.insert(crew.players, player)
 		crewOf[player] = crew
 	end
-	if #crew.players > 0 then
-		table.insert(crews, crew)
-		sendCrew(crew)
-	end
+	sendCrew(crew)
 end
 
+-- Builds the route over a few frames, then starts the run.
 local function launch(crew: Crew, slot: number)
-	-- Build first: if building fails the crew stays queued instead of vanishing.
-	local run = Run.new(slot, crew.players, onRunFinished)
-	removeCrew(crew)
-	runsBySlot[slot] = run
-	for _, player in crew.players do
-		crewOf[player] = nil
-		runOf[player] = run
-		hud:FireClient(player, "QueueClear", {})
-	end
-	run:start()
+	crew.launching = true
+	runsBySlot[slot] = true -- reserved while building
+	task.spawn(function()
+		local ok, run = pcall(Run.new, slot, crew.players, onRunFinished)
+		Util.removeValue(crews, crew)
+		if not ok then
+			warn("[Lobby] failed to build a route: " .. tostring(run))
+			runsBySlot[slot] = nil
+			for _, player in crew.players do
+				crewOf[player] = nil
+				send(player, "QueueClear", {})
+			end
+			return
+		end
+		runsBySlot[slot] = run
+		for _, player in table.clone(crew.players) do
+			crewOf[player] = nil
+			if run:hasPlayer(player) and player.Parent == Players then
+				runOf[player] = run
+				send(player, "QueueClear", {})
+			else
+				run:removePlayer(player) -- left while the route was building
+			end
+		end
+		run:start()
+	end)
 end
 
 function Lobby.quickJoin(player: Player)
@@ -107,20 +123,13 @@ function Lobby.quickJoin(player: Player)
 	-- Fill the sleigh leaving soonest that still has room.
 	local best: Crew? = nil
 	for _, crew in crews do
-		if #crew.players < Config.Lobby.CrewMax and (not best or crew.departAt < best.departAt) then
-			best = crew
+		if not crew.launching and #crew.players < Config.Lobby.CrewMax then
+			if not best or crew.departAt < best.departAt then
+				best = crew
+			end
 		end
 	end
-	local crew: Crew = best
-		or {
-			players = {},
-			departAt = now() + Config.Lobby.QuickJoinSeconds,
-			requeue = false,
-			waiting = false,
-		}
-	if not best then
-		table.insert(crews, crew)
-	end
+	local crew = best or newCrew(Config.Lobby.QuickJoinSeconds, false)
 	table.insert(crew.players, player)
 	crewOf[player] = crew
 	sendCrew(crew)
@@ -128,19 +137,16 @@ end
 
 function Lobby.leave(player: Player, leftGame: boolean?)
 	local crew = crewOf[player]
-	if crew then
+	if crew and not crew.launching then
 		crewOf[player] = nil
-		local index = table.find(crew.players, player)
-		if index then
-			table.remove(crew.players, index)
-		end
+		Util.removeValue(crew.players, player)
 		if #crew.players == 0 then
-			removeCrew(crew)
+			Util.removeValue(crews, crew)
 		else
 			sendCrew(crew)
 		end
 		if not leftGame then
-			hud:FireClient(player, "QueueClear", {})
+			send(player, "QueueClear", {})
 		end
 	end
 
@@ -149,16 +155,18 @@ function Lobby.leave(player: Player, leftGame: boolean?)
 		runOf[player] = nil
 		run:removePlayer(player)
 		if not leftGame then
-			MapBuilder.teleportCharacter(player, HUB_RETURN)
+			Util.teleport(player, hubSpawn)
 		end
 	end
 end
 
 local function tick()
-	local t = now()
+	local t = Util.now()
 	for _, crew in table.clone(crews) do
-		if #crew.players == 0 then
-			removeCrew(crew)
+		if crew.launching then
+			continue
+		elseif #crew.players == 0 then
+			Util.removeValue(crews, crew)
 		elseif t >= crew.departAt or #crew.players >= Config.Lobby.CrewMax then
 			local slot = freeSlot()
 			if slot then
@@ -173,6 +181,7 @@ end
 
 function Lobby.start(hub)
 	hud = Remotes.get("Hud")
+	hubSpawn = hub.spawn
 
 	hub.quickJoinPad.Touched:Connect(function(hit: BasePart)
 		local character = hit:FindFirstAncestorOfClass("Model")
@@ -184,6 +193,13 @@ function Lobby.start(hub)
 
 	Remotes.get("LeaveCrew").OnServerEvent:Connect(function(player)
 		Lobby.leave(player)
+	end)
+
+	Remotes.get("Input").OnServerEvent:Connect(function(player, action)
+		local run = runOf[player]
+		if run and typeof(action) == "string" then
+			run:onInput(player, action)
+		end
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)

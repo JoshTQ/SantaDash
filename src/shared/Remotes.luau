@@ -2,8 +2,10 @@
 	Remote events shared by server and client.
 
 	Hud (server -> client): fire(kind: string, data: table). Kinds:
-		Queue, QueueClear, Stop, Phase, Banner, Noise, Player, Results, RunEnd
+		Queue, QueueClear, Stop, Banner, Noise, Player, Results, RunEnd,
+		Krampus, KrampusTease, Hide, Captive
 	LeaveCrew (client -> server): leave the queue or the current run.
+	Input (client -> server): "Tap" (breath / wiggle) or "Unhide".
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -12,7 +14,7 @@ local RunService = game:GetService("RunService")
 local Remotes = {}
 
 local FOLDER_NAME = "Remotes"
-local NAMES = { "Hud", "LeaveCrew" }
+local NAMES = { "Hud", "LeaveCrew", "Input" }
 
 local function serverFolder(): Folder
 	local folder = ReplicatedStorage:FindFirstChild(FOLDER_NAME)
