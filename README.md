@@ -15,7 +15,7 @@ stand-in (a model missing a required part is skipped with a warning):
 | `Sleigh` | PrimaryPart `Body`, `Seat1`-`Seat6`, `Horn`, `Lantern`, `Hitch` | Red block sleigh |
 | `Reindeer` | PrimaryPart `Body`, `Head`, four legs on Motor6Ds | None (two hitched in front of the sleigh) |
 | `ElfA`, `ElfD` | `Humanoid`, `HumanoidRootPart` | Green and red block elves |
-| `House` (any number, or an `Assets.Houses` folder) | `Floor`, `TypeSign`, `ChimneyTop`, `Fireplace`, `Wardrobe`, `FrontDoor` > `Door`, `PresentSpawn1`-`4`; attribute `Style` | Block houses. Landing houses must be `Style = "candy"`; Far ring prefers `"alpine"` |
+| `House` (any number, or an `Assets.Houses` folder) | `Floor`, `TypeSign`, `ChimneyTop`, `Fireplace`, `Wardrobe`, `FrontDoor` > `Door`, `PresentSpawn1`-`4`; attribute `Style` | Block houses. Any style anywhere; the Far ring prefers `Style = "alpine"` |
 | `KrampusLair` | `Floor`, `ListPedestal`, `KrampusSpawn`, `HideSpot1`-`2` | Block Lair |
 | `VaultDoor` | `Frame`, `Door` (hinged on its left edge) | Gold block door |
 | `CocoaMachine` | `Body`, `BuyPrompt` attachment | Brown block |

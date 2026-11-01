@@ -100,15 +100,12 @@ test("kit houses fill their spawn points first and keep every present", function
 	end
 end)
 
-test("the landing house is always a candy house", function()
-	local alpineOnly = { fakeHouse("alpine") }
-	local candy = fakeHouse("candy")
+test("any style can be the landing house; the Far ring prefers alpine", function()
+	local alpine, candy = fakeHouse("alpine"), fakeHouse("candy")
 	local rng = Random.new(1)
-	expect(HouseKit.pick(alpineOnly, rng, { isLanding = true, ring = "Near" })).toBe(nil)
-	expect(HouseKit.pick({ candy, alpineOnly[1] }, rng, { isLanding = true, ring = "Near" })).toBe(candy)
-	expect(HouseKit.pick({ candy, alpineOnly[1] }, rng, { isLanding = false, ring = "Far" })).toBe(
-		alpineOnly[1]
-	)
+	expect(HouseKit.pick({ alpine }, rng, { isLanding = true, ring = "Near" })).toBe(alpine)
+	expect(HouseKit.pick({ candy, alpine }, rng, { isLanding = false, ring = "Far" })).toBe(alpine)
+	expect(HouseKit.pick({ candy }, rng, { isLanding = false, ring = "Far" })).toBe(candy)
 end)
 
 test("the Lair model sets Krampus's spawn, hide spots and the Naughty List pedestal", function()

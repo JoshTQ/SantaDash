@@ -97,26 +97,22 @@ function HouseKit.variants(assets: Instance?): { Model }
 	return list
 end
 
--- Landing houses are Candy Suburban; Far-ring houses prefer Alpine (run map thread).
+-- Any style anywhere; the Far ring prefers Alpine when there is one (run map thread).
 function HouseKit.pick(variants: { Model }, rng: Random, plan): Model?
 	if #variants == 0 then
 		return nil
 	end
-	local want = if plan.isLanding then "candy" elseif plan.ring == "Far" then "alpine" else nil
 	local pool = variants
-	if want then
-		local styled = {}
+	if plan.ring == "Far" then
+		local alpine = {}
 		for _, v in variants do
-			if v:GetAttribute("Style") == want then
-				table.insert(styled, v)
+			if v:GetAttribute("Style") == "alpine" then
+				table.insert(alpine, v)
 			end
 		end
-		if #styled > 0 or plan.isLanding then
-			pool = styled
+		if #alpine > 0 then
+			pool = alpine
 		end
-	end
-	if #pool == 0 then
-		return nil -- no candy house for the landing spot: use the greybox block
 	end
 	return pool[rng:NextInteger(1, #pool)]
 end
