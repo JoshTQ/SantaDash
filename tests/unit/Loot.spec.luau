@@ -141,3 +141,12 @@ test("results rank the best thief first and convert loot to Coal", function()
 	expect(rows[2].escaped).toBeFalsy()
 	expect(rows[1].coal).toBe(math.floor(160 * Config.Coal.PerLootValue))
 end)
+
+test("solo runs with elf bots pay the solo share of the loot", function()
+	local st = Loot.newPlayerState()
+	expect(st.lootMultiplier).toBe(1)
+	st.lootMultiplier = Config.ElfBots.SoloLootMultiplier
+	Loot.grab(st, { size = 1, value = 100, ringMultiplier = 1, threats = 0 })
+	Loot.bank(st, 2)
+	expect(Loot.finalLoot(st)).toBe(math.floor(200 * Config.ElfBots.SoloLootMultiplier))
+end)

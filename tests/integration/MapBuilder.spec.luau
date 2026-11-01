@@ -170,3 +170,32 @@ test("Krampus spawns in the open on streets and inside his Lair in the finale", 
 		end
 	end
 end)
+
+test("greybox routes use the six default sleigh seats", function()
+	local route = buildRoute(4)
+	expect(#route.seatOffsets).toBe(6)
+	expect(route.seatOffsets).toBe(MapBuilder.SeatOffsets)
+end)
+
+test("elf stand-ins have a Humanoid, a root and their design's colours", function()
+	for _, variant in Config.ElfBots.Variants do
+		local elf = MapBuilder.buildElf(newFolder(), CFrame.new(0, 5, 0), variant)
+		expect(elf.humanoid.ClassName).toBe("Humanoid")
+		expect(elf.root.Name).toBe("HumanoidRootPart")
+		expect(elf.humanoid.WalkSpeed).toBe(Config.ElfBots.WalkSpeed)
+		expect(elf.model.Name).toBe(variant .. "StandIn")
+	end
+end)
+
+test("only vault presents are marked as behind the vault door", function()
+	local route = buildRoute(5)
+	for _, stop in route.stops do
+		local inVault = 0
+		for _, present in stop.presents do
+			if present.inVault then
+				inVault += 1
+			end
+		end
+		expect(inVault).toBe(if stop.vaultDoor then Config.Houses.Types.Vault.Presents else 0)
+	end
+end)

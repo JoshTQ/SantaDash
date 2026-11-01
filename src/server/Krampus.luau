@@ -9,7 +9,6 @@
 	stand-in from MapBuilder.
 ]]
 
-local PathfindingService = game:GetService("PathfindingService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
@@ -18,16 +17,13 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Util = require(ReplicatedStorage.Shared.Util)
 local KrampusBrain = require(script.Parent.KrampusBrain)
 local MapBuilder = require(script.Parent.MapBuilder)
+local Mover = require(script.Parent.Mover)
 
 local K = Config.Krampus
 local TICK = 0.25
 
 local Krampus = {}
 Krampus.__index = Krampus
-
-local function flatDistance(a: Vector3, b: Vector3): number
-	return Vector3.new(a.X - b.X, 0, a.Z - b.Z).Magnitude
-end
 
 local function buildBody(parent: Instance, spawn: CFrame): MapBuilder.KrampusBody
 	local assets = ServerStorage:FindFirstChild("Assets")
@@ -64,15 +60,12 @@ function Krampus.new(run, stop)
 	pcall(function()
 		self.body.root:SetNetworkOwner(nil) -- server drives him
 	end)
-	self.path = PathfindingService:CreatePath({
-		AgentRadius = 3,
-		AgentHeight = K.Height,
-		AgentCanJump = false,
-	})
-	self.waypoints = nil :: { PathWaypoint }?
-	self.waypointIndex = 0
-	self.goal = nil :: Vector3?
-	self.pathAt = 0
+	self.mover = Mover.new(
+		self.body.humanoid,
+		self.body.root,
+		{ AgentRadius = 3, AgentHeight = K.Height, AgentCanJump = false },
+		K.RepathSeconds
+	)
 	self.captive = nil :: Player?
 	self.wiggles = 0
 	self.ignore = {} :: { [Player]: number }
@@ -122,33 +115,7 @@ end
 ----------------------------------------------------------------------------
 
 function Krampus:_moveTo(goal: Vector3)
-	local root = self.body.root
-	local t = os.clock()
-	local stale = not self.goal or (self.goal - goal).Magnitude > 6 or t - self.pathAt > K.RepathSeconds
-	if stale then
-		self.goal = goal
-		self.pathAt = t
-		local ok = pcall(function()
-			self.path:ComputeAsync(root.Position, goal)
-		end)
-		if ok and self.path.Status == Enum.PathStatus.Success then
-			self.waypoints = self.path:GetWaypoints()
-			self.waypointIndex = 2
-		else
-			self.waypoints = nil
-		end
-	end
-	local waypoints = self.waypoints
-	if not waypoints then
-		self.body.humanoid:MoveTo(goal) -- no path: walk straight at it
-		return
-	end
-	local waypoint = waypoints[self.waypointIndex]
-	while waypoint and flatDistance(waypoint.Position, root.Position) < 4 do
-		self.waypointIndex += 1
-		waypoint = waypoints[self.waypointIndex]
-	end
-	self.body.humanoid:MoveTo(if waypoint then waypoint.Position else goal)
+	self.mover:moveTo(goal)
 end
 
 -- With nobody to chase he patrols the loot that's left.
@@ -178,7 +145,7 @@ function Krampus:_think(dt: number)
 	run:krampusBreath(root.Position, dt)
 
 	if t < self.stunnedUntil then
-		self.body.humanoid:MoveTo(root.Position)
+		self.mover:stop()
 		return
 	end
 

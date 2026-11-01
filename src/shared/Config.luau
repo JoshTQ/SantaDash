@@ -185,6 +185,28 @@ Config.Krampus = {
 	Height = 11, -- about 2.2x a Santa
 }
 
+-- Elf bots fill in for missing friends in solo runs (game-design.md "Solo").
+-- Josh, 1 Nov 2026: bots are a random mix of elf designs A and D. Each
+-- variant name is also the Model name to put in ServerStorage.Assets once
+-- approved; until then MapBuilder builds a coloured stand-in.
+Config.ElfBots = {
+	MaxCrewForBots = 1, -- bots join crews this small
+	Count = 2,
+	Variants = { "ElfA", "ElfD" },
+	SoloLootMultiplier = 0.8, -- solo runs pay 80%, so friends are better
+	WalkSpeed = 18,
+	Height = 4,
+	FollowDistance = 8,
+	GrabRange = 25, -- presents within this distance of their Santa
+	GrabEverySeconds = 3,
+	CatchUpDistance = 120, -- further than this (chimney, sleigh) and they hop to their Santa
+	RepathSeconds = 0.5,
+	StandIn = {
+		ElfA = { Body = Color3.fromRGB(60, 170, 80), Hat = Color3.fromRGB(220, 40, 50) },
+		ElfD = { Body = Color3.fromRGB(220, 40, 50), Hat = Color3.fromRGB(60, 170, 80) },
+	},
+}
+
 -- Results: loot becomes Coal. Not saved yet (DataStore comes with the Grotto).
 Config.Coal = {
 	PerLootValue = 1,

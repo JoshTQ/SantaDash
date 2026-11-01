@@ -5,10 +5,16 @@ Christmas Eve, then escapes on the sleigh. Design source of truth:
 `game-design.md` in the project files.
 
 This repo is the **greybox**: plain Parts only. Models go in only after they are
-approved through the models gallery. Krampus is a block stand-in in the approved
-Shaggy Goat Grump colours; drop a Model named `Krampus` (with a `Humanoid`, a
-`HumanoidRootPart` and a part named `Basket`) into `ServerStorage.Assets` and the
-game uses it instead.
+approved through the models gallery. Each approved model is dropped into
+`ServerStorage.Assets` under its name and the game uses it instead of the
+stand-in (a model missing a required part is skipped with a warning):
+
+| Asset | Required parts | Stand-in until then |
+| --- | --- | --- |
+| `Krampus` | `Humanoid`, `HumanoidRootPart`, `Basket` | Blocks in the Shaggy Goat Grump colours |
+| `Sleigh` | PrimaryPart `Body`, `Seat1`-`Seat6`, `Horn`, `Lantern`, `Hitch` | Red block sleigh |
+| `Reindeer` | PrimaryPart `Body`, `Head`, four legs on Motor6Ds | None (two hitched in front of the sleigh) |
+| `ElfA`, `ElfD` | `Humanoid`, `HumanoidRootPart` | Green and red block elves |
 
 ## Run it
 
@@ -31,6 +37,7 @@ To build a place file instead: `rojo build -o SleighHeist.rbxl`.
 | Jingle | Start 500, earned per grab. Spend on the Far-ring Vault (1,000, opens for the crew) and Peppermint Rush (1,500, faster). |
 | Noise | Shared meter per stop. Grabs and buys add noise, Heat adds more after the lights come on. |
 | Krampus | From Stop 3 (always in his Lair): hunts the nearest Santa he can sense, snatches them into his basket (perks lost), carries them around. Ring the bells behind him to make him spin and drop them; or tap 15 times to wiggle free. Hide in a wardrobe and tap to hold your breath while he's near, or you gasp and give yourself away. |
+| Elf bots | Solo runs get 2 elf bots, always one of design A and one of design D. They follow you, fetch presents near you into your sack (not from a locked vault) and hop to you after chimneys and flights. Solo runs pay 80% loot so playing with friends is better. |
 | On foot | Miss the sleigh and follow the snowy path to the next stop; hidden presents on the way. |
 | Finale | Krampus's Lair holds the Naughty List. Escaping on the sleigh doubles your loot; missing it keeps only half of your unbanked sack. |
 | Results | 10 s results with best thief and Coal, then the same crew requeues together ("Next run in 5..."). |
@@ -41,8 +48,8 @@ All tuning numbers live in `src/shared/Config.luau`.
 
 | Layer | What | How |
 | --- | --- | --- |
-| Unit | Pure rules: House Card rolls, stop plans, values, banking, results, Krampus decisions (arrival, targeting, bells, breath, wiggle), Config invariants | `lune run tests/runner` |
-| Integration | MapBuilder builds real Instances (Lune's Roblox library) from real plans: counts, prompts, sleigh on the roof, no overlapping houses, Krampus rig | same command |
+| Unit | Pure rules: House Card rolls, stop plans, values, banking, results, Krampus decisions (arrival, targeting, bells, breath, wiggle), elf bot decisions (design mix, present picks), Config invariants | `lune run tests/runner` |
+| Integration | MapBuilder builds real Instances (Lune's Roblox library) from real plans: counts, prompts, sleigh on the roof, no overlapping houses, Krampus and elf rigs, sleigh seats, vault presents | same command |
 | Static | Format, lint, place build | `stylua --check src tests`, `selene src`, `rojo build` |
 | E2E | Not automated yet; see below | Studio playtest |
 
@@ -50,9 +57,9 @@ CI (`.github/workflows/ci.yml`) runs all of the above on every pull request.
 Filter tests by file name: `lune run tests/runner Loot`.
 
 The test runner loads modules straight from `src/` with a fake `game`/`script`/
-`require`, so keep rule code in pure modules (`Loot`, `KrampusBrain`, `Util`)
+`require`, so keep rule code in pure modules (`Loot`, `KrampusBrain`, `ElfBrain`, `Util`)
 and keep `MapBuilder` free of events. Code that needs the live engine (`Run`,
-`Lobby`, `Krampus` movement, physics, pathfinding, remotes) is covered by the
+`Lobby`, `Krampus` and `ElfBot` movement, physics, pathfinding, remotes) is covered by the
 playtest checklist until E2E is set up.
 
 **E2E plan:** Roblox Open Cloud's Luau Execution API runs a script inside a
@@ -75,7 +82,11 @@ src/server/Lobby.luau         Quick Join queue, run slots, requeue
 src/server/Run.luau           one crew's run: stops, phases, grabs, buys, noise, hiding, results
 src/server/Krampus.luau       Krampus movement, snatch, carry, bells, wiggle
 src/server/KrampusBrain.luau  pure Krampus decisions
-src/server/MapBuilder.luau    greybox hub, houses, streets, sleigh, Krampus stand-in
+src/server/ElfBot.luau        solo elf bots: follow, fetch presents, catch up
+src/server/ElfBrain.luau      pure elf bot decisions
+src/server/Mover.luau         pathfinding for Krampus and elf bots
+src/server/Assets.luau        approved models from ServerStorage.Assets
+src/server/MapBuilder.luau    greybox hub, houses, streets, sleigh, Krampus and elf stand-ins
 src/server/Loot.luau          pure House Card rolls, stop plans, loot and results
 src/client/Hud.client.luau    timer, Jingle, sack, noise, bells, breath, wiggle, queue, results
 tests/runner.luau             Lune test runner

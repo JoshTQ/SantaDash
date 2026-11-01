@@ -130,6 +130,53 @@ function MapBuilder.buildSleigh(parent: Instance, cframe: CFrame): Model
 	return model
 end
 
+-- Places an approved sleigh model (contract in Assets.luau) with its Body at
+-- cframe, anchors it, turns its Seats off (riders are carried by Run, not
+-- welded), hitches two reindeer and returns rider offsets from Seat1-Seat6.
+function MapBuilder.placeSleighTemplate(
+	parent: Instance,
+	sleigh: Model,
+	cframe: CFrame,
+	reindeer: Model?
+): (Model, { CFrame })
+	local body = sleigh:FindFirstChild("Body", true) :: BasePart
+	sleigh.PrimaryPart = body
+	sleigh.Name = "Sleigh"
+	if reindeer then
+		local hitch = sleigh:FindFirstChild("Hitch", true) :: BasePart
+		for i, side in { -1.6, 1.6 } do
+			local deer = reindeer:Clone()
+			deer.Name = "Reindeer" .. i
+			-- Pivot first so the reindeer stand in front of the hitch, facing forward.
+			deer:PivotTo(hitch.CFrame * CFrame.new(side, 0, -4))
+			deer.Parent = sleigh
+		end
+	end
+	sleigh:PivotTo(cframe)
+	for _, part in sleigh:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.Anchored = true
+		end
+		if part:IsA("Seat") or part:IsA("VehicleSeat") then
+			part.Disabled = true
+		end
+	end
+	local offsets = {}
+	local pivot = sleigh:GetPivot()
+	for i = 1, 6 do
+		local seat = sleigh:FindFirstChild("Seat" .. i, true) :: BasePart?
+		if seat then
+			-- Stand the rider's root a little above the seat.
+			table.insert(offsets, pivot:ToObjectSpace(seat.CFrame) * CFrame.new(0, seat.Size.Y / 2 + 2.5, 0))
+		end
+	end
+	if #offsets == 0 then
+		offsets = MapBuilder.SeatOffsets
+	end
+	sleigh.Parent = parent
+	return sleigh, offsets
+end
+
 -- True if a position is standing on (or in) the sleigh at deckCFrame.
 function MapBuilder.isAboard(deckCFrame: CFrame, position: Vector3): boolean
 	local half = Config.Map.DeckSize / 2
@@ -187,7 +234,13 @@ end
 
 export type Chimney = { down: ProximityPrompt, up: ProximityPrompt, inside: CFrame, roof: CFrame }
 export type HideSpot = { prompt: ProximityPrompt, inside: CFrame, exit: CFrame }
-export type BuiltPresent = { model: Model, prompt: ProximityPrompt, plan: any, taken: boolean? }
+export type BuiltPresent = {
+	model: Model,
+	prompt: ProximityPrompt,
+	plan: any,
+	taken: boolean?,
+	inVault: boolean?, -- behind a locked vault door until someone buys it open
+}
 
 export type Stop = {
 	plan: any, -- Loot.StopPlan
@@ -398,7 +451,9 @@ local function buildHouse(
 				FLOOR_TOP,
 				rng:NextNumber(-d / 2 + 4, d / 2 - 8)
 			)
-		table.insert(stop.presents, buildPresent(model, rng, (cframe * offset).Position, presentPlan))
+		local present = buildPresent(model, rng, (cframe * offset).Position, presentPlan)
+		present.inVault = plan.locked or nil
+		table.insert(stop.presents, present)
 	end
 
 	model.Parent = parent
@@ -415,6 +470,15 @@ export type Route = {
 	startDeck: CFrame,
 	stops: { Stop },
 	onFootPresents: { BuiltPresent },
+	seatOffsets: { CFrame }, -- rider spots relative to the deck pivot
+}
+
+-- buildRoute options. sleigh: an approved "Sleigh" clone (Assets.clone) to use
+-- instead of the greybox blocks; reindeer: the "Reindeer" template for it.
+export type RouteOptions = {
+	yieldEach: (() -> ())?, -- called between stops to spread the build over frames
+	sleigh: Model?,
+	reindeer: Model?,
 }
 
 local function buildStop(parent: Instance, rng: Random, plan, origin: CFrame): Stop
@@ -510,15 +574,15 @@ local function buildFootPath(parent: Instance, rng: Random, origin: CFrame, pres
 end
 
 -- plans: one Loot.StopPlan per stop; onFoot: one present list per gap between stops.
--- yieldEach: optional function called between stops to spread the build over frames.
 function MapBuilder.buildRoute(
 	parent: Instance,
 	slot: number,
 	rng: Random,
 	plans: { any },
 	onFoot: { any },
-	yieldEach: (() -> ())?
+	opts: RouteOptions?
 ): Route
+	local options: RouteOptions = opts or {}
 	local model = Instance.new("Model")
 	model.Name = "Route" .. slot
 	local map = Config.Map
@@ -542,6 +606,7 @@ function MapBuilder.buildRoute(
 		startDeck = base * CFrame.new(map.TakeoffOffset),
 		stops = {},
 		onFootPresents = {},
+		seatOffsets = MapBuilder.SeatOffsets,
 	}
 	for i, plan in plans do
 		local origin = base * CFrame.new((i - 1) * spacing, 0, 0)
@@ -549,12 +614,17 @@ function MapBuilder.buildRoute(
 		if onFoot[i] then
 			buildFootPath(model, rng, origin, onFoot[i], route.onFootPresents)
 		end
-		if yieldEach then
-			yieldEach()
+		if options.yieldEach then
+			options.yieldEach()
 		end
 	end
 
-	route.sleigh = MapBuilder.buildSleigh(model, route.startDeck)
+	if options.sleigh then
+		route.sleigh, route.seatOffsets =
+			MapBuilder.placeSleighTemplate(model, options.sleigh, route.startDeck, options.reindeer)
+	else
+		route.sleigh = MapBuilder.buildSleigh(model, route.startDeck)
+	end
 	model.Parent = parent
 	return route
 end
@@ -635,6 +705,54 @@ function MapBuilder.buildKrampus(parent: Instance, cframe: CFrame): KrampusBody
 		basket = basket,
 		bellPrompt = addPrompt(basket, "Ring bells", "Krampus", 0.3),
 	}
+end
+
+----------------------------------------------------------------------------
+-- Elf bot stand-ins (GREYBOX until designs A and D are approved)
+----------------------------------------------------------------------------
+
+export type ElfBody = { model: Model, humanoid: Humanoid, root: BasePart }
+
+-- variant: a Config.ElfBots.Variants name; picks the stand-in colours.
+function MapBuilder.buildElf(parent: Instance, cframe: CFrame, variant: string): ElfBody
+	local colours = Config.ElfBots.StandIn[variant]
+	local model = Instance.new("Model")
+	model.Name = variant .. "StandIn"
+	local hip = 1.2
+	local root = newPart(model, "HumanoidRootPart", Vector3.new(2, 1.6, 1), cframe, colours.Body)
+	root.Transparency = 1
+	local function piece(name: string, size: Vector3, offset: CFrame, color: Color3): BasePart
+		local part = newPart(model, name, size, cframe * offset, color)
+		part.CanCollide = false
+		part.Massless = true
+		part.Anchored = false
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = root
+		weld.Part1 = part
+		weld.Parent = part
+		return part
+	end
+	local feet = -(hip + 0.8)
+	for _, sx in { -1, 1 } do
+		piece("Leg", Vector3.new(0.6, hip, 0.6), CFrame.new(sx * 0.45, feet + hip / 2, 0), colours.Body)
+	end
+	piece("Body", Vector3.new(1.6, 1.4, 1), CFrame.new(0, feet + hip + 0.7, 0), colours.Body)
+	piece("Head", Vector3.new(1.2, 1, 1), CFrame.new(0, feet + hip + 1.9, 0), Color3.fromRGB(255, 210, 180))
+	piece("Hat", Vector3.new(1, 1.4, 1), CFrame.new(0, feet + hip + 3.1, 0), colours.Hat)
+	addLabel(root, variant .. " (stand-in)", colours.Body, 4)
+
+	local humanoid = Instance.new("Humanoid")
+	humanoid.HipHeight = hip
+	humanoid.WalkSpeed = Config.ElfBots.WalkSpeed
+	humanoid.RequiresNeck = false
+	humanoid.BreakJointsOnDeath = false
+	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+	humanoid.Parent = model
+
+	root.Anchored = false
+	model.PrimaryPart = root
+	model.Parent = parent
+	return { model = model, humanoid = humanoid, root = root }
 end
 
 return MapBuilder

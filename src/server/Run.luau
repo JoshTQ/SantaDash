@@ -14,6 +14,9 @@ local RunService = game:GetService("RunService")
 local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Util = require(ReplicatedStorage.Shared.Util)
+local Assets = require(script.Parent.Assets)
+local ElfBot = require(script.Parent.ElfBot)
+local ElfBrain = require(script.Parent.ElfBrain)
 local Loot = require(script.Parent.Loot)
 local KrampusBrain = require(script.Parent.KrampusBrain)
 local Krampus = require(script.Parent.Krampus)
@@ -63,12 +66,24 @@ function Run.new(slot: number, crew: { Player }, onFinished: (run: any, survivor
 			onFoot[i] = Loot.planOnFoot(rng)
 		end
 	end
-	-- Yield between stops so building a route doesn't stall the server.
-	self.route = MapBuilder.buildRoute(workspace, slot, rng, plans, onFoot, task.wait)
+	self.route = MapBuilder.buildRoute(workspace, slot, rng, plans, onFoot, {
+		yieldEach = task.wait, -- spread the build over frames so the server doesn't stall
+		sleigh = Assets.clone("Sleigh", { "Body", "Seat1", "Hitch" }),
+		reindeer = Assets.get("Reindeer"),
+	})
 	self.deck = self.route.startDeck
 
 	for _, player in crew do
 		self:_addPlayer(player)
+	end
+	-- Solo: elf bots (a mix of designs A and D) fill in for friends, at 80% loot.
+	self.elves = {}
+	self.elfVariants = {}
+	if ElfBrain.wantsBots(#crew) then
+		self.elfVariants = ElfBrain.pickVariants(rng, Config.ElfBots.Count)
+		for _, st in self.players do
+			st.lootMultiplier = Config.ElfBots.SoloLootMultiplier
+		end
 	end
 	self:_wirePrompts()
 	return self
@@ -148,7 +163,7 @@ function Run:_addPlayer(player: Player)
 				self.krampus:release()
 			end
 			self:_applyPerks(player)
-			Util.teleport(player, self.deck * MapBuilder.SeatOffsets[1])
+			Util.teleport(player, self.deck * self.route.seatOffsets[1])
 		end
 	end)
 	self.players[player] = st
@@ -168,6 +183,7 @@ function Run:removePlayer(player: Player)
 		self.krampus:release()
 	end
 	self:_unhide(player)
+	self:_removeElves(player)
 	st.characterConnection:Disconnect()
 	self.players[player] = nil
 	Util.removeValue(self.order, player)
@@ -258,7 +274,15 @@ end
 
 function Run:_grab(player: Player, present)
 	local st = self:_free(player)
-	if not st or present.taken then
+	local root = rootOf(player)
+	if st and root then
+		self:_collect(player, st, present, root.Position)
+	end
+end
+
+-- A present goes into player's sack (grabbed by them or fetched by their elf).
+function Run:_collect(player: Player, st: PlayerState, present, from: Vector3)
+	if present.taken then
 		return
 	end
 	if not Loot.grab(st, present.plan) then
@@ -266,13 +290,67 @@ function Run:_grab(player: Player, present)
 		return
 	end
 	present.taken = true
-	local root = rootOf(player)
-	self.lastNoisePos = root and root.Position
+	self.lastNoisePos = from
 	present.model:Destroy()
 	self:_addNoise(Loot.noiseForGrab(math.max(self.stopIndex, 1), present.plan.threats))
 	self:_sendPlayer(player)
 	if present.plan.naughtyList then
 		self:_banner(nil, player.DisplayName .. " stole the Naughty List! Get to the sleigh!", 4)
+	end
+end
+
+-- Elf bot hooks (called by ElfBot.luau).
+function Run:canElfGrab(owner: Player): boolean
+	local st = self.players[owner]
+	return st ~= nil
+		and not self.ended
+		and NOISY_PHASES[self.phase] == true
+		and st.sackCount < Config.Sack.Capacity
+end
+
+function Run:elfCollect(owner: Player, present, from: Vector3)
+	local st = self.players[owner]
+	if st and self:canElfGrab(owner) then
+		self:_collect(owner, st, present, from)
+	end
+end
+
+-- Untaken presents on the current street and the paths between stops.
+function Run:presentCandidates(): { ElfBrain.PresentCandidate }
+	local list = {}
+	local stop = self.route.stops[self.stopIndex]
+	local vaultShut = stop ~= nil and stop.vaultPrompt ~= nil and stop.vaultPrompt.Enabled
+	local function add(presents)
+		for _, present in presents do
+			if not present.taken and not (present.inVault and vaultShut) then
+				table.insert(list, { present = present, position = present.model:GetPivot().Position })
+			end
+		end
+	end
+	if stop then
+		add(stop.presents)
+	end
+	add(self.route.onFootPresents)
+	return list
+end
+
+function Run:_spawnElves()
+	for _, owner in self.order do
+		for i, variant in self.elfVariants do
+			local at = self.deck * CFrame.new(ElfBrain.followOffset(i) + Vector3.new(0, 3, 0))
+			table.insert(self.elves, ElfBot.new(self, owner, variant, i, at))
+		end
+	end
+	self.elfVariants = {} -- spawned once, then they follow their Santa all run
+end
+
+function Run:_removeElves(owner: Player?)
+	for i = #self.elves, 1, -1 do
+		local elf = self.elves[i]
+		if not owner or elf.owner == owner then
+			elf:destroy()
+			table.remove(self.elves, i)
+		end
 	end
 end
 
@@ -479,7 +557,8 @@ function Run:_fly(fromDeck: CFrame, toDeck: CFrame, riders: { Player })
 	for i, player in riders do
 		local root = rootOf(player)
 		if root then
-			seats[root] = MapBuilder.SeatOffsets[(i - 1) % #MapBuilder.SeatOffsets + 1]
+			local offsets = self.route.seatOffsets
+			seats[root] = offsets[(i - 1) % #offsets + 1]
 			root.Anchored = true
 		end
 	end
@@ -535,6 +614,9 @@ function Run:_playStop(stop): { Player }
 	self:_sendStop()
 	self:_sendNoise()
 	self:_banner(nil, plan.banner, 4)
+	if #self.elfVariants > 0 then
+		self:_spawnElves() -- elves hop off with their Santa at the first stop
+	end
 
 	-- Timed phases, entered in order once their time has passed.
 	local phases = {
@@ -665,6 +747,7 @@ function Run:_finish()
 		return
 	end
 	self:_stopKrampus()
+	self:_removeElves()
 	self.ended = true
 	local survivors = {}
 	for _, player in self.order do

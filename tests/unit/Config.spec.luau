@@ -52,3 +52,13 @@ test("house weights only name real house types", function()
 		end
 	end
 end)
+
+test("every elf bot design has stand-in colours and bots out-walk Santa", function()
+	local E = Config.ElfBots
+	expect(#E.Variants).toBeGreaterThan(1)
+	for _, name in E.Variants do
+		expect(E.StandIn[name] ~= nil).toBeTruthy()
+	end
+	expect(E.WalkSpeed).toBeGreaterThan(Config.Player.WalkSpeed)
+	expect(E.SoloLootMultiplier).toBeLessThan(1)
+end)

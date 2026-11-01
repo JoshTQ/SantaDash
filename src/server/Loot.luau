@@ -45,6 +45,7 @@ export type PlayerState = {
 	banked: number,
 	grabs: number,
 	escapeMultiplier: number?,
+	lootMultiplier: number, -- 0.8 for solo runs with elf bots
 }
 
 local TYPE_ORDER = { "Cosy", "Normal", "Risky" }
@@ -187,6 +188,7 @@ function Loot.newPlayerState(): PlayerState
 		banked = 0,
 		grabs = 0,
 		escapeMultiplier = nil,
+		lootMultiplier = 1,
 	}
 end
 
@@ -220,7 +222,7 @@ function Loot.bankMissed(state: PlayerState)
 end
 
 function Loot.finalLoot(state: PlayerState): number
-	return state.banked * (state.escapeMultiplier or 1)
+	return math.floor(state.banked * (state.escapeMultiplier or 1) * state.lootMultiplier)
 end
 
 export type ResultRow = { name: string, loot: number, coal: number, escaped: boolean, grabs: number }
