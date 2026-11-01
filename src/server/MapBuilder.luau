@@ -482,11 +482,19 @@ export type RouteOptions = {
 	yieldEach: (() -> ())?, -- called between stops to spread the build over frames
 	map: Maps.Map?, -- defaults to Maps.Default
 	dressing: Model?, -- approved set dressing: children StopDressing (per stop) and RouteDressing
+	cocoa: Model?, -- approved "CocoaMachine" (Assets contract) instead of the block
 	sleigh: Model?,
 	reindeer: Model?,
 }
 
-local function buildStop(parent: Instance, rng: Random, plan, origin: CFrame, mapDef: Maps.Map): Stop
+local function buildStop(
+	parent: Instance,
+	rng: Random,
+	plan,
+	origin: CFrame,
+	mapDef: Maps.Map,
+	cocoaTemplate: Model?
+): Stop
 	local model = Instance.new("Model")
 	model.Name = "Stop" .. plan.index .. "_" .. plan.kindName
 	local map = mapDef.layout
@@ -536,20 +544,29 @@ local function buildStop(parent: Instance, rng: Random, plan, origin: CFrame, ma
 	end
 
 	-- Cocoa machine (Peppermint Rush) by the landing house, Near ring.
-	local machine = newPart(
-		model,
-		"CocoaMachine",
-		Vector3.new(4, 7, 3),
-		origin * CFrame.new(map.CocoaMachine),
-		Color3.fromRGB(120, 70, 40)
-	)
-	addLabel(
-		machine,
-		"PEPPERMINT RUSH\n" .. Config.Buys.PeppermintRush.Cost .. " Jingle",
-		Color3.new(1, 1, 1),
-		6
-	)
-	stop.cocoaPrompt = addPrompt(machine, "Buy perk", "Peppermint Rush", 0.5)
+	local machineAt = origin * CFrame.new(map.CocoaMachine)
+	if cocoaTemplate then
+		-- Approved booth at the same spot, standing on the street; prompt at BuyPrompt.
+		local booth = cocoaTemplate:Clone()
+		booth.Name = "CocoaMachine"
+		booth:PivotTo(machineAt)
+		local box, size = booth:GetBoundingBox()
+		local street = (origin * CFrame.new(map.CocoaMachine.X, 0, map.CocoaMachine.Z)).Position.Y
+		booth:PivotTo(machineAt + Vector3.new(0, street - (box.Position.Y - size.Y / 2), 0))
+		booth.Parent = model
+		local at = booth:FindFirstChild("BuyPrompt", true)
+		stop.cocoaPrompt = addPrompt(at :: Instance, "Buy perk", "Peppermint Rush", 0.5)
+	else
+		local machine =
+			newPart(model, "CocoaMachine", Vector3.new(4, 7, 3), machineAt, Color3.fromRGB(120, 70, 40))
+		addLabel(
+			machine,
+			"PEPPERMINT RUSH\n" .. Config.Buys.PeppermintRush.Cost .. " Jingle",
+			Color3.new(1, 1, 1),
+			6
+		)
+		stop.cocoaPrompt = addPrompt(machine, "Buy perk", "Peppermint Rush", 0.5)
+	end
 
 	for _, feature in mapDef.features do
 		local entry = MapFeatures[feature.kind]
@@ -666,7 +683,7 @@ function MapBuilder.buildRoute(
 	}
 	for i, plan in plans do
 		local origin = base * stopOrigin(mapDef.layout, i)
-		route.stops[i] = buildStop(model, rng, plan, origin, mapDef)
+		route.stops[i] = buildStop(model, rng, plan, origin, mapDef, options.cocoa)
 		if onFoot[i] then
 			local nextOrigin = base * stopOrigin(mapDef.layout, i + 1)
 			buildFootPath(model, rng, origin, nextOrigin, onFoot[i], route.onFootPresents, mapDef)

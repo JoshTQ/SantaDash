@@ -8,6 +8,8 @@
 	Sleigh    PrimaryPart "Body", Seat1-Seat6, "Horn", "Lantern", "Hitch"
 	Reindeer  PrimaryPart "Body", Head, LegFL/LegFR/LegBL/LegBR on Motor6Ds
 	          (two per sleigh, placed in front of the sleigh's Hitch)
+	CocoaMachine  PrimaryPart "Body", "BuyPrompt" Attachment (+ Sign, TopMug,
+	          Dispenser, PricePlate); placed standing on the street
 	The Sleigh's Seats are disabled: Run carries riders at each Seat's spot.
 
 	Map set dressing lives in ServerStorage.Maps.<dressing> (see shared/Maps):

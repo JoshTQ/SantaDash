@@ -81,6 +81,7 @@ function Run.new(
 		yieldEach = task.wait, -- spread the build over frames so the server doesn't stall
 		map = map,
 		dressing = Assets.mapDressing(map.dressing),
+		cocoa = Assets.clone("CocoaMachine", { "Body", "BuyPrompt" }),
 		sleigh = Assets.clone("Sleigh", { "Body", "Seat1", "Hitch" }),
 		reindeer = Assets.get("Reindeer"),
 	})
