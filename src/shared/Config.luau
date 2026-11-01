@@ -234,7 +234,11 @@ Config.Map = {
 	FootPathZ = -40, -- the on-foot path between stops
 	CocoaMachine = Vector3.new(-14, 3.5, 22),
 	TakeoffOffset = Vector3.new(-150, 60, 0), -- where the sleigh starts, before Stop 1
-	DeckOnRoof = Vector3.new(-4, 1.6, -2), -- sleigh deck on the landing roof
+	-- The sleigh lands on the ground at each stop's Sleigh Stop (Josh, 1 Nov
+	-- 2026): a clearing; you're aboard if you're inside it when it leaves.
+	LandingAt = CFrame.new(0, 0, 0), -- stop space: on the road in front of the landing house
+	SleighStopRadius = 17,
+	DeckHeight = 1.6, -- deck centre above the ground, so the runners clear it
 	DeckSize = Vector3.new(10, 1, 14),
 	HubSpawn = CFrame.new(0, 4, -50),
 }

@@ -36,6 +36,9 @@ export type Layout = {
 	-- Optional: the end house (Vault / Lair) per stop kind, in stop space,
 	-- e.g. { Finale = CFrame.new(0, 0, 520) * CFrame.Angles(0, math.pi, 0) }.
 	EndHouseAt: { [string]: CFrame }?,
+	-- Optional: each stop's Sleigh Stop (ground landing point) in stop space.
+	-- Default: Config.Map.LandingAt, in front of the landing house.
+	LandingAt: { CFrame }?,
 }
 
 export type Map = {

@@ -178,11 +178,12 @@ function MapBuilder.placeSleighTemplate(
 	return sleigh, offsets
 end
 
--- True if a position is standing on (or in) the sleigh at deckCFrame.
+-- True if a position is inside the Sleigh Stop clearing around the sleigh
+-- (deckCFrame), or riding on it.
 function MapBuilder.isAboard(deckCFrame: CFrame, position: Vector3): boolean
-	local half = Config.Map.DeckSize / 2
 	local rel = deckCFrame:PointToObjectSpace(position)
-	return math.abs(rel.X) <= half.X + 1.5 and math.abs(rel.Z) <= half.Z + 1.5 and rel.Y >= -1 and rel.Y <= 10
+	local flat = Vector3.new(rel.X, 0, rel.Z).Magnitude
+	return flat <= Config.Map.SleighStopRadius and rel.Y >= -4 and rel.Y <= 12
 end
 
 ----------------------------------------------------------------------------
@@ -534,14 +535,35 @@ local function buildStop(
 			cf = origin * CFrame.lookAt(pos, pos - Vector3.xAxis * house.side)
 		end
 		local label = Config.Houses.Types[house.typeName].Label .. " · " .. string.upper(house.ring)
-		local roofTop = buildHouse(model, stop, rng, house, cf, label)
-		if house.isLanding then
-			stop.deckCFrame = cf * CFrame.new(Config.Map.DeckOnRoof + Vector3.new(0, roofTop, 0))
-		end
+		buildHouse(model, stop, rng, house, cf, label)
 		if house.typeName == "Lair" then
 			stop.krampusSpawn = cf * CFrame.new(0, 6, house.size.Z / 4)
 		end
 	end
+
+	-- Sleigh Stop: the sleigh lands on the ground in this clearing.
+	local landing = origin * (map.LandingAt and map.LandingAt[plan.index] or Config.Map.LandingAt)
+	stop.deckCFrame = landing * CFrame.new(0, Config.Map.DeckHeight, 0)
+	local radius = Config.Map.SleighStopRadius
+	local clearing = newPart(
+		model,
+		"SleighStop",
+		Vector3.new(0.3, radius * 2, radius * 2),
+		landing * CFrame.new(0, 0.25, 0) * CFrame.Angles(0, 0, math.pi / 2),
+		Color3.fromRGB(255, 220, 120),
+		Enum.Material.Neon
+	)
+	clearing.Shape = Enum.PartType.Cylinder
+	clearing.Transparency = 0.6
+	clearing.CanCollide = false
+	local sign = newPart(
+		model,
+		"SleighStopSign",
+		Vector3.new(1, 8, 1),
+		landing * CFrame.new(radius - 1, 4, 0),
+		Color3.fromRGB(200, 30, 40)
+	)
+	addLabel(sign, "SLEIGH STOP", Color3.new(1, 1, 1), 5)
 
 	-- Cocoa machine (Peppermint Rush) by the landing house, Near ring.
 	local machineAt = origin * CFrame.new(map.CocoaMachine)

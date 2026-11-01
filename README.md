@@ -31,7 +31,7 @@ To build a place file instead: `rojo build -o SleighHeist.rbxl`.
 | Piece | Behaviour |
 | --- | --- |
 | Sleigh Station hub | Spawn, Quick Join pad. A sleigh leaves 10 s after its first rider or when 6 are aboard. Up to 4 runs at once per server. |
-| Run | Take-off flight, then 3 stops of 2:00 (two house stops, then Krampus's Lair): sneak to 0:45, lights on (Heat), horn at 1:30, sleigh leaves at 2:00 with or without you. |
+| Run | Take-off flight to each stop's Sleigh Stop (a clearing on the ground; inside it when the sleigh leaves = aboard), then 3 stops of 2:00 (two house stops, then Krampus's Lair): sneak to 0:45, lights on (Heat), horn at 1:30, sleigh leaves at 2:00 with or without you. |
 | Streets | Near and Far rings (x1 / x2.5 loot); the Mid ring is configured but off for launch. House Cards roll Cosy / Normal / Risky (Stop 1 has no Risky; always one Cosy). Chimneys, ladders, wardrobes, roof labels. |
 | Loot | Presents with size-squared value, +25% per house threat. Sack holds 15 and is banked when you leave a stop on the sleigh. |
 | Jingle | Start 500, earned per grab. Spend on the Far-ring Vault (1,000, opens for the crew) and Peppermint Rush (1,500, faster). |
@@ -80,7 +80,7 @@ Workspace; players with no TeleportData then join as a test crew.
 | Layer | What | How |
 | --- | --- | --- |
 | Unit | Pure rules: House Card rolls, stop plans, values, banking, results, Krampus decisions (arrival, targeting, bells, breath, wiggle), elf bot decisions (design mix, present picks), lobby-to-run handoff (validation, admission, departure), map registry and rotation, Config invariants | `lune run tests/runner` |
-| Integration | MapBuilder builds real Instances (Lune's Roblox library) from real plans: counts, prompts, sleigh on the roof, no overlapping houses, Krampus and elf rigs, sleigh seats, vault presents, map palette/layout/features/stop origins, every map in the rotation | same command |
+| Integration | MapBuilder builds real Instances (Lune's Roblox library) from real plans: counts, prompts, sleigh on the ground at the Sleigh Stop, no overlapping houses, Krampus and elf rigs, sleigh seats, vault presents, map palette/layout/features/stop origins, every map in the rotation | same command |
 | Static | Format, lint, place build | `stylua --check src tests`, `selene src`, `rojo build` |
 | E2E | Not automated yet; see below | Studio playtest |
 

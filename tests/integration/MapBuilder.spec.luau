@@ -85,15 +85,36 @@ test("hiding spots and chimneys match the plan", function()
 	end
 end)
 
-test("the sleigh lands on top of the landing roof and a rider on the deck counts as aboard", function()
+test("the sleigh lands on the ground at the Sleigh Stop and the clearing counts as aboard", function()
 	local route = buildRoute(4)
+	local r = Config.Map.SleighStopRadius
 	for _, stop in route.stops do
 		local deck = stop.deckCFrame
-		local roofTop = 1 + Config.Map.HouseSize.Y + 1
-		expect(deck.Position.Y - roofTop).toBeGreaterThan(1.29) -- runners clear the roof
+		local ground = deck.Position - Vector3.new(0, Config.Map.DeckHeight, 0)
+		expect(deck.Position.Y).toBeLessThan(4) -- on the street, not a roof
 		expect(MapBuilder.isAboard(deck, (deck * MapBuilder.SeatOffsets[1]).Position)).toBeTruthy()
-		expect(MapBuilder.isAboard(deck, deck.Position + Vector3.new(0, 0, 30))).toBeFalsy()
+		expect(MapBuilder.isAboard(deck, ground + Vector3.new(r - 1, 3, 0))).toBeTruthy()
+		expect(MapBuilder.isAboard(deck, ground + Vector3.new(0, 3, r + 1))).toBeFalsy()
 	end
+end)
+
+test("a map can put each Sleigh Stop where it wants", function()
+	local Maps = load("ReplicatedStorage.Shared.Maps")
+	local base = Maps.get()
+	local map = table.clone(base)
+	map.layout = table.clone(base.layout)
+	local spot = CFrame.new(10, 0, 60)
+	map.layout.LandingAt = { spot, spot, spot }
+	local rng = Random.new(4)
+	local plans, onFoot = {}, {}
+	for i = 1, #Config.Run.StopKinds do
+		plans[i] = Loot.planStop(rng, i, map.layout.Slots)
+		onFoot[i] = if i < #Config.Run.StopKinds then Loot.planOnFoot(rng) else nil
+	end
+	local route = MapBuilder.buildRoute(newFolder(), 1, rng, plans, onFoot, { map = map })
+	local origin = CFrame.new(0, 0, Config.Map.RouteOriginZ)
+	local expected = (origin * spot).Position + Vector3.new(0, Config.Map.DeckHeight, 0)
+	expect((route.stops[1].deckCFrame.Position - expected).Magnitude).toBeLessThan(0.01)
 end)
 
 test("houses on a street never overlap", function()
@@ -272,7 +293,7 @@ test("maps can place stops anywhere and the paths follow them", function()
 	end
 	local route = MapBuilder.buildRoute(newFolder(), 1, rng, plans, onFoot, { map = map })
 
-	-- The sleigh lands on each stop's own landing roof, near that stop's origin.
+	-- The sleigh lands at each stop's own Sleigh Stop, near that stop's origin.
 	local routeBase = CFrame.new(0, 0, Config.Map.RouteOriginZ)
 	for i, stop in route.stops do
 		local origin = (routeBase * map.layout.StopOrigins[i]).Position
