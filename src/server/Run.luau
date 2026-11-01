@@ -3,8 +3,8 @@
 
 	Each stop: 0:00-0:45 sneak, 0:45 lights on (Heat rises), 1:30 horn,
 	2:00 the sleigh leaves with or without you. Miss it and you run to the next
-	stop on foot. Krampus is heard from Stop 1, arrives on a full noise meter
-	from Stop 2, and is always home in his Lair. Escaping the Lair doubles loot.
+	stop on foot. Krampus comes from Stop 3 (Config.Krampus.FirstStop), so in
+	the launch slice he is only in his Lair. Escaping the Lair doubles loot.
 ]]
 
 local Players = game:GetService("Players")
