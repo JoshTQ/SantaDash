@@ -15,6 +15,10 @@ stand-in (a model missing a required part is skipped with a warning):
 | `Sleigh` | PrimaryPart `Body`, `Seat1`-`Seat6`, `Horn`, `Lantern`, `Hitch` | Red block sleigh |
 | `Reindeer` | PrimaryPart `Body`, `Head`, four legs on Motor6Ds | None (two hitched in front of the sleigh) |
 | `ElfA`, `ElfD` | `Humanoid`, `HumanoidRootPart` | Green and red block elves |
+| `House` (any number, or an `Assets.Houses` folder) | `Floor`, `TypeSign`, `ChimneyTop`, `Fireplace`, `Wardrobe`, `FrontDoor` > `Door`, `PresentSpawn1`-`4`; attribute `Style` | Block houses. Landing houses must be `Style = "candy"`; Far ring prefers `"alpine"` |
+| `KrampusLair` | `Floor`, `ListPedestal`, `KrampusSpawn`, `HideSpot1`-`2` | Block Lair |
+| `VaultDoor` | `Frame`, `Door` (hinged on its left edge) | Gold block door |
+| `CocoaMachine` | `Body`, `BuyPrompt` attachment | Brown block |
 
 ## Run it
 
@@ -80,7 +84,7 @@ Workspace; players with no TeleportData then join as a test crew.
 | Layer | What | How |
 | --- | --- | --- |
 | Unit | Pure rules: House Card rolls, stop plans, values, banking, results, Krampus decisions (arrival, targeting, bells, breath, wiggle), elf bot decisions (design mix, present picks), lobby-to-run handoff (validation, admission, departure), map registry and rotation, Config invariants | `lune run tests/runner` |
-| Integration | MapBuilder builds real Instances (Lune's Roblox library) from real plans: counts, prompts, sleigh on the ground at the Sleigh Stop, no overlapping houses, Krampus and elf rigs, sleigh seats, vault presents, map palette/layout/features/stop origins, every map in the rotation | same command |
+| Integration | MapBuilder builds real Instances (Lune's Roblox library) from real plans: counts, prompts, sleigh on the ground at the Sleigh Stop, no overlapping houses, approved house kit / Lair / vault door (with stand-in models), Krampus and elf rigs, sleigh seats, vault presents, map palette/layout/features/stop origins, every map in the rotation | same command |
 | Static | Format, lint, place build | `stylua --check src tests`, `selene src`, `rojo build` |
 | E2E | Not automated yet; see below | Studio playtest |
 
@@ -121,6 +125,7 @@ src/server/ElfBot.luau        solo elf bots: follow, fetch presents, catch up
 src/server/ElfBrain.luau      pure elf bot decisions
 src/server/Mover.luau         pathfinding for Krampus and elf bots
 src/server/Assets.luau        approved models from ServerStorage.Assets
+src/server/HouseKit.luau      houses, Lair and vault door from the approved models
 src/server/MapBuilder.luau    greybox hub, houses, streets, sleigh, Krampus and elf stand-ins
 src/server/Loot.luau          pure House Card rolls, stop plans, loot and results
 src/client/Hud.client.luau    timer, Jingle, sack, noise, bells, breath, wiggle, queue, results

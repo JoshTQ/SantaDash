@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Maps = require(ReplicatedStorage.Shared.Maps)
+local HouseKit = require(script.Parent.HouseKit)
 local MapFeatures = require(script.Parent.MapFeatures)
 
 local MapBuilder = {}
@@ -255,7 +256,13 @@ export type Stop = {
 	vaultPrompt: ProximityPrompt?,
 	vaultDoor: BasePart?,
 	krampusSpawn: CFrame,
+	doors: { Door }, -- approved houses' front doors (Run swings them)
 }
+
+export type Door = { door: BasePart, prompt: ProximityPrompt, closed: CFrame, open: boolean }
+
+-- Approved house models (see HouseKit); empty/nil = greybox blocks.
+export type Kit = { houses: { Model }, lair: Model?, vaultDoor: Model? }
 
 local function buildPresent(parent: Instance, rng: Random, position: Vector3, plan): BuiltPresent
 	local model = Instance.new("Model")
@@ -291,15 +298,38 @@ local function buildPresent(parent: Instance, rng: Random, position: Vector3, pl
 end
 
 -- cframe: centre of the house on the street, LookVector pointing out of the front door.
--- Returns the height of the roof top.
+-- Returns the Lair's Krampus spawn when an approved Lair model sets one.
 local function buildHouse(
 	parent: Instance,
 	stop: Stop,
 	rng: Random,
 	plan,
 	cframe: CFrame,
-	labelText: string
-): number
+	labelText: string,
+	kit: Kit?
+): CFrame?
+	local template = if not kit
+		then nil
+		elseif plan.typeName == "Lair" then kit.lair
+		elseif plan.locked then nil
+		else HouseKit.pick(kit.houses, rng, plan)
+	if template then
+		return HouseKit.build({
+			parent = parent,
+			stop = stop,
+			rng = rng,
+			plan = plan,
+			cframe = cframe,
+			label = labelText,
+			template = template,
+			helpers = {
+				newPart = newPart,
+				addPrompt = addPrompt,
+				addLabel = addLabel,
+				buildPresent = buildPresent,
+			},
+		})
+	end
 	local houseType = Config.Houses.Types[plan.typeName]
 	local model = Instance.new("Model")
 	model.Name = plan.typeName .. "House"
@@ -377,14 +407,19 @@ local function buildHouse(
 	table.insert(stop.lights, light)
 
 	if plan.locked then
-		local vaultDoor = newPart(
-			model,
-			"VaultDoor",
-			Vector3.new(door.X, door.Y, t + 0.4),
-			cframe * CFrame.new(0, FLOOR_TOP + door.Y / 2, frontZ),
-			GOLD,
-			Enum.Material.Neon
-		)
+		local vaultDoor = kit
+			and kit.vaultDoor
+			and HouseKit.placeVaultDoor(model, kit.vaultDoor, cframe * CFrame.new(0, FLOOR_TOP, frontZ))
+		if not vaultDoor then
+			vaultDoor = newPart(
+				model,
+				"VaultDoor",
+				Vector3.new(door.X, door.Y, t + 0.4),
+				cframe * CFrame.new(0, FLOOR_TOP + door.Y / 2, frontZ),
+				GOLD,
+				Enum.Material.Neon
+			)
+		end
 		stop.vaultDoor = vaultDoor
 		stop.vaultPrompt = addPrompt(vaultDoor, "Open vault", Config.Buys.VaultDoor.Cost .. " Jingle", 0.5)
 	end
@@ -459,7 +494,7 @@ local function buildHouse(
 	end
 
 	model.Parent = parent
-	return roofTop
+	return nil
 end
 
 ----------------------------------------------------------------------------
@@ -484,6 +519,7 @@ export type RouteOptions = {
 	map: Maps.Map?, -- defaults to Maps.Default
 	dressing: Model?, -- approved set dressing: children StopDressing (per stop) and RouteDressing
 	cocoa: Model?, -- approved "CocoaMachine" (Assets contract) instead of the block
+	houseKit: Kit?, -- approved House variants, KrampusLair and VaultDoor (HouseKit)
 	sleigh: Model?,
 	reindeer: Model?,
 }
@@ -494,7 +530,8 @@ local function buildStop(
 	plan,
 	origin: CFrame,
 	mapDef: Maps.Map,
-	cocoaTemplate: Model?
+	cocoaTemplate: Model?,
+	kit: Kit?
 ): Stop
 	local model = Instance.new("Model")
 	model.Name = "Stop" .. plan.index .. "_" .. plan.kindName
@@ -519,6 +556,7 @@ local function buildStop(
 		chimneys = {},
 		hideSpots = {},
 		cocoaPrompt = nil :: any,
+		doors = {},
 		krampusSpawn = origin * CFrame.new(0, 6, far + map.StreetOverrun - 20), -- past the vault
 	}
 
@@ -535,9 +573,9 @@ local function buildStop(
 			cf = origin * CFrame.lookAt(pos, pos - Vector3.xAxis * house.side)
 		end
 		local label = Config.Houses.Types[house.typeName].Label .. " · " .. string.upper(house.ring)
-		buildHouse(model, stop, rng, house, cf, label)
+		local kitSpawn = buildHouse(model, stop, rng, house, cf, label, kit)
 		if house.typeName == "Lair" then
-			stop.krampusSpawn = cf * CFrame.new(0, 6, house.size.Z / 4)
+			stop.krampusSpawn = kitSpawn or cf * CFrame.new(0, 6, house.size.Z / 4)
 		end
 	end
 
@@ -705,7 +743,7 @@ function MapBuilder.buildRoute(
 	}
 	for i, plan in plans do
 		local origin = base * stopOrigin(mapDef.layout, i)
-		route.stops[i] = buildStop(model, rng, plan, origin, mapDef, options.cocoa)
+		route.stops[i] = buildStop(model, rng, plan, origin, mapDef, options.cocoa, options.houseKit)
 		if onFoot[i] then
 			local nextOrigin = base * stopOrigin(mapDef.layout, i + 1)
 			buildFootPath(model, rng, origin, nextOrigin, onFoot[i], route.onFootPresents, mapDef)

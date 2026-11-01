@@ -23,6 +23,7 @@ local KrampusBrain = require(script.Parent.KrampusBrain)
 local Krampus = require(script.Parent.Krampus)
 local MapBuilder = require(script.Parent.MapBuilder)
 local MapFeatures = require(script.Parent.MapFeatures)
+local HouseKit = require(script.Parent.HouseKit)
 
 local now, rootOf, humanoidOf = Util.now, Util.rootOf, Util.humanoidOf
 
@@ -82,6 +83,11 @@ function Run.new(
 		map = map,
 		dressing = Assets.mapDressing(map.dressing),
 		cocoa = Assets.clone("CocoaMachine", { "Body", "BuyPrompt" }),
+		houseKit = {
+			houses = HouseKit.variants(Assets.folder()),
+			lair = Assets.clone("KrampusLair", { "Floor", "ListPedestal", "KrampusSpawn" }),
+			vaultDoor = Assets.clone("VaultDoor", { "Frame", "Door" }),
+		},
 		sleigh = Assets.clone("Sleigh", { "Body", "Seat1", "Hitch" }),
 		reindeer = Assets.get("Reindeer"),
 	})
@@ -282,6 +288,16 @@ function Run:_wirePrompts()
 				self:_hide(player, spot)
 			end)
 		end
+		for _, door in stop.doors do
+			on(door.prompt, function(player)
+				if self:_free(player) then
+					door.open = not door.open
+					door.door.CFrame = HouseKit.doorCFrame(door.closed, door.door.Size, door.open)
+					door.door.CanCollide = not door.open
+					door.prompt.ActionText = if door.open then "Close" else "Open"
+				end
+			end)
+		end
 	end
 	wirePresents(self.route.onFootPresents)
 end
@@ -399,8 +415,9 @@ function Run:_buyVault(player: Player, stop)
 	local prompt = stop.vaultPrompt
 	if prompt.Enabled and self:_spend(player, Config.Buys.VaultDoor.Cost) then
 		prompt.Enabled = false
-		stop.vaultDoor.CanCollide = false
-		stop.vaultDoor.Transparency = 0.85
+		local vaultDoor = stop.vaultDoor
+		vaultDoor.CFrame = HouseKit.doorCFrame(vaultDoor.CFrame, vaultDoor.Size, true)
+		vaultDoor.CanCollide = false
 		self:_sendPlayer(player)
 		self:_banner(nil, player.DisplayName .. " opened the vault!", 3)
 	end

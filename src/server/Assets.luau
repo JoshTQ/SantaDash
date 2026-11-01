@@ -8,6 +8,7 @@
 	Sleigh    PrimaryPart "Body", Seat1-Seat6, "Horn", "Lantern", "Hitch"
 	Reindeer  PrimaryPart "Body", Head, LegFL/LegFR/LegBL/LegBR on Motor6Ds
 	          (two per sleigh, placed in front of the sleigh's Hitch)
+	House, KrampusLair, VaultDoor  see HouseKit.luau
 	CocoaMachine  PrimaryPart "Body", "BuyPrompt" Attachment (+ Sign, TopMug,
 	          Dispenser, PricePlate); placed standing on the street
 	The Sleigh's Seats are disabled: Run carries riders at each Seat's spot.
@@ -27,6 +28,10 @@ function Assets.get(name: string): Model?
 		return model
 	end
 	return nil
+end
+
+function Assets.folder(): Folder?
+	return ServerStorage:FindFirstChild("Assets") :: Folder?
 end
 
 function Assets.mapDressing(name: string?): Model?
