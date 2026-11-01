@@ -125,6 +125,9 @@ Config.Presents = {
 -- a stop on board, so the sack limit is per stop.
 Config.Sack = {
 	Capacity = 15,
+	-- Missing the final sleigh: you keep this share of your unbanked sack
+	-- (Josh, 1 Nov 2026: lose 50%). Banked loot is always kept.
+	MissedFinalKeep = 0.5,
 }
 
 -- Jingle: in-run only, gone at the end, NEVER sold for Robux.
@@ -172,10 +175,8 @@ Config.Krampus = {
 	StunSeconds = 3,
 	BellCooldown = 6,
 	ReleaseGrace = 4, -- seconds a dropped Santa can't be re-snatched
-	-- Wiggle free: taps needed. Solo per the design; crews can too, slower,
-	-- so an AFK team can't leave you stuck.
-	WiggleSolo = 15,
-	WiggleCrew = 30,
+	-- Wiggle free: taps needed, the same solo or in a crew (Josh, 1 Nov 2026).
+	WiggleTaps = 15,
 	-- Hiding: breath drains while he is near; tapping refills it.
 	BreathRange = 25,
 	BreathSeconds = 5, -- full to empty with no taps

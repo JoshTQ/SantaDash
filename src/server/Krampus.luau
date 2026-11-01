@@ -225,7 +225,7 @@ function Krampus:wiggle(player: Player)
 		return
 	end
 	self.wiggles += 1
-	local needed = KrampusBrain.wiggleNeeded(self.run:crewSize())
+	local needed = KrampusBrain.wiggleNeeded()
 	if self.wiggles >= needed then
 		self:release()
 		self.run:_banner(nil, player.DisplayName .. " wiggled free!", 2)

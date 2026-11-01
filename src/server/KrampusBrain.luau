@@ -83,8 +83,8 @@ function KrampusBrain.tapAllowed(lastTapAt: number, now: number): boolean
 	return now - lastTapAt >= 1 / K.MaxTapsPerSecond
 end
 
-function KrampusBrain.wiggleNeeded(crewSize: number): number
-	return if crewSize <= 1 then K.WiggleSolo else K.WiggleCrew
+function KrampusBrain.wiggleNeeded(): number
+	return K.WiggleTaps
 end
 
 return KrampusBrain

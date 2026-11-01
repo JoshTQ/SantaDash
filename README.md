@@ -30,9 +30,9 @@ To build a place file instead: `rojo build -o SleighHeist.rbxl`.
 | Loot | Presents with size-squared value, +25% per house threat. Sack holds 15 and is banked when you leave a stop on the sleigh. |
 | Jingle | Start 500, earned per grab. Spend on the Far-ring Vault (1,000, opens for the crew) and Peppermint Rush (1,500, faster). |
 | Noise | Shared meter per stop. Grabs and buys add noise, Heat adds more after the lights come on. |
-| Krampus | From Stop 3 (always in his Lair): hunts the nearest Santa he can sense, snatches them into his basket (perks lost), carries them around. Ring the bells behind him to make him spin and drop them; solo Santas wiggle free (crews can too, slower). Hide in a wardrobe and tap to hold your breath while he's near, or you gasp and give yourself away. |
+| Krampus | From Stop 3 (always in his Lair): hunts the nearest Santa he can sense, snatches them into his basket (perks lost), carries them around. Ring the bells behind him to make him spin and drop them; or tap 15 times to wiggle free. Hide in a wardrobe and tap to hold your breath while he's near, or you gasp and give yourself away. |
 | On foot | Miss the sleigh and follow the snowy path to the next stop; hidden presents on the way. |
-| Finale | Krampus's Lair holds the Naughty List. Escaping on the sleigh doubles your loot. |
+| Finale | Krampus's Lair holds the Naughty List. Escaping on the sleigh doubles your loot; missing it keeps only half of your unbanked sack. |
 | Results | 10 s results with best thief and Coal, then the same crew requeues together ("Next run in 5..."). |
 
 All tuning numbers live in `src/shared/Config.luau`.

@@ -212,6 +212,13 @@ function Loot.bank(state: PlayerState, escapeMultiplier: number?)
 	end
 end
 
+-- Missing the final sleigh: keep only part of the unbanked sack, no escape bonus.
+function Loot.bankMissed(state: PlayerState)
+	state.banked += math.floor(state.sackValue * Config.Sack.MissedFinalKeep)
+	state.sackValue = 0
+	state.sackCount = 0
+end
+
 function Loot.finalLoot(state: PlayerState): number
 	return state.banked * (state.escapeMultiplier or 1)
 end

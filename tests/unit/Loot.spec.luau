@@ -119,12 +119,15 @@ test("banking empties the sack; escaping the finale doubles loot", function()
 	expect(Loot.finalLoot(st)).toBe(100)
 end)
 
-test("missing the final sleigh keeps banked loot but loses the sack", function()
+test("missing the final sleigh keeps banked loot and half the sack, with no escape bonus", function()
 	local st = Loot.newPlayerState()
 	Loot.grab(st, { size = 1, value = 40, ringMultiplier = 1, threats = 0 })
 	Loot.bank(st, nil)
-	Loot.grab(st, { size = 1, value = 99, ringMultiplier = 1, threats = 0 }) -- never banked
-	expect(Loot.finalLoot(st)).toBe(40)
+	Loot.grab(st, { size = 1, value = 100, ringMultiplier = 1, threats = 0 })
+	Loot.bankMissed(st)
+	expect(st.sackCount).toBe(0)
+	expect(Loot.finalLoot(st)).toBe(40 + 50)
+	expect(Loot.results({ { "Ann", st } })[1].escaped).toBeFalsy()
 end)
 
 test("results rank the best thief first and convert loot to Coal", function()

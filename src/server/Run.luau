@@ -179,10 +179,6 @@ function Run:_isEmpty(): boolean
 	return next(self.players) == nil
 end
 
-function Run:crewSize(): number
-	return #self.order
-end
-
 function Run:_applyPerks(player: Player)
 	local st = self.players[player]
 	local humanoid = humanoidOf(player)
@@ -436,11 +432,7 @@ function Run:onSnatched(player: Player)
 		root.Anchored = true
 	end
 	self:_banner(nil, "Krampus snatched " .. player.DisplayName .. "! Ring the bells behind him!", 3)
-	self:_send(
-		player,
-		"Captive",
-		{ captive = true, wiggles = 0, needed = KrampusBrain.wiggleNeeded(#self.order) }
-	)
+	self:_send(player, "Captive", { captive = true, wiggles = 0, needed = KrampusBrain.wiggleNeeded() })
 end
 
 function Run:onReleased(player: Player, at: CFrame)
@@ -611,7 +603,11 @@ function Run:_playStop(stop): { Player }
 			table.insert(aboard, player)
 			Loot.bank(st, plan.escapeMultiplier)
 			self:_sendPlayer(player)
-		elseif st and not plan.escapeMultiplier then
+		elseif st and plan.escapeMultiplier then
+			Loot.bankMissed(st)
+			self:_sendPlayer(player)
+			self:_banner(player, "You missed the last sleigh! Half your sack fell out.", 4)
+		elseif st then
 			self:_banner(player, "You missed the sleigh! Follow the path to the next stop.", 4)
 		end
 	end
