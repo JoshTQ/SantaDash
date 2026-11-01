@@ -198,7 +198,7 @@ Config.Krampus = {
 -- a hit plays one event from the map's own pool at one stop. Rules: one big
 -- moment per stop, never in a Krampus stop, never blocks the way back to the
 -- sleigh, always ends before the horn, always has an upside.
--- Proposed 1 Nov 2026, awaiting Josh's picks.
+-- Josh, 1 Nov 2026: launch = this system + Blizzard; crew snowballs stay harmless.
 Config.MapEvents = {
 	Chance = 0.6, -- per run
 	Stops = { 2 }, -- launch slice: Stop 2 only (Stop 1 = easy, Stop 3 = Lair)
