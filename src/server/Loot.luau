@@ -146,13 +146,20 @@ local function planHouse(
 end
 
 -- Everything one stop contains, decided up front so MapBuilder only builds it.
-function Loot.planStop(rng: Random, stopIndex: number): StopPlan
+-- streetSlots: the map's house slots (Maps layout.Slots); defaults to Config.Street.Slots.
+function Loot.planStop(rng: Random, stopIndex: number, streetSlots: { any }?): StopPlan
 	local kindName = Config.Run.StopKinds[stopIndex]
 	local kind = Config.StopKinds[kindName]
-	local types = Loot.rollStreet(rng, stopIndex, #kind.Slots)
+	local slots = streetSlots or Config.Street.Slots
+	local used = {}
+	for _, slotIndex in kind.Slots do
+		if slots[slotIndex] then
+			table.insert(used, slots[slotIndex])
+		end
+	end
+	local types = Loot.rollStreet(rng, stopIndex, #used)
 	local houses = {}
-	for i, slotIndex in kind.Slots do
-		local slot = Config.Street.Slots[slotIndex]
+	for i, slot in used do
 		local typeName = if i > 1 and kind.ForceType then kind.ForceType else types[i]
 		local distance = Config.Rings[slot.Ring].Distance + slot.Extra
 		table.insert(houses, planHouse(rng, typeName, slot.Ring, slot.Side, distance, i == 1))

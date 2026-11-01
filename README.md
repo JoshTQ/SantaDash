@@ -44,6 +44,22 @@ To build a place file instead: `rojo build -o SleighHeist.rbxl`.
 
 All tuning numbers live in `src/shared/Config.luau`.
 
+## Maps
+
+Each run picks a map from `Maps.Rotation` (never the one the crew just
+played, when there is a choice). A map is a pure definition in
+`src/shared/Maps/` (palette, layout, features, set dressing); gameplay is
+always built procedurally from it, so every map gets houses, presents,
+Krampus and the sleigh. `Maps/SnowyStreet.luau` is the reference shape.
+
+- **Layout:** street slots, widths and spacing override `Config`. `StopOrigins`
+  puts each stop anywhere (curves, opposite banks); `EndHouseAt` places a stop
+  kind's Vault or Lair (e.g. the Lair on an island).
+- **Features:** `src/server/MapFeatures.luau` entries with `build` (Instances,
+  no events) and `start` (runtime behaviour per stop, returns a cleanup).
+- **Dressing:** an approved Model in `ServerStorage.Maps.<dressing>` with
+  `StopDressing` (cloned at every stop) and `RouteDressing` (once). Art only.
+
 ## Lobby and run places (cross-server matchmaking)
 
 The same build runs in two places. The **lobby place** queues crews and
@@ -63,8 +79,8 @@ Workspace; players with no TeleportData then join as a test crew.
 
 | Layer | What | How |
 | --- | --- | --- |
-| Unit | Pure rules: House Card rolls, stop plans, values, banking, results, Krampus decisions (arrival, targeting, bells, breath, wiggle), elf bot decisions (design mix, present picks), lobby-to-run handoff (validation, admission, departure), Config invariants | `lune run tests/runner` |
-| Integration | MapBuilder builds real Instances (Lune's Roblox library) from real plans: counts, prompts, sleigh on the roof, no overlapping houses, Krampus and elf rigs, sleigh seats, vault presents | same command |
+| Unit | Pure rules: House Card rolls, stop plans, values, banking, results, Krampus decisions (arrival, targeting, bells, breath, wiggle), elf bot decisions (design mix, present picks), lobby-to-run handoff (validation, admission, departure), map registry and rotation, Config invariants | `lune run tests/runner` |
+| Integration | MapBuilder builds real Instances (Lune's Roblox library) from real plans: counts, prompts, sleigh on the roof, no overlapping houses, Krampus and elf rigs, sleigh seats, vault presents, map palette/layout/features/stop origins, every map in the rotation | same command |
 | Static | Format, lint, place build | `stylua --check src tests`, `selene src`, `rojo build` |
 | E2E | Not automated yet; see below | Studio playtest |
 
@@ -96,6 +112,8 @@ src/server/Main.server.luau   entry point
 src/server/Lobby.luau         Quick Join queue, run slots, requeue (single-server mode)
 src/server/RunHost.luau       run place: receive a crew, run back to back, return leavers
 src/shared/Handoff.luau       lobby -> run place TeleportData contract
+src/shared/Maps/              map definitions and the rotation
+src/server/MapFeatures.luau   map-specific builders and per-stop runtime hooks
 src/server/Run.luau           one crew's run: stops, phases, grabs, buys, noise, hiding, results
 src/server/Krampus.luau       Krampus movement, snatch, carry, bells, wiggle
 src/server/KrampusBrain.luau  pure Krampus decisions

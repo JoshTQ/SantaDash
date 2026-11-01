@@ -29,6 +29,7 @@ local expected = 0
 local departAt = math.huge
 local requeue = false
 local current = nil -- the Run in progress (or being built)
+local lastMap: string? = nil
 
 local function send(player: Player, kind: string, data: any)
 	if player.Parent == Players then
@@ -77,7 +78,7 @@ local function launch()
 	waiting = {}
 	current = true -- reserved while the route builds
 	task.spawn(function()
-		local ok, run = pcall(Run.new, 1, players, onFinished)
+		local ok, run = pcall(Run.new, 1, players, onFinished, lastMap)
 		if not ok then
 			warn("[RunHost] failed to build a route: " .. tostring(run))
 			current = nil
@@ -87,6 +88,7 @@ local function launch()
 			return
 		end
 		current = run
+		lastMap = run.mapId
 		for _, player in players do
 			if run:hasPlayer(player) and player.Parent == Players then
 				send(player, "QueueClear", {})

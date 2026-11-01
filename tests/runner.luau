@@ -59,9 +59,11 @@ end
 
 local function fileFor(parts: { string }): string
 	local folder = ROOTS[parts[1]] and ROOTS[parts[1]][parts[2]]
-	assert(folder and #parts == 3, "can't resolve require path " .. table.concat(parts, "."))
-	for _, suffix in { ".luau", ".server.luau", ".client.luau" } do
-		local file = folder .. "/" .. parts[3] .. suffix
+	assert(folder and #parts >= 3, "can't resolve require path " .. table.concat(parts, "."))
+	-- Deeper paths are subfolders; a folder module is its init.luau (as in Rojo).
+	local base = folder .. "/" .. table.concat(parts, "/", 3)
+	for _, suffix in { ".luau", ".server.luau", ".client.luau", "/init.luau" } do
+		local file = base .. suffix
 		if fs.isFile(file) then
 			return file
 		end

@@ -11,11 +11,12 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local Maps = require(ReplicatedStorage.Shared.Maps)
+local MapFeatures = require(script.Parent.MapFeatures)
 
 local MapBuilder = {}
 
 local SNOW = Color3.fromRGB(235, 240, 250)
-local ROAD = Color3.fromRGB(70, 74, 86)
 local WALL = Color3.fromRGB(190, 185, 175)
 local SLEIGH_RED = Color3.fromRGB(200, 30, 40)
 local GOLD = Color3.fromRGB(255, 200, 60)
@@ -471,20 +472,24 @@ export type Route = {
 	stops: { Stop },
 	onFootPresents: { BuiltPresent },
 	seatOffsets: { CFrame }, -- rider spots relative to the deck pivot
+	map: Maps.Map,
 }
 
--- buildRoute options. sleigh: an approved "Sleigh" clone (Assets.clone) to use
+-- buildRoute options. Pivots of StopDressing/RouteDressing go to the stop/route origin.
+-- sleigh: an approved "Sleigh" clone (Assets.clone) to use
 -- instead of the greybox blocks; reindeer: the "Reindeer" template for it.
 export type RouteOptions = {
 	yieldEach: (() -> ())?, -- called between stops to spread the build over frames
+	map: Maps.Map?, -- defaults to Maps.Default
+	dressing: Model?, -- approved set dressing: children StopDressing (per stop) and RouteDressing
 	sleigh: Model?,
 	reindeer: Model?,
 }
 
-local function buildStop(parent: Instance, rng: Random, plan, origin: CFrame): Stop
+local function buildStop(parent: Instance, rng: Random, plan, origin: CFrame, mapDef: Maps.Map): Stop
 	local model = Instance.new("Model")
 	model.Name = "Stop" .. plan.index .. "_" .. plan.kindName
-	local map = Config.Map
+	local map = mapDef.layout
 	local far = Config.Rings.Far.Distance
 	local streetLength = far + map.StreetOverrun - map.StreetStart
 
@@ -493,7 +498,8 @@ local function buildStop(parent: Instance, rng: Random, plan, origin: CFrame): S
 		"Road",
 		Vector3.new(map.RoadWidth, 0.2, streetLength),
 		origin * CFrame.new(0, 0.1, map.StreetStart + streetLength / 2),
-		ROAD
+		mapDef.palette.Road[1],
+		mapDef.palette.Road[2]
 	)
 
 	local stop: Stop = {
@@ -509,7 +515,10 @@ local function buildStop(parent: Instance, rng: Random, plan, origin: CFrame): S
 
 	for _, house in plan.houses do
 		local cf
-		if house.side == 0 then
+		local endAt = map.EndHouseAt and map.EndHouseAt[plan.kindName]
+		if house.side == 0 and endAt then
+			cf = origin * endAt -- placed by the map (e.g. the Lair on its island)
+		elseif house.side == 0 then
 			-- End-of-street house, facing back up the street.
 			cf = origin * CFrame.lookAt(Vector3.new(0, 0, house.distance), Vector3.zero)
 		else
@@ -519,7 +528,7 @@ local function buildStop(parent: Instance, rng: Random, plan, origin: CFrame): S
 		local label = Config.Houses.Types[house.typeName].Label .. " · " .. string.upper(house.ring)
 		local roofTop = buildHouse(model, stop, rng, house, cf, label)
 		if house.isLanding then
-			stop.deckCFrame = cf * CFrame.new(map.DeckOnRoof + Vector3.new(0, roofTop, 0))
+			stop.deckCFrame = cf * CFrame.new(Config.Map.DeckOnRoof + Vector3.new(0, roofTop, 0))
 		end
 		if house.typeName == "Lair" then
 			stop.krampusSpawn = cf * CFrame.new(0, 6, house.size.Z / 4)
@@ -542,35 +551,70 @@ local function buildStop(parent: Instance, rng: Random, plan, origin: CFrame): S
 	)
 	stop.cocoaPrompt = addPrompt(machine, "Buy perk", "Peppermint Rush", 0.5)
 
+	for _, feature in mapDef.features do
+		local entry = MapFeatures[feature.kind]
+		assert(entry, "unknown map feature " .. tostring(feature.kind))
+		if entry.build then
+			entry.build({
+				model = model,
+				origin = origin,
+				feature = feature,
+				rng = rng,
+				stop = stop,
+				newPart = newPart,
+			})
+		end
+	end
+
 	model.Parent = parent
 	return stop
 end
 
--- The snowy path from one stop to the next, with hidden presents behind snow mounds.
-local function buildFootPath(parent: Instance, rng: Random, origin: CFrame, presents, out: { BuiltPresent })
-	local spacing = Config.Map.StopSpacing
-	local z = Config.Map.FootPathZ
+-- The path from one stop to the next (stop origins `from` -> `to`), with
+-- hidden presents behind snow mounds on alternate sides.
+local function buildFootPath(
+	parent: Instance,
+	rng: Random,
+	from: CFrame,
+	to: CFrame,
+	presents,
+	out: { BuiltPresent },
+	mapDef: Maps.Map
+)
+	local z = mapDef.layout.FootPathZ
+	local a = (from * CFrame.new(0, 0, z)).Position
+	local b = (to * CFrame.new(0, 0, z)).Position
+	local length = (b - a).Magnitude
+	local frame = CFrame.lookAt(a, b) -- -Z runs along the path, +X is its right side
 	newPart(
 		parent,
 		"FootPath",
-		Vector3.new(spacing, 0.2, 10),
-		origin * CFrame.new(spacing / 2, 0.1, z),
-		Color3.fromRGB(200, 210, 230)
+		Vector3.new(10, 0.2, length),
+		frame * CFrame.new(0, 0.1, -length / 2),
+		mapDef.palette.Path[1],
+		mapDef.palette.Path[2]
 	)
 	for n, plan in presents do
-		local along = spacing * n / (#presents + 1)
-		local side = z + (if n % 2 == 0 then -20 else 18)
+		local along = length * n / (#presents + 1)
+		local side = if n % 2 == 0 then -20 else 18
 		local mound = newPart(
 			parent,
 			"SnowMound",
 			Vector3.new(10, 5, 10),
-			origin * CFrame.new(along, 2.5, side - 8),
-			SNOW,
-			Enum.Material.Snow
+			frame * CFrame.new(side - 8, 2.5, -along),
+			mapDef.palette.Ground[1],
+			mapDef.palette.Ground[2]
 		)
 		mound.Shape = Enum.PartType.Ball
-		table.insert(out, buildPresent(parent, rng, (origin * CFrame.new(along, 0, side)).Position, plan))
+		table.insert(out, buildPresent(parent, rng, (frame * CFrame.new(side, 0, -along)).Position, plan))
 	end
+end
+
+-- Where stop i sits, relative to the route base: the map's StopOrigins, else
+-- StopSpacing apart along +X.
+local function stopOrigin(layout: Maps.Layout, i: number): CFrame
+	local given = layout.StopOrigins and layout.StopOrigins[i]
+	return given or CFrame.new((i - 1) * layout.StopSpacing, 0, 0)
 end
 
 -- plans: one Loot.StopPlan per stop; onFoot: one present list per gap between stops.
@@ -583,40 +627,66 @@ function MapBuilder.buildRoute(
 	opts: RouteOptions?
 ): Route
 	local options: RouteOptions = opts or {}
+	local mapDef = options.map or Maps.get()
 	local model = Instance.new("Model")
 	model.Name = "Route" .. slot
 	local map = Config.Map
-	local spacing = map.StopSpacing
 	local base = CFrame.new(0, 0, map.RouteOriginZ + (slot - 1) * map.RouteSpacing)
-	local length = (#plans - 1) * spacing
 	local far = Config.Rings.Far.Distance
 
+	-- Snow under every street: the bounds of each stop's street area.
+	local lo, hi = Vector3.one * math.huge, -Vector3.one * math.huge
+	for i = 1, #plans do
+		local o = stopOrigin(mapDef.layout, i)
+		for _, corner in { Vector3.new(-200, 0, -120), Vector3.new(200, 0, far + 200) } do
+			for _, x in { corner.X, -corner.X } do
+				local p = (o * CFrame.new(x, 0, corner.Z)).Position
+				lo, hi = lo:Min(p), hi:Max(p)
+			end
+		end
+	end
+	local size = hi - lo
 	newPart(
 		model,
 		"Ground",
-		Vector3.new(length + 400, 2, far + 320),
-		base * CFrame.new(length / 2, -1, far / 2 + 40),
-		SNOW,
-		Enum.Material.Snow
+		Vector3.new(size.X, 2, size.Z),
+		base * CFrame.new((lo.X + hi.X) / 2, -1, (lo.Z + hi.Z) / 2),
+		mapDef.palette.Ground[1],
+		mapDef.palette.Ground[2]
 	)
 
 	local route: Route = {
 		model = model,
 		sleigh = nil :: any,
-		startDeck = base * CFrame.new(map.TakeoffOffset),
+		startDeck = base * stopOrigin(mapDef.layout, 1) * CFrame.new(map.TakeoffOffset),
 		stops = {},
 		onFootPresents = {},
 		seatOffsets = MapBuilder.SeatOffsets,
+		map = mapDef,
 	}
 	for i, plan in plans do
-		local origin = base * CFrame.new((i - 1) * spacing, 0, 0)
-		route.stops[i] = buildStop(model, rng, plan, origin)
+		local origin = base * stopOrigin(mapDef.layout, i)
+		route.stops[i] = buildStop(model, rng, plan, origin, mapDef)
 		if onFoot[i] then
-			buildFootPath(model, rng, origin, onFoot[i], route.onFootPresents)
+			local nextOrigin = base * stopOrigin(mapDef.layout, i + 1)
+			buildFootPath(model, rng, origin, nextOrigin, onFoot[i], route.onFootPresents, mapDef)
+		end
+		local stopDressing = options.dressing and options.dressing:FindFirstChild("StopDressing")
+		if stopDressing then
+			local copy = stopDressing:Clone() :: Model
+			copy:PivotTo(origin)
+			copy.Parent = model
 		end
 		if options.yieldEach then
 			options.yieldEach()
 		end
+	end
+
+	local routeDressing = options.dressing and options.dressing:FindFirstChild("RouteDressing")
+	if routeDressing then
+		local copy = routeDressing:Clone() :: Model
+		copy:PivotTo(base)
+		copy.Parent = model
 	end
 
 	if options.sleigh then

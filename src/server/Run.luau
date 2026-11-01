@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local Maps = require(ReplicatedStorage.Shared.Maps)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Util = require(ReplicatedStorage.Shared.Util)
 local Assets = require(script.Parent.Assets)
@@ -21,6 +22,7 @@ local Loot = require(script.Parent.Loot)
 local KrampusBrain = require(script.Parent.KrampusBrain)
 local Krampus = require(script.Parent.Krampus)
 local MapBuilder = require(script.Parent.MapBuilder)
+local MapFeatures = require(script.Parent.MapFeatures)
 
 local now, rootOf, humanoidOf = Util.now, Util.rootOf, Util.humanoidOf
 
@@ -40,7 +42,13 @@ local NOISY_PHASES = { Sneak = true, LightsOn = true, Horn = true }
 local Run = {}
 Run.__index = Run
 
-function Run.new(slot: number, crew: { Player }, onFinished: (run: any, survivors: { Player }) -> ())
+-- lastMap: the map this crew just played, so the next run picks another.
+function Run.new(
+	slot: number,
+	crew: { Player },
+	onFinished: (run: any, survivors: { Player }) -> (),
+	lastMap: string?
+)
 	local self = setmetatable({}, Run)
 	self.slot = slot
 	self.hud = Remotes.get("Hud")
@@ -55,19 +63,24 @@ function Run.new(slot: number, crew: { Player }, onFinished: (run: any, survivor
 	self.lastNoisePos = nil :: Vector3?
 	self.krampus = nil
 	self.ended = false
+	self.featureCleanups = {} :: { () -> () }
 	self.times = { departAt = 0 }
 
 	local rng = Random.new()
+	local map = Maps.get(Maps.pick(rng, lastMap))
+	self.mapId = map.id
 	local stopCount = #Config.Run.StopKinds
 	local plans, onFoot = {}, {}
 	for i = 1, stopCount do
-		plans[i] = Loot.planStop(rng, i)
+		plans[i] = Loot.planStop(rng, i, map.layout.Slots)
 		if i < stopCount then
 			onFoot[i] = Loot.planOnFoot(rng)
 		end
 	end
 	self.route = MapBuilder.buildRoute(workspace, slot, rng, plans, onFoot, {
 		yieldEach = task.wait, -- spread the build over frames so the server doesn't stall
+		map = map,
+		dressing = Assets.mapDressing(map.dressing),
 		sleigh = Assets.clone("Sleigh", { "Body", "Seat1", "Hitch" }),
 		reindeer = Assets.get("Reindeer"),
 	})
@@ -545,6 +558,31 @@ function Run:_stopKrampus()
 	end
 end
 
+-- Map features with runtime behaviour (MapFeatures start hooks) for one stop.
+function Run:_startFeatures(stop)
+	for _, feature in self.route.map.features do
+		local entry = MapFeatures[feature.kind]
+		if entry and entry.start then
+			local ok, cleanup = pcall(entry.start, { run = self, stop = stop, feature = feature })
+			if not ok then
+				warn("[Run] map feature " .. feature.kind .. " failed to start: " .. tostring(cleanup))
+			elseif cleanup then
+				table.insert(self.featureCleanups, cleanup)
+			end
+		end
+	end
+end
+
+function Run:_stopFeatures()
+	for _, cleanup in self.featureCleanups do
+		local ok, err = pcall(cleanup)
+		if not ok then
+			warn("[Run] map feature cleanup failed: " .. tostring(err))
+		end
+	end
+	self.featureCleanups = {}
+end
+
 ----------------------------------------------------------------------------
 -- Sleigh flight
 ----------------------------------------------------------------------------
@@ -617,6 +655,7 @@ function Run:_playStop(stop): { Player }
 	if #self.elfVariants > 0 then
 		self:_spawnElves() -- elves hop off with their Santa at the first stop
 	end
+	self:_startFeatures(stop)
 
 	-- Timed phases, entered in order once their time has passed.
 	local phases = {
@@ -675,6 +714,7 @@ function Run:_playStop(stop): { Player }
 		end
 	end
 
+	self:_stopFeatures()
 	self:_stopKrampus()
 	local aboard = {}
 	for _, player in table.clone(self.order) do
@@ -711,7 +751,11 @@ function Run:start()
 end
 
 function Run:_main()
-	self:_banner(nil, "Take-off! Rob the houses, then escape Krampus's Lair.", 4)
+	self:_banner(
+		nil,
+		"Take-off for " .. self.route.map.name .. "! Rob the houses, then escape Krampus's Lair.",
+		4
+	)
 	for player in self.players do
 		self:_sendPlayer(player)
 	end
@@ -746,6 +790,7 @@ function Run:_finish()
 	if self.ended then
 		return
 	end
+	self:_stopFeatures()
 	self:_stopKrampus()
 	self:_removeElves()
 	self.ended = true

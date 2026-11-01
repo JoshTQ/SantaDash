@@ -9,6 +9,9 @@
 	Reindeer  PrimaryPart "Body", Head, LegFL/LegFR/LegBL/LegBR on Motor6Ds
 	          (two per sleigh, placed in front of the sleigh's Hitch)
 	The Sleigh's Seats are disabled: Run carries riders at each Seat's spot.
+
+	Map set dressing lives in ServerStorage.Maps.<dressing> (see shared/Maps):
+	a Model with StopDressing and/or RouteDressing children.
 ]]
 
 local ServerStorage = game:GetService("ServerStorage")
@@ -18,6 +21,15 @@ local Assets = {}
 function Assets.get(name: string): Model?
 	local folder = ServerStorage:FindFirstChild("Assets")
 	local model = folder and folder:FindFirstChild(name)
+	if model and model:IsA("Model") then
+		return model
+	end
+	return nil
+end
+
+function Assets.mapDressing(name: string?): Model?
+	local folder = name and ServerStorage:FindFirstChild("Maps")
+	local model = folder and folder:FindFirstChild(name :: string)
 	if model and model:IsA("Model") then
 		return model
 	end

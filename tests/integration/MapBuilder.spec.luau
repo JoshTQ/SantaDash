@@ -199,3 +199,99 @@ test("only vault presents are marked as behind the vault door", function()
 		expect(inVault).toBe(if stop.vaultDoor then Config.Houses.Types.Vault.Presents else 0)
 	end
 end)
+
+test("a map's palette, layout and features shape the built route", function()
+	local Maps = load("ReplicatedStorage.Shared.Maps")
+	local MapFeatures = load("ServerScriptService.Server.MapFeatures")
+	local built = 0
+	MapFeatures.TestPond = {
+		build = function(ctx)
+			built += 1
+			ctx.newPart(ctx.model, "Pond", Vector3.new(20, 1, 20), ctx.origin, Color3.new(0, 0, 1))
+		end,
+	}
+	local base = Maps.get()
+	local map = table.clone(base)
+	map.palette = table.clone(base.palette)
+	map.palette.Road = { Color3.fromRGB(10, 20, 30), Enum.Material.Ice }
+	map.layout = table.clone(base.layout)
+	map.layout.RoadWidth = 40
+	map.features = { { kind = "TestPond" } }
+
+	local rng = Random.new(2)
+	local plans, onFoot = {}, {}
+	for i = 1, #Config.Run.StopKinds do
+		plans[i] = Loot.planStop(rng, i, map.layout.Slots)
+		onFoot[i] = if i < #Config.Run.StopKinds then Loot.planOnFoot(rng) else nil
+	end
+	local route = MapBuilder.buildRoute(newFolder(), 1, rng, plans, onFoot, { map = map })
+	MapFeatures.TestPond = nil
+
+	expect(built).toBe(#plans)
+	expect(route.map).toBe(map)
+	local stop1 = route.model:FindFirstChild("Stop1_" .. plans[1].kindName)
+	local road = stop1:FindFirstChild("Road")
+	expect(road.Size.X).toBe(40)
+	expect(road.Material).toBe(Enum.Material.Ice)
+	expect(stop1:FindFirstChild("Pond") ~= nil).toBeTruthy()
+end)
+
+test("every map in the rotation builds a full route", function()
+	local Maps = load("ReplicatedStorage.Shared.Maps")
+	for _, id in Maps.Rotation do
+		local map = Maps.get(id)
+		local rng = Random.new(1)
+		local plans, onFoot = {}, {}
+		for i = 1, #Config.Run.StopKinds do
+			plans[i] = Loot.planStop(rng, i, map.layout.Slots)
+			onFoot[i] = if i < #Config.Run.StopKinds then Loot.planOnFoot(rng) else nil
+		end
+		local route = MapBuilder.buildRoute(newFolder(), 1, rng, plans, onFoot, { map = map })
+		expect(#route.stops).toBe(#plans)
+	end
+end)
+
+test("maps can place stops anywhere and the paths follow them", function()
+	local Maps = load("ReplicatedStorage.Shared.Maps")
+	local base = Maps.get()
+	local map = table.clone(base)
+	map.layout = table.clone(base.layout)
+	local lairAt = CFrame.new(0, 0, 300)
+	map.layout.StopOrigins = {
+		CFrame.new(0, 0, 0),
+		CFrame.new(500, 0, 300) * CFrame.Angles(0, math.rad(90), 0),
+		CFrame.new(900, 0, -200),
+	}
+	map.layout.EndHouseAt = { Finale = lairAt }
+
+	local rng = Random.new(8)
+	local plans, onFoot = {}, {}
+	for i = 1, #Config.Run.StopKinds do
+		plans[i] = Loot.planStop(rng, i, map.layout.Slots)
+		onFoot[i] = if i < #Config.Run.StopKinds then Loot.planOnFoot(rng) else nil
+	end
+	local route = MapBuilder.buildRoute(newFolder(), 1, rng, plans, onFoot, { map = map })
+
+	-- The sleigh lands on each stop's own landing roof, near that stop's origin.
+	local routeBase = CFrame.new(0, 0, Config.Map.RouteOriginZ)
+	for i, stop in route.stops do
+		local origin = (routeBase * map.layout.StopOrigins[i]).Position
+		local flat = (stop.deckCFrame.Position - origin) * Vector3.new(1, 0, 1)
+		expect(flat.Magnitude).toBeLessThan(Config.Map.SideOffset + 10)
+	end
+	-- Each path runs from one stop's path point to the next.
+	local paths = {}
+	for _, d in route.model:GetChildren() do
+		if d.Name == "FootPath" then
+			table.insert(paths, d)
+		end
+	end
+	expect(#paths).toBe(#plans - 1)
+	for _, path in paths do
+		expect(path.Size.Z).toBeGreaterThan(300)
+	end
+	-- The Lair sits where the map put it, with Krampus inside.
+	local finale = route.stops[#route.stops]
+	local lairPos = (routeBase * map.layout.StopOrigins[3] * lairAt).Position
+	expect((finale.krampusSpawn.Position - lairPos).Magnitude).toBeLessThan(30)
+end)

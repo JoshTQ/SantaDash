@@ -150,3 +150,18 @@ test("solo runs with elf bots pay the solo share of the loot", function()
 	Loot.bank(st, 2)
 	expect(Loot.finalLoot(st)).toBe(math.floor(200 * Config.ElfBots.SoloLootMultiplier))
 end)
+
+test("stops are planned from the map's own street slots", function()
+	local slots = {
+		{ Ring = "Near", Side = 1, Extra = 0 },
+		{ Ring = "Near", Side = -1, Extra = 0 },
+		{ Ring = "Near", Side = 1, Extra = 0 },
+		{ Ring = "Near", Side = -1, Extra = 0 },
+		{ Ring = "Far", Side = 1, Extra = 25 },
+		{ Ring = "Far", Side = -1, Extra = 25 },
+	}
+	local plan = Loot.planStop(Random.new(9), 1, slots)
+	expect(plan.houses[1].side).toBe(1)
+	expect(plan.houses[2].distance).toBe(Config.Rings.Far.Distance + 25)
+	expect(plan.houses[#plan.houses].side).toBe(0) -- the vault still closes the street
+end)
