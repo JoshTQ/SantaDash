@@ -18,6 +18,7 @@
 ]]
 
 local LANDING = CFrame.new(38, 0, 6) -- the plaza on the right bank
+local ISLAND = Vector3.new(0, 0, 470) -- the Lair's island in the lake
 
 return {
 	id = "FrozenCanal",
@@ -35,7 +36,7 @@ return {
 		CocoaMachine = Vector3.new(24, 3.5, 32), -- by the Sleigh Stop plaza
 		LandingAt = { LANDING, LANDING, LANDING },
 		EndHouseAt = {
-			Finale = CFrame.lookAt(Vector3.new(0, 0, 470), Vector3.new(0, 0, 0)), -- Lair island
+			Finale = CFrame.lookAt(ISLAND, Vector3.zero), -- Lair island
 		},
 	},
 	features = {
@@ -49,7 +50,7 @@ return {
 			from = 300, -- lake starts this far down the street
 			to = 640,
 			halfWidth = 150,
-			island = Vector3.new(0, 0, 470),
+			island = ISLAND,
 			islandRadius = 40,
 		},
 	},

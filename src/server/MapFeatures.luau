@@ -22,6 +22,7 @@ export type BuildContext = {
 	stop: any, -- MapBuilder.Stop
 	newPart: (...any) -> BasePart,
 	map: any, -- Maps.Map: the whole definition (layout, features)
+	landing: CFrame, -- this stop's Sleigh Stop, in stop space
 }
 
 export type StartContext = {

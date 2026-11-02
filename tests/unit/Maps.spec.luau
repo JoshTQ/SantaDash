@@ -10,8 +10,8 @@ test("the default map is the original street with Config's layout", function()
 	expect(map.palette.Ground[1] ~= nil).toBeTruthy()
 end)
 
-test("every map in the rotation resolves and is playable", function()
-	for _, id in Maps.Rotation do
+test("every registered map resolves and is playable", function()
+	for _, id in Maps.ids() do
 		local map = Maps.get(id)
 		expect(map.id).toBe(id)
 		local landing = map.layout.Slots[1]

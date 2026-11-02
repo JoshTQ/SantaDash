@@ -101,6 +101,18 @@ function Maps.get(id: string?): Map
 	return map
 end
 
+-- Where stop i sits, relative to the route base: the map's StopOrigins, else
+-- StopSpacing apart along +X.
+function Maps.stopOrigin(layout: Layout, i: number): CFrame
+	local given = layout.StopOrigins and layout.StopOrigins[i]
+	return given or CFrame.new((i - 1) * layout.StopSpacing, 0, 0)
+end
+
+-- A feature with `stops = { ... }` only builds and starts at those stops.
+function Maps.featureOnStop(feature: { [string]: any }, stopIndex: number): boolean
+	return feature.stops == nil or table.find(feature.stops, stopIndex) ~= nil
+end
+
 -- A random map from the rotation, not `last` when there is a choice.
 function Maps.ids(): { string }
 	local ids = {}

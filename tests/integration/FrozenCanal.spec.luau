@@ -65,7 +65,7 @@ test("each Sleigh Stop is on dry ground, never on ice", function()
 end)
 
 test("only middle canal pieces are CrackZone, far from every stop", function()
-	local route, map = build(2)
+	local route = build(2)
 	local cracks = 0
 	for _, stop in route.stops do
 		for _, zone in stop.canal.iceZones do

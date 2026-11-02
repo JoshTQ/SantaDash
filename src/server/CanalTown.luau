@@ -17,11 +17,11 @@
 	(the Lair's floe hop, and the Thin Ice map event).
 ]]
 
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local Maps = require(ReplicatedStorage.Shared.Maps)
 local Util = require(ReplicatedStorage.Shared.Util)
 local Assets = require(script.Parent.Assets)
 local CanalRules = require(script.Parent.CanalRules)
@@ -76,10 +76,6 @@ local function label(part: BasePart, text: string, color: Color3, offsetY: numbe
 	gui.Parent = part
 end
 
-local function onStop(feature, stop): boolean
-	return feature.stops == nil or table.find(feature.stops, stop.plan.index) ~= nil
-end
-
 local function canalState(stop)
 	if not stop.canal then
 		stop.canal = { iceZones = {}, splashZones = {}, hoops = {}, dogs = {} }
@@ -90,16 +86,11 @@ end
 -- Another feature of this map that applies to this stop (e.g. the rink).
 local function sibling(ctx, kind: string)
 	for _, f in ctx.map.features do
-		if f.kind == kind and onStop(f, ctx.stop) then
+		if f.kind == kind and Maps.featureOnStop(f, ctx.stop.plan.index) then
 			return f
 		end
 	end
 	return nil
-end
-
-local function stopOrigin(layout, i: number): CFrame
-	local given = layout.StopOrigins and layout.StopOrigins[i]
-	return given or CFrame.new((i - 1) * layout.StopSpacing, 0, 0)
 end
 
 local function streetEnd(ctx): number
@@ -205,11 +196,29 @@ local function barriers(ctx, zEnd: number, ranges, gaps: { number })
 	end
 	for _, side in { -1, 1 } do
 		local x = side * (half + 0.9)
-		local prev: number? = nil
+		local runStart: number?, prev: number? = nil, nil
+		-- One chain along each run of bollards between gaps.
+		local function chain()
+			if runStart and prev and prev > runStart then
+				local part = wall(
+					ctx,
+					"Chain",
+					Vector3.new(x, 1.8, runStart),
+					Vector3.new(x, 1.8, prev),
+					0.25,
+					0.25,
+					GOLD
+				)
+				if part then
+					part.Material = Enum.Material.Neon
+				end
+			end
+			runStart, prev = nil, nil
+		end
 		local z = z0
 		while z <= zEnd - 2 do
 			if isGap(z) then
-				prev = nil
+				chain()
 			else
 				ctx.newPart(
 					ctx.model,
@@ -226,24 +235,12 @@ local function barriers(ctx, zEnd: number, ranges, gaps: { number })
 					ctx.origin * CFrame.new(x, 1.9, z),
 					CANDY
 				)
-				if prev then
-					local chain = wall(
-						ctx,
-						"Chain",
-						Vector3.new(x, 1.8, prev),
-						Vector3.new(x, 1.8, z),
-						0.25,
-						0.25,
-						GOLD
-					)
-					if chain then
-						chain.Material = Enum.Material.Neon
-					end
-				end
+				runStart = runStart or z
 				prev = z
 			end
 			z += 8
 		end
+		chain()
 	end
 	for _, g in gaps do
 		for _, side in { -1, 1 } do
@@ -262,12 +259,10 @@ end
 local function lamps(ctx, zEnd: number, ranges)
 	local half = ctx.map.layout.RoadWidth / 2
 	local z = ctx.map.layout.StreetStart + 20
-	local n = 0
 	while z < zEnd - 10 do
 		if not inRanges(z, ranges) then
 			for _, side in { -1, 1 } do
 				local x = side * (half + C.Promenade - 0.8)
-				n += 1
 				ctx.newPart(
 					ctx.model,
 					"LampPost",
@@ -339,24 +334,17 @@ local function garden(ctx, house)
 	if not house.isLanding then
 		local x = side * (inner + 0.4)
 		for _, span in { { zA, z - 4 }, { z + 4, zB } } do
-			wall(
-				ctx,
-				"FenceRail",
-				Vector3.new(x, 1.2, span[1]),
-				Vector3.new(x, 1.2, span[2]),
-				0.3,
-				0.4,
-				WHITE
-			)
-			wall(
-				ctx,
-				"FenceRail",
-				Vector3.new(x, 2.4, span[1]),
-				Vector3.new(x, 2.4, span[2]),
-				0.3,
-				0.4,
-				WHITE
-			)
+			for _, y in { 1.2, 2.4 } do
+				wall(
+					ctx,
+					"FenceRail",
+					Vector3.new(x, y, span[1]),
+					Vector3.new(x, y, span[2]),
+					0.3,
+					0.4,
+					WHITE
+				)
+			end
 			local p = span[1]
 			local red = false
 			while p <= span[2] + 0.01 do
@@ -491,11 +479,10 @@ end
 local CanalStreet = {}
 
 function CanalStreet.build(ctx)
-	local layout = ctx.map.layout
 	local zEnd = streetEnd(ctx)
 	local ranges = clearRanges(ctx)
 	local houses = ctx.stop.plan.houses
-	local landing = (layout.LandingAt and layout.LandingAt[ctx.stop.plan.index]) or Config.Map.LandingAt
+	local landing = ctx.landing
 
 	-- Sleigh Stop plaza (on the ground, never ice).
 	local plaza = landing.Position
@@ -619,8 +606,8 @@ function SkateCanal.build(ctx)
 		return
 	end
 	-- The main canal to the next stop, along the on-foot path.
-	local here = stopOrigin(layout, i)
-	local nextAt = here:Inverse() * stopOrigin(layout, i + 1) * Vector3.new(0, 0, z)
+	local here = Maps.stopOrigin(layout, i)
+	local nextAt = here:Inverse() * Maps.stopOrigin(layout, i + 1) * Vector3.new(0, 0, z)
 	local a = Vector3.new(0, 0, z)
 	local flat = (nextAt - a) * Vector3.new(1, 0, 1)
 	local length = flat.Magnitude
@@ -669,21 +656,17 @@ function SkateCanal.start(ctx)
 	local splashAt: { [Player]: number } = {}
 	local connections = {}
 
-	local function playerFrom(hit: BasePart): Player?
-		local model = hit:FindFirstAncestorOfClass("Model")
-		return model and Players:GetPlayerFromCharacter(model)
-	end
-
-	-- Hoops and splash zones of every stop: a Santa who missed the sleigh skates
-	-- the previous stop's canal while this stop is on.
-	for _, s in run.route.stops do
+	-- Hoops and splash zones of this stop and the one before: a Santa who
+	-- missed the sleigh skates the previous stop's canal while this one is on.
+	local index = stop.plan.index
+	for _, s in { run.route.stops[index - 1], stop } do
 		local state = s.canal
 		if state then
 			for _, trigger in state.hoops do
 				table.insert(
 					connections,
 					trigger.Touched:Connect(function(hit)
-						local player = playerFrom(hit)
+						local player = Util.playerFromHit(hit)
 						if player and run:_free(player) then
 							boostUntil[player] = Util.now() + C.HoopBoostSeconds
 						end
@@ -694,8 +677,11 @@ function SkateCanal.start(ctx)
 				table.insert(
 					connections,
 					zone.Touched:Connect(function(hit)
-						local player = playerFrom(hit)
-						if player and zone:GetAttribute("Broken") and run.players[player] then
+						if not zone:GetAttribute("Broken") then
+							return -- Santas skate on this all the time; only water splashes
+						end
+						local player = Util.playerFromHit(hit)
+						if player and run.players[player] then
 							local t = Util.now()
 							if (splashAt[player] or 0) + 1 < t then
 								splashAt[player] = t
@@ -721,9 +707,7 @@ function SkateCanal.start(ctx)
 			for player, st in run.players do
 				local humanoid = Util.humanoidOf(player)
 				if humanoid and run:_free(player) then
-					local base = if st.perks.PeppermintRush
-						then Config.Buys.PeppermintRush.WalkSpeed
-						else Config.Player.WalkSpeed
+					local base = run:baseWalkSpeed(st)
 					local onIce = humanoid.FloorMaterial == Enum.Material.Ice
 					local speed = CanalRules.walkSpeed(base, onIce, (boostUntil[player] or 0) > t)
 					if humanoid.WalkSpeed ~= speed then
@@ -805,9 +789,6 @@ end
 local ChristmasMarket = {}
 
 function ChristmasMarket.build(ctx)
-	if not onStop(ctx.feature, ctx.stop) then
-		return
-	end
 	local layout = ctx.map.layout
 	local state = canalState(ctx.stop)
 	local inner = layout.RoadWidth / 2 + C.Promenade
@@ -872,30 +853,32 @@ function ChristmasMarket.build(ctx)
 	end
 end
 
+-- An anchored, non-colliding Part for runtime stand-ins (dogs, polisher).
+local function block(model: Model, name: string, size: Vector3, offset: Vector3, color: Color3): BasePart
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Size = size
+	part.CFrame = CFrame.new(offset)
+	part.Color = color
+	part.Anchored = true
+	part.CanCollide = false
+	part.Parent = model
+	return part
+end
+
 local function standInDog(kind: string): Model
 	local model = Instance.new("Model")
 	model.Name = kind
 	local corgi = kind == "DogCorgi"
-	local function block(name, size, offset, color)
-		local part = Instance.new("Part")
-		part.Name = name
-		part.Size = size
-		part.CFrame = CFrame.new(offset)
-		part.Color = color
-		part.Anchored = true
-		part.CanCollide = false
-		part.Parent = model
-		return part
-	end
-	local root = block("HumanoidRootPart", Vector3.new(2, 2, 3), Vector3.new(0, 1.5, 0), WHITE)
+	local root = block(model, "HumanoidRootPart", Vector3.new(2, 2, 3), Vector3.new(0, 1.5, 0), WHITE)
 	root.Transparency = 1
 	local fur = if corgi then Color3.fromRGB(225, 140, 60) else Color3.fromRGB(185, 190, 200)
-	block("Body", Vector3.new(2, 1.6, if corgi then 3.4 else 4.4), Vector3.new(0, 1.4, 0), fur)
-	block("Head", Vector3.new(1.6, 1.6, 1.6), Vector3.new(0, 2.4, -2.2), fur)
+	block(model, "Body", Vector3.new(2, 1.6, if corgi then 3.4 else 4.4), Vector3.new(0, 1.4, 0), fur)
+	block(model, "Head", Vector3.new(1.6, 1.6, 1.6), Vector3.new(0, 2.4, -2.2), fur)
 	if corgi then
-		block("PatrolSled", Vector3.new(2.6, 0.4, 4.4), Vector3.new(0, 0.3, 0), CANDY)
+		block(model, "PatrolSled", Vector3.new(2.6, 0.4, 4.4), Vector3.new(0, 0.3, 0), CANDY)
 	else
-		block("WindUpKey", Vector3.new(0.3, 1.4, 1.4), Vector3.new(0, 2.6, 0.8), GOLD)
+		block(model, "WindUpKey", Vector3.new(0.3, 1.4, 1.4), Vector3.new(0, 2.6, 0.8), GOLD)
 	end
 	model.PrimaryPart = root
 	local humanoid = Instance.new("Humanoid")
@@ -905,7 +888,7 @@ end
 
 function ChristmasMarket.start(ctx)
 	local run, stop = ctx.run, ctx.stop
-	if not onStop(ctx.feature, stop) or not stop.canal then
+	if not stop.canal then
 		return nil
 	end
 	local dogs = {}
@@ -919,7 +902,15 @@ function ChristmasMarket.start(ctx)
 			end
 		end
 		model.Parent = run.route.model
-		table.insert(dogs, { spec = spec, model = model, clock = spec.offset, pausedUntil = 0, hitAt = {} })
+		local _, size = model:GetBoundingBox()
+		table.insert(dogs, {
+			spec = spec,
+			model = model,
+			lift = size.Y / 2 + 0.4,
+			clock = spec.offset,
+			pausedUntil = 0,
+			hitAt = {},
+		})
 	end
 
 	local function dropPresent(player: Player, at: Vector3, value: number)
@@ -932,6 +923,7 @@ function ChristmasMarket.start(ctx)
 		local prompt = Instance.new("ProximityPrompt")
 		prompt.ActionText = "Grab"
 		prompt.ObjectText = "Present"
+		prompt.HoldDuration = Config.Presents.GrabHoldSeconds
 		prompt.MaxActivationDistance = 10
 		prompt.RequiresLineOfSight = false
 		prompt.Parent = box
@@ -955,20 +947,26 @@ function ChristmasMarket.start(ctx)
 
 	local connection = RunService.Heartbeat:Connect(function(dt)
 		local t = Util.now()
+		local santas = {}
+		for player in run.players do
+			local root = Util.rootOf(player)
+			if root and run:_free(player) then
+				table.insert(santas, { player = player, root = root })
+			end
+		end
 		for _, dog in dogs do
 			if dog.pausedUntil <= t then
 				dog.clock += dt
 			end
 			local pos, facing = CanalRules.patrolAt(dog.spec.points, C.Dogs.Speed, dog.clock)
-			local _, size = dog.model:GetBoundingBox()
-			local at = pos + Vector3.new(0, size.Y / 2 + 0.4, 0)
+			local at = pos + Vector3.new(0, dog.lift, 0)
 			dog.model:PivotTo(CFrame.lookAt(at, at + facing))
 			if dog.pausedUntil > t then
 				continue
 			end
-			for player in run.players do
-				local root = Util.rootOf(player)
-				if root and run:_free(player) and (dog.hitAt[player] or 0) + C.Dogs.CorgiCooldown < t then
+			for _, santa in santas do
+				local player, root = santa.player, santa.root
+				if (dog.hitAt[player] or 0) + C.Dogs.CorgiCooldown < t then
 					local offset = (root.CFrame.Position - pos) * Vector3.new(1, 0, 1)
 					if offset.Magnitude < C.Dogs.HitRadius then
 						dog.hitAt[player] = t
@@ -1019,9 +1017,6 @@ end
 local IceRink = {}
 
 function IceRink.build(ctx)
-	if not onStop(ctx.feature, ctx.stop) then
-		return
-	end
 	local f = ctx.feature
 	local state = canalState(ctx.stop)
 	local c, r = f.centre, f.radius
@@ -1049,7 +1044,7 @@ function IceRink.build(ctx)
 		end
 		if not open then
 			local at = c + Vector3.new(math.cos(a) * r, 0, math.sin(a) * r)
-			local board = ctx.newPart(
+			ctx.newPart(
 				ctx.model,
 				"RinkBoard",
 				Vector3.new(1, 2.6, 2 * math.pi * r / segments + 0.4),
@@ -1058,7 +1053,6 @@ function IceRink.build(ctx)
 					* CFrame.Angles(0, math.pi / 2, 0),
 				if k % 2 == 0 then CANDY else WHITE
 			)
-			board.Name = "RinkBoard"
 		end
 	end
 	-- The giant tree in the middle.
@@ -1108,21 +1102,8 @@ end
 local function standInPolisher(): Model
 	local model = Instance.new("Model")
 	model.Name = "IcePolisher"
-	local body = Instance.new("Part")
-	body.Name = "Body"
-	body.Size = Vector3.new(4, 4, 6)
-	body.Color = Color3.fromRGB(60, 140, 220)
-	body.Anchored = true
-	body.CanCollide = false
-	body.Parent = model
-	local brush = Instance.new("Part")
-	brush.Name = "Brush"
-	brush.Size = Vector3.new(5, 1, 1.4)
-	brush.CFrame = CFrame.new(0, -1.6, -3.2)
-	brush.Color = GOLD
-	brush.Anchored = true
-	brush.CanCollide = false
-	brush.Parent = model
+	local body = block(model, "Body", Vector3.new(4, 4, 6), Vector3.zero, Color3.fromRGB(60, 140, 220))
+	block(model, "Brush", Vector3.new(5, 1, 1.4), Vector3.new(0, -1.6, -3.2), GOLD)
 	model.PrimaryPart = body
 	label(body, "ICE POLISHER", WHITE, 4, 80)
 	return model
@@ -1130,7 +1111,7 @@ end
 
 function IceRink.start(ctx)
 	local run, stop = ctx.run, ctx.stop
-	if not onStop(ctx.feature, stop) or not (stop.canal and stop.canal.rink) then
+	if not (stop.canal and stop.canal.rink) then
 		return nil
 	end
 	local rink = stop.canal.rink
@@ -1169,9 +1150,6 @@ end
 local FloeLake = {}
 
 function FloeLake.build(ctx)
-	if not onStop(ctx.feature, ctx.stop) then
-		return
-	end
 	local f = ctx.feature
 	local state = canalState(ctx.stop)
 	local length = f.to - f.from
@@ -1257,7 +1235,7 @@ end
 
 function FloeLake.start(ctx)
 	local run, stop = ctx.run, ctx.stop
-	if not onStop(ctx.feature, stop) or not (stop.canal and stop.canal.lake) then
+	if not (stop.canal and stop.canal.lake) then
 		return nil
 	end
 	local thread = task.delay(C.StompDelay, function()

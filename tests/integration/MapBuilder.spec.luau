@@ -257,9 +257,9 @@ test("a map's palette, layout and features shape the built route", function()
 	expect(stop1:FindFirstChild("Pond") ~= nil).toBeTruthy()
 end)
 
-test("every map in the rotation builds a full route", function()
+test("every registered map builds a full route", function()
 	local Maps = load("ReplicatedStorage.Shared.Maps")
-	for _, id in Maps.Rotation do
+	for _, id in Maps.ids() do
 		local map = Maps.get(id)
 		local rng = Random.new(1)
 		local plans, onFoot = {}, {}

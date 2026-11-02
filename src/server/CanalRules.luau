@@ -122,7 +122,7 @@ function CanalRules.patrolAt(points: { Vector3 }, speed: number, t: number): (Ve
 		end
 		d -= lengths[i]
 	end
-	return points[#points], Vector3.zAxis
+	error("unreachable: the last segment always returns")
 end
 
 -- The rink polisher circles the rink centre.

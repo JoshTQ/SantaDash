@@ -599,7 +599,8 @@ local function buildStop(
 	end
 
 	-- Sleigh Stop: the sleigh lands on the ground in this clearing.
-	local landing = origin * (map.LandingAt and map.LandingAt[plan.index] or Config.Map.LandingAt)
+	local landingLocal = map.LandingAt and map.LandingAt[plan.index] or Config.Map.LandingAt
+	local landing = origin * landingLocal
 	stop.deckCFrame = landing * CFrame.new(0, Config.Map.DeckHeight, 0)
 	local radius = Config.Map.SleighStopRadius
 	local clearing = newPart(
@@ -650,7 +651,7 @@ local function buildStop(
 	for _, feature in mapDef.features do
 		local entry = MapFeatures[feature.kind]
 		assert(entry, "unknown map feature " .. tostring(feature.kind))
-		if entry.build then
+		if entry.build and Maps.featureOnStop(feature, plan.index) then
 			entry.build({
 				model = model,
 				origin = origin,
@@ -659,6 +660,7 @@ local function buildStop(
 				stop = stop,
 				newPart = newPart,
 				map = mapDef,
+				landing = landingLocal,
 			})
 		end
 	end
@@ -707,12 +709,7 @@ local function buildFootPath(
 	end
 end
 
--- Where stop i sits, relative to the route base: the map's StopOrigins, else
--- StopSpacing apart along +X.
-local function stopOrigin(layout: Maps.Layout, i: number): CFrame
-	local given = layout.StopOrigins and layout.StopOrigins[i]
-	return given or CFrame.new((i - 1) * layout.StopSpacing, 0, 0)
-end
+local stopOrigin = Maps.stopOrigin
 
 -- plans: one Loot.StopPlan per stop; onFoot: one present list per gap between stops.
 function MapBuilder.buildRoute(
