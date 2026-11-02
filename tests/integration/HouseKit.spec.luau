@@ -132,3 +132,56 @@ test("the approved vault door goes in the vault doorway and swings open", functi
 	expect((open.Position - door.CFrame.Position).Magnitude).toBeGreaterThan(1)
 	expect(HouseKit.doorCFrame(door.CFrame, door.Size, false)).toBe(door.CFrame)
 end)
+
+local function fakePresent(shape)
+	local m = Instance.new("Model")
+	m.Name = "Present"
+	m:SetAttribute("Shape", shape)
+	local at = CFrame.new(30, 40, 50)
+	m.PrimaryPart = part(m, "Box", Vector3.new(2, 2.4, 2), at)
+	part(m, "Ribbon", Vector3.new(2.05, 2.45, 0.3), at)
+	part(m, "Bow", Vector3.new(1, 0.6, 1), at * CFrame.new(0, 1.5, 0))
+	local grip = Instance.new("Attachment")
+	grip.Name = "CarryGrip"
+	grip.CFrame = CFrame.new(0, 1.2, 0)
+	grip.Parent = m.PrimaryPart
+	return m
+end
+
+test("approved presents are scaled to their size and sit on the floor", function()
+	local rng = Random.new(6)
+	local plans, onFoot = {}, {}
+	for i = 1, #Config.Run.StopKinds do
+		plans[i] = Loot.planStop(rng, i)
+		onFoot[i] = if i < #Config.Run.StopKinds then Loot.planOnFoot(rng) else nil
+	end
+	local list = Instance.new("Model")
+	list.Name = "NaughtyList"
+	list.PrimaryPart = part(list, "Book", Vector3.new(3, 1, 4), CFrame.new(9, 9, 9))
+	local route = MapBuilder.buildRoute(
+		Instance.new("Folder"),
+		1,
+		rng,
+		plans,
+		onFoot,
+		{ presents = { fakePresent("Cube"), fakePresent("Tall") }, naughtyList = list }
+	)
+	for _, stop in route.stops do
+		for _, present in stop.presents do
+			local main = present.model.PrimaryPart
+			expect(present.prompt.Parent).toBe(main)
+			if present.plan.naughtyList then
+				expect(main.Name).toBe("Book")
+			else
+				local s = main.Size
+				expect(math.max(s.X, s.Y, s.Z)).toBeNear(1.6 * present.plan.size, 0.001)
+				local bottom = main.CFrame.Position.Y - s.Y / 2
+				expect(bottom).toBeLessThan(2.1) -- on a floor, not floating at the template's height
+				expect(present.model:FindFirstChild("Bow") ~= nil).toBeTruthy()
+			end
+		end
+	end
+	-- Later routes without the kit go back to greybox boxes.
+	local plain = MapBuilder.buildRoute(Instance.new("Folder"), 2, rng, plans, onFoot)
+	expect(plain.stops[1].presents[1].model:FindFirstChild("Bow")).toBe(nil)
+end)

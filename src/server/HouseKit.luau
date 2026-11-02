@@ -4,7 +4,7 @@
 	ServerStorage.Assets has the model, and falls back to blocks otherwise.
 
 	House        Floor (PrimaryPart), TypeSign, Chimney, ChimneyTop, Fireplace,
-	             Wardrobe, FrontDoor > Door, PresentSpawn1-4 (parts or
+	             Wardrobe, FrontDoor > Door, PresentSpawn1-8 (parts or
 	             Attachments); attributes Style ("candy"/"alpine"), Layout,
 	             Seed, HouseType ("Snowflake"/"Bell"/"Horns").
 	             Several variants may sit in Assets (named House) or in an
@@ -12,6 +12,10 @@
 	KrampusLair  Floor (PrimaryPart), ListPedestal, KrampusSpawn, HideSpot1-2,
 	             Fireplace, Entrance, Bell1-7, ...
 	VaultDoor    Frame (PrimaryPart), Door (hinged on its left edge), Dial, PricePlate
+
+	Present      Box (PrimaryPart), Ribbon, Bow, Tag?; attributes Shape, Pattern,
+	             BowStyle. Variants: Assets.Present models and/or Assets.Presents.
+	NaughtyList  any PrimaryPart (Book), Chain, Lock
 
 	Event-free (no :Connect) and no PivotTo, so the Lune tests can build it:
 	models are moved part by part relative to their PrimaryPart.
@@ -36,17 +40,29 @@ local function parts(model: Instance): { BasePart }
 end
 
 -- Moves every part so the model's PrimaryPart ends up at `target`, keeping
--- the rest where they sit relative to it. Anchors everything.
-function HouseKit.place(model: Model, target: CFrame)
+-- the rest where they sit relative to it (optionally scaled). Anchors everything.
+function HouseKit.place(model: Model, target: CFrame, scale: number?)
 	local primary = model.PrimaryPart
 		or model:FindFirstChild("Floor", true)
 		or model:FindFirstChild("Frame", true)
+		or model:FindFirstChild("Box", true)
 	assert(primary and primary:IsA("BasePart"), model.Name .. " needs a PrimaryPart")
 	model.PrimaryPart = primary
+	local k = scale or 1
 	local from = primary.CFrame
 	for _, part in parts(model) do
-		part.CFrame = target * from:ToObjectSpace(part.CFrame)
+		local rel = from:ToObjectSpace(part.CFrame)
+		part.CFrame = target * (rel - rel.Position + rel.Position * k)
+		part.Size *= k
 		part.Anchored = true
+	end
+	if k ~= 1 then
+		for _, d in model:GetDescendants() do
+			if d:IsA("Attachment") then
+				local a = d.CFrame
+				d.CFrame = a - a.Position + a.Position * k
+			end
+		end
 	end
 end
 
@@ -267,6 +283,61 @@ function HouseKit.build(ctx: Context): CFrame?
 		return CFrame.new(spawnMarker.CFrame.Position.X, floorTop + 6, spawnMarker.CFrame.Position.Z)
 	end
 	return nil
+end
+
+-- Every approved present variant: Assets.Present models plus an Assets.Presents folder.
+function HouseKit.presentVariants(assets: Instance?): { Model }
+	local list = {}
+	if not assets then
+		return list
+	end
+	local function add(m: Instance)
+		if m:IsA("Model") and m:FindFirstChild("Box", true) then
+			table.insert(list, m)
+		end
+	end
+	for _, child in assets:GetChildren() do
+		if child.Name == "Present" then
+			add(child)
+		end
+	end
+	local folder = assets:FindFirstChild("Presents")
+	if folder then
+		for _, child in folder:GetChildren() do
+			add(child)
+		end
+	end
+	return list
+end
+
+-- A present model standing at `position`, its Box's largest side = `edge` studs.
+function HouseKit.placePresent(
+	template: Model,
+	position: Vector3,
+	edge: number,
+	yaw: number,
+	colour: Color3
+): Model
+	local model = template:Clone()
+	local box = (model.PrimaryPart or model:FindFirstChild("Box", true)) :: BasePart
+	local size = box.Size
+	local k = edge / math.max(size.X, size.Y, size.Z)
+	HouseKit.place(
+		model,
+		CFrame.new(position + Vector3.new(0, size.Y * k / 2, 0)) * CFrame.Angles(0, yaw, 0),
+		k
+	)
+	box.Color = colour
+	return model
+end
+
+-- An approved NaughtyList standing at `position`, unscaled.
+function HouseKit.placeList(template: Model, position: Vector3): Model
+	local model = template:Clone()
+	local primary = (model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)) :: BasePart
+	model.PrimaryPart = primary
+	HouseKit.place(model, CFrame.new(position + Vector3.new(0, primary.Size.Y / 2, 0)))
+	return model
 end
 
 -- Places an approved VaultDoor in a doorway. bottom: the doorway's floor centre,

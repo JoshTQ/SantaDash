@@ -264,34 +264,51 @@ export type Door = { door: BasePart, prompt: ProximityPrompt, closed: CFrame, op
 -- Approved house models (see HouseKit); empty/nil = greybox blocks.
 export type Kit = { houses: { Model }, lair: Model?, vaultDoor: Model? }
 
+-- Approved present models for the route being built (buildRoute sets these).
+local presentKit: { variants: { Model }, naughtyList: Model? } = { variants = {} }
+
 local function buildPresent(parent: Instance, rng: Random, position: Vector3, plan): BuiltPresent
-	local model = Instance.new("Model")
+	local model: Model
 	local prompt
 	if plan.naughtyList then
-		model.Name = "NaughtyList"
-		local scroll = newPart(
-			model,
-			"Scroll",
-			Vector3.new(3, 0.6, 4),
-			CFrame.new(position + Vector3.new(0, 2, 0)),
-			GOLD,
-			Enum.Material.Neon
-		)
-		addLabel(scroll, "THE NAUGHTY LIST", GOLD, 3)
-		model.PrimaryPart = scroll
-		prompt = addPrompt(scroll, "Steal", "The Naughty List", 1)
-	else
-		model.Name = "Present"
-		local edge = 1.6 * plan.size
-		local cf = CFrame.new(position + Vector3.new(0, edge / 2, 0))
-			* CFrame.Angles(0, rng:NextNumber(0, math.pi), 0)
-		local colour = PRESENT_COLOURS[rng:NextInteger(1, #PRESENT_COLOURS)]
-		local box = newPart(model, "Box", Vector3.one * edge, cf, colour)
-		for _, size in { Vector3.new(1.03, 1.03, 0.18), Vector3.new(0.18, 1.03, 1.03) } do
-			newPart(model, "Ribbon", size * edge, cf, GOLD).CanCollide = false
+		if presentKit.naughtyList then
+			model = HouseKit.placeList(presentKit.naughtyList, position)
+			model.Name = "NaughtyList"
+			prompt = addPrompt(model.PrimaryPart :: BasePart, "Steal", "The Naughty List", 1)
+		else
+			model = Instance.new("Model")
+			model.Name = "NaughtyList"
+			local scroll = newPart(
+				model,
+				"Scroll",
+				Vector3.new(3, 0.6, 4),
+				CFrame.new(position + Vector3.new(0, 2, 0)),
+				GOLD,
+				Enum.Material.Neon
+			)
+			addLabel(scroll, "THE NAUGHTY LIST", GOLD, 3)
+			model.PrimaryPart = scroll
+			prompt = addPrompt(scroll, "Steal", "The Naughty List", 1)
 		end
-		model.PrimaryPart = box
-		prompt = addPrompt(box, "Grab", "Present", Config.Presents.GrabHoldSeconds)
+	else
+		local edge = 1.6 * plan.size
+		local yaw = rng:NextNumber(0, math.pi)
+		local colour = PRESENT_COLOURS[rng:NextInteger(1, #PRESENT_COLOURS)]
+		local variants = presentKit.variants
+		if #variants > 0 then
+			model =
+				HouseKit.placePresent(variants[rng:NextInteger(1, #variants)], position, edge, yaw, colour)
+		else
+			model = Instance.new("Model")
+			local cf = CFrame.new(position + Vector3.new(0, edge / 2, 0)) * CFrame.Angles(0, yaw, 0)
+			local box = newPart(model, "Box", Vector3.one * edge, cf, colour)
+			for _, size in { Vector3.new(1.03, 1.03, 0.18), Vector3.new(0.18, 1.03, 1.03) } do
+				newPart(model, "Ribbon", size * edge, cf, GOLD).CanCollide = false
+			end
+			model.PrimaryPart = box
+		end
+		model.Name = "Present"
+		prompt = addPrompt(model.PrimaryPart :: BasePart, "Grab", "Present", Config.Presents.GrabHoldSeconds)
 	end
 	model.Parent = parent
 	return { model = model, prompt = prompt, plan = plan }
@@ -520,6 +537,8 @@ export type RouteOptions = {
 	dressing: Model?, -- approved set dressing: children StopDressing (per stop) and RouteDressing
 	cocoa: Model?, -- approved "CocoaMachine" (Assets contract) instead of the block
 	houseKit: Kit?, -- approved House variants, KrampusLair and VaultDoor (HouseKit)
+	presents: { Model }?, -- approved Present variants (HouseKit.presentVariants)
+	naughtyList: Model?, -- approved NaughtyList
 	sleigh: Model?,
 	reindeer: Model?,
 }
@@ -706,6 +725,7 @@ function MapBuilder.buildRoute(
 ): Route
 	local options: RouteOptions = opts or {}
 	local mapDef = options.map or Maps.get()
+	presentKit = { variants = options.presents or {}, naughtyList = options.naughtyList }
 	local model = Instance.new("Model")
 	model.Name = "Route" .. slot
 	local map = Config.Map
@@ -773,6 +793,7 @@ function MapBuilder.buildRoute(
 	else
 		route.sleigh = MapBuilder.buildSleigh(model, route.startDeck)
 	end
+	presentKit = { variants = {} }
 	model.Parent = parent
 	return route
 end

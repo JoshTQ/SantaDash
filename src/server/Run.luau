@@ -88,6 +88,8 @@ function Run.new(
 			lair = Assets.clone("KrampusLair", { "Floor", "ListPedestal", "KrampusSpawn" }),
 			vaultDoor = Assets.clone("VaultDoor", { "Frame", "Door" }),
 		},
+		presents = HouseKit.presentVariants(Assets.folder()),
+		naughtyList = Assets.get("NaughtyList"),
 		sleigh = Assets.clone("Sleigh", { "Body", "Seat1", "Hitch" }),
 		reindeer = Assets.get("Reindeer"),
 	})

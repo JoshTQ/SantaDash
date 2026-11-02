@@ -15,11 +15,13 @@ stand-in (a model missing a required part is skipped with a warning):
 | `Sleigh` | PrimaryPart `Body`, `Seat1`-`Seat6`, `Horn`, `Lantern`, `Hitch` | Red block sleigh |
 | `Reindeer` | PrimaryPart `Body`, `Head`, four legs on Motor6Ds | None (two hitched in front of the sleigh) |
 | `ElfA`, `ElfD` | `Humanoid`, `HumanoidRootPart` | Green and red block elves |
-| `House` (any number, or an `Assets.Houses` folder) | `Floor`, `TypeSign`, `ChimneyTop`, `Fireplace`, `Wardrobe`, `FrontDoor` > `Door`, `PresentSpawn1`-`4`; attribute `Style` | Block houses. Any style anywhere; the Far ring prefers `Style = "alpine"` |
+| `House` (any number, or an `Assets.Houses` folder) | `Floor`, `TypeSign`, `ChimneyTop`, `Fireplace`, `Wardrobe`, `FrontDoor` > `Door`, `PresentSpawn1`-`8`; attribute `Style` | Block houses. Any style anywhere; the Far ring prefers `Style = "alpine"` |
 | `KrampusLair` | `Floor`, `ListPedestal`, `KrampusSpawn`, `HideSpot1`-`2` | Block Lair |
 | `VaultDoor` | `Frame`, `Door` (hinged on its left edge) | Gold block door |
 | `CocoaMachine` | `Body`, `BuyPrompt` attachment | Brown block |
 | `DogCorgi`, `DogTin` | `Humanoid`, `HumanoidRootPart` (anchored and moved along the patrol) | Block dogs |
+| `Present` (any number, or an `Assets.Presents` folder) | `Box` (recoloured per present), `Ribbon`, `Bow` | Box with ribbons; scaled so the Box's longest side matches the present's size |
+| `NaughtyList` | a PrimaryPart (the `Book`) | Gold scroll |
 
 ## Run it
 
