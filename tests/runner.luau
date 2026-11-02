@@ -169,6 +169,26 @@ for _, name in
 do
 	builtins[name] = (roblox :: any)[name]
 end
+-- Lune has no TweenInfo; tweens in headless worlds jump to their goal.
+builtins.TweenInfo = {
+	new = function(
+		time: number?,
+		style,
+		direction,
+		repeatCount: number?,
+		reverses: boolean?,
+		delayTime: number?
+	)
+		return {
+			Time = time or 1,
+			EasingStyle = style,
+			EasingDirection = direction,
+			RepeatCount = repeatCount or 0,
+			Reverses = reverses or false,
+			DelayTime = delayTime or 0,
+		}
+	end,
+}
 
 local cache = {}
 
@@ -195,6 +215,7 @@ end
 ----------------------------------------------------------------------------
 
 local Engine = require("./headless/Engine")
+local Cloud = require("./headless/Cloud")
 
 -- Rojo's mapping from default.project.json: Instance path -> folder.
 local MOUNTS = {
@@ -542,6 +563,9 @@ local helpers = {
 		end,
 	}),
 	headless = headless,
+	cloud = function(options)
+		return Cloud.new(headless, options)
+	end,
 	newFolder = function()
 		return roblox.Instance.new("Folder")
 	end,
@@ -549,7 +573,7 @@ local helpers = {
 
 local files = {}
 for _, dir in { "tests/unit", "tests/integration", "tests/regression", "tests/smoke" } do
-	for _, name in fs.readDir(dir) do
+	for _, name in if fs.isDir(dir) then fs.readDir(dir) else {} do
 		if string.find(name, "%.spec%.luau$") and (not filter or string.find(name, filter, 1, true)) then
 			table.insert(files, dir .. "/" .. name)
 		end

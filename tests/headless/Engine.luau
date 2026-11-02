@@ -232,6 +232,8 @@ local EVENTS = {
 	PlayerRemoving = true,
 	Heartbeat = true,
 	Stepped = true,
+	Completed = true,
+	TeleportInitFailed = true,
 	RenderStepped = true,
 }
 
@@ -363,6 +365,14 @@ function getters.RootPart(self)
 	end
 	local parent = rawget(self, "_parent")
 	return parent and parent:FindFirstChild("HumanoidRootPart")
+end
+-- Seat:Sit(humanoid) is a method (defined below); Humanoid.Sit is a property.
+local sit
+function getters.Sit(self)
+	if isA(rawget(self, "_className"), "Seat") or rawget(self, "_className") == "VehicleSeat" then
+		return sit
+	end
+	return props(self).Sit
 end
 function getters.LocalPlayer(self)
 	return props(self).LocalPlayer
@@ -646,6 +656,25 @@ function Instance.MoveTo(self, goal)
 	end
 end
 
+-- Seat:Sit welds the humanoid's root to the seat (SeatWeld), as in Roblox.
+-- They stay seated until Humanoid.Sit or Jump is set, or the weld goes.
+function sit(self, humanoid)
+	local root = humanoid.RootPart
+	if not root or props(self).Occupant then
+		return
+	end
+	local weld = newInstance(rawget(self, "_engine"), "Weld")
+	rawset(weld, "_name", "SeatWeld")
+	props(weld).Part0 = self
+	props(weld).Part1 = root
+	props(weld).C0 = CFrame.new(0, 2, 0)
+	weld.Parent = self
+	props(self).Occupant = humanoid
+	props(humanoid).SeatPart = self
+	props(humanoid).Sit = true
+	rawget(self, "_engine"):_trackSeat(self)
+end
+
 function Instance.SetNetworkOwner() end
 function Instance.SetNetworkOwnershipAuto() end
 function Instance.BreakJoints() end
@@ -713,6 +742,7 @@ function Engine.new()
 	self.players = {}
 	self.nextUserId = 1000
 	self.welds = {}
+	self.seats = {}
 	self.touchParts = {}
 
 	self.DataModel = newInstance(self, "DataModel")
@@ -780,6 +810,21 @@ function Engine.new()
 	end
 	props(teleport).ReserveServer = function(_, placeId)
 		return "reserved-code-" .. tostring(placeId), "reserved-id"
+	end
+
+	-- Tweens jump straight to their goal when played.
+	local tweens = self:service("TweenService")
+	props(tweens).Create = function(_, inst, _info, goals)
+		local tween = newInstance(engine, "Tween")
+		props(tween).Play = function(t)
+			for key, value in goals do
+				inst[key] = value
+			end
+			t.Completed:Fire(Enum.PlaybackState.Completed)
+		end
+		props(tween).Cancel = function() end
+		props(tween).Pause = function() end
+		return tween
 	end
 
 	local cas = self:service("ContextActionService")
@@ -994,6 +1039,29 @@ function Engine:_physics(dt: number)
 		end
 	end
 
+	-- Seated humanoids get up when they jump, Sit is cleared or the weld goes.
+	for i = #self.seats, 1, -1 do
+		local seat = self.seats[i]
+		local p = props(seat)
+		local humanoid = p.Occupant
+		local weld = seat:FindFirstChild("SeatWeld")
+		local hp = humanoid and props(humanoid)
+		if not humanoid or not weld or not hp.Sit or hp.Jump or rawget(seat, "_destroyed") then
+			if weld then
+				weld:Destroy()
+			end
+			if hp then
+				hp.Sit = false
+				hp.Jump = false
+				if hp.SeatPart == seat then
+					hp.SeatPart = nil
+				end
+			end
+			p.Occupant = nil
+			table.remove(self.seats, i)
+		end
+	end
+
 	-- Welds keep Part1 where it was relative to Part0.
 	for i = #self.welds, 1, -1 do
 		local weld = self.welds[i]
@@ -1041,6 +1109,12 @@ function Engine:_physics(dt: number)
 				end
 			end
 		end
+	end
+end
+
+function Engine:_trackSeat(seat)
+	if not table.find(self.seats, seat) then
+		table.insert(self.seats, seat)
 	end
 end
 
