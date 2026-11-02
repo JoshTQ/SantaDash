@@ -64,9 +64,9 @@ function Run.new(
 	self.noiseFull = false
 	self.lastNoisePos = nil :: Vector3?
 	self.krampus = nil
+	self.snores = {} :: { SoundPlayer.Loop } -- sleeping parents this stop
 	self.ended = false
 	self.featureCleanups = {} :: { () -> () }
-	self.snores = {} :: { SoundPlayer.Loop }
 	self.times = { departAt = 0 }
 
 	local rng = Random.new()

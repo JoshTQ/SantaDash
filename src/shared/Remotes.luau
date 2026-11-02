@@ -3,7 +3,8 @@
 
 	Hud (server -> client): fire(kind: string, data: table). Kinds:
 		Queue, QueueClear, Stop, Banner, Noise, Player, Results, RunEnd,
-		Krampus, KrampusTease, Hide, Captive, Sfx ({ key }: a 2D sound, Sounds.luau)
+		Krampus, KrampusTease, Hide, Captive
+	Sound kind (server -> one client): Sfx { key } plays a 2D Sounds.luau key.
 	LeaveCrew (client -> server): leave the queue or the current run.
 	Input (client -> server): "Tap" (breath / wiggle) or "Unhide".
 ]]
