@@ -89,7 +89,8 @@ Workspace; players with no TeleportData then join as a test crew.
 | Integration | MapBuilder builds real Instances (Lune's Roblox library) from real plans: counts, prompts, sleigh on the ground at the Sleigh Stop, no overlapping houses, approved house kit / Lair / vault door (with stand-in models), Krampus and elf rigs, sleigh seats, vault presents, map palette/layout/features/stop origins, every map in the rotation | same command |
 | Regression | `tests/regression/DesignCalls.spec.luau`: every call Josh has signed off (Krampus from Stop 3, 15 wiggle taps, Sleigh Stop safe zone, missed-final-sleigh half sack, elf bot mix and 80% solo loot, ...). Add a test here for each new call and each bug fix | same command |
 | Static | Format, lint, place build | `stylua --check src tests`, `selene src`, `rojo build` |
-| E2E | Not automated yet; see below | Studio playtest |
+| In-engine | `tests/engine`, Jest Roblox in a real Roblox server: approved sleigh, cocoa machine and set dressing placement, remotes, server clock, and a whole empty-crew run (build, flight, end, clean-up) | CI `engine` job (Open Cloud); see below |
+| Manual | Feel, multi-player (bells, rescues, riders), cross-server teleport | Studio playtest |
 
 CI (`.github/workflows/ci.yml`) runs all of the above on every pull request.
 Filter tests by file name: `lune run tests/runner Loot`.
@@ -123,14 +124,38 @@ and keep `MapBuilder` free of events. Code that needs the live engine (`Run`,
 `Lobby`, `Krampus` and `ElfBot` movement, physics, pathfinding, remotes) is covered by the
 playtest checklist until E2E is set up.
 
-**E2E plan:** Roblox Open Cloud's Luau Execution API runs a script inside a
-real headless server for a published place. A CI job would publish the built
-place to a private test universe, then run a script that starts a run with
-the server's own logic and asserts on it (route built, Krampus pathfinds into a
-house, phases advance on time). It needs a test universe and place ID and an
-Open Cloud API key stored as a repo secret. Multi-player behaviour (bells,
-rescues, the sleigh carrying riders) still needs Studio's Test > Clients and
-Servers.
+### In-engine tests (Jest Roblox + Open Cloud)
+
+Code that needs the live engine is tested with
+[Jest Roblox](https://github.com/Roblox/jest-roblox) inside a real headless
+Roblox server, through Open Cloud Luau Execution. The CI `engine` job:
+
+1. `wally install` (Jest Roblox into `DevPackages/`)
+2. `lune run tools/prepare-engine --coverage` copies `src/` to
+   `build/engine-src/` with coverage probes
+3. `rojo build test.project.json` builds the test place (`src/server` goes in
+   `ServerStorage` so `Main` doesn't start a lobby)
+4. `lune run tools/ocale build/engine-tests.rbxl --coverage` saves it as a new
+   version of the test place, runs `ReplicatedStorage.RunTests` there, prints
+   the Jest output, and merges the engine hit counts into the coverage report
+
+Engine specs require everything from `JestGlobals` and use Jest's matchers
+(`expect(x).never.toBeNil()`, `toBeCloseTo`, ...). The job is advisory until
+after launch.
+
+**One-time setup:**
+
+1. Create a private test experience on Roblox (it never needs to be
+   public). Note its universe ID and place ID.
+2. Create an Open Cloud API key (Creator Dashboard > Open Cloud > API Keys)
+   for that experience with `universe-places:write` and
+   `luau-execution-sessions:write`.
+3. In the GitHub repo settings, add the secret `ROBLOX_API_KEY`, and the
+   variables `ROBLOX_UNIVERSE_ID` and `ROBLOX_PLACE_ID`.
+
+Until then, the job only checks that the test place builds. To run the engine
+specs by hand, build the test place, open it in Studio, and run
+`print(require(game.ReplicatedStorage.RunTests)())` in the command bar.
 
 ## Layout
 
@@ -155,6 +180,10 @@ src/server/HouseKit.luau      houses, Lair and vault door from the approved mode
 src/server/MapBuilder.luau    greybox hub, houses, streets, sleigh, Krampus and elf stand-ins
 src/server/Loot.luau          pure House Card rolls, stop plans, loot and results
 src/client/Hud.client.luau    timer, Jingle, sack, noise, bells, breath, wiggle, queue, results
-tests/runner.luau             Lune test runner
-tests/unit, tests/integration specs
+tests/runner.luau             Lune test runner (tests/coverage.luau: coverage reports)
+tests/unit, tests/integration, tests/regression   Lune specs
+tests/engine                  Jest Roblox specs (in-engine tier)
+tools/luau-cov                coverage instrumenter (Rust)
+tools/prepare-engine.luau     builds src for the test place
+tools/ocale.luau              runs the engine specs in Open Cloud
 ```

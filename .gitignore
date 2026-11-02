@@ -6,3 +6,5 @@ sourcemap.json
 /build
 /coverage
 /tools/luau-cov/target
+/DevPackages
+/Packages

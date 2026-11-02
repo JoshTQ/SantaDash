@@ -79,6 +79,39 @@ function Coverage.instrument(file: string, env: { [string]: any }): string
 	return source
 end
 
+-- Raw hit counts as JSON, so another run (the in-engine tier) can merge in.
+function Coverage.saveHits(path: string)
+	local out = {}
+	for file, entry in files do
+		local l, f = {}, {}
+		for line, n in entry.lineHits do
+			l[tostring(line)] = n
+		end
+		for index, n in entry.fnHits do
+			f[tostring(index)] = n
+		end
+		out[file] = { l = l, f = f }
+	end
+	fs.writeFile(path, serde.encode("json", out))
+end
+
+-- Adds hit counts in the saveHits shape ({ [file] = { l = {}, f = {} } }).
+function Coverage.addHits(data: { [string]: { l: { [string]: number }?, f: { [string]: number }? } })
+	for file, hits in data do
+		if fs.isFile(file) then
+			local _, entry = instrumentFile(file)
+			for line, n in hits.l or {} do
+				local key = tonumber(line) :: number
+				entry.lineHits[key] = (entry.lineHits[key] or 0) + n
+			end
+			for index, n in hits.f or {} do
+				local key = tonumber(index) :: number
+				entry.fnHits[key] = (entry.fnHits[key] or 0) + n
+			end
+		end
+	end
+end
+
 -- Registers files no spec loaded, so they show up at 0% instead of vanishing.
 local function addUnloaded(dir: string)
 	for _, name in fs.readDir(dir) do

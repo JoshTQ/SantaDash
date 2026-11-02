@@ -1,0 +1,12 @@
+# Test-only packages for the in-engine tier (tests/engine). `wally install`
+# puts them in DevPackages/, which test.project.json maps into the test place.
+[package]
+name = "joshtq/sleigh-heist"
+version = "0.1.0"
+registry = "https://github.com/UpliftGames/wally-index"
+realm = "shared"
+private = true
+
+[dev-dependencies]
+Jest = "roblox/jest@3.20.0"
+JestGlobals = "roblox/jest-globals@3.20.0"
