@@ -174,9 +174,6 @@ local function pack()
 	end
 	local now = Util.now()
 	local crews, keep = CrewPacker.pack(CrewPacker.clean(items, now), now)
-	if #crews == 0 then
-		return -- nothing leaves: leave the batch alone; it reappears after InvisibleSeconds
-	end
 	for _, crew in crews do
 		local ok, err = pcall(announce, crew)
 		if not ok then
@@ -186,6 +183,9 @@ local function pack()
 			end
 		end
 	end
+	-- Always put the rest back and remove the batch, even when no crew left:
+	-- a batch left in place stays hidden from every server's next read, so
+	-- riders queued a few seconds apart would never be packed together.
 	for _, ticket in keep do
 		task.spawn(addTicket, ticket)
 	end
