@@ -47,3 +47,18 @@ test("a run never repeats the map the crew just played when there is a choice", 
 	expect(Maps.pick(rng, "A")).toBe("A")
 	Maps.Rotation = saved
 end)
+
+test("Maps.ids lists every map, sorted, including the default and the rotation", function()
+	local ids = Maps.ids()
+	expect(ids).toContain(Maps.Default)
+	for _, id in Maps.Rotation do
+		expect(ids).toContain(id)
+	end
+	local sorted = table.clone(ids)
+	table.sort(sorted)
+	expect(ids).toEqual(sorted)
+end)
+
+test("Maps.get caches each map", function()
+	expect(Maps.get(Maps.Default)).toBe(Maps.get(Maps.Default))
+end)

@@ -25,8 +25,31 @@ jobs:
       - name: Lint (selene)
         run: selene src
 
-      - name: Unit and integration tests (Lune)
-        run: lune run tests/runner
+      - name: Cache the coverage instrumenter
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            tools/luau-cov/target
+          key: luau-cov-${{ runner.os }}-${{ hashFiles('tools/luau-cov/Cargo.lock', 'tools/luau-cov/src/**') }}
+
+      - name: Build the coverage instrumenter
+        run: cargo build --release --locked --manifest-path tools/luau-cov/Cargo.toml
+
+      - name: Unit, integration and regression tests with coverage (Lune)
+        run: lune run tests/runner --coverage
+
+      - name: Post the coverage table to the job summary
+        if: always()
+        run: test -f coverage/summary.md && cat coverage/summary.md >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Upload the coverage report (open index.html)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          if-no-files-found: ignore
 
       - name: Build the place (Rojo)
         run: rojo build -o SleighHeist.rbxl

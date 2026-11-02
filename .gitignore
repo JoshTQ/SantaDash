@@ -4,3 +4,5 @@
 *.rbxlx.lock
 sourcemap.json
 /build
+/coverage
+/tools/luau-cov/target

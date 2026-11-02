@@ -185,3 +185,46 @@ test("approved presents are scaled to their size and sit on the floor", function
 	local plain = MapBuilder.buildRoute(Instance.new("Folder"), 2, rng, plans, onFoot)
 	expect(plain.stops[1].presents[1].model:FindFirstChild("Bow")).toBe(nil)
 end)
+
+describe("approved variants in ServerStorage.Assets", function()
+	local function folder(name: string?)
+		local f = Instance.new("Folder")
+		f.Name = name or "Assets"
+		return f
+	end
+
+	it("finds nothing when there is no Assets folder", function()
+		expect(HouseKit.variants(nil)).toHaveLength(0)
+		expect(HouseKit.presentVariants(nil)).toHaveLength(0)
+	end)
+
+	it("collects House models and an Assets.Houses folder, skipping ones without a Floor", function()
+		local assets = folder()
+		fakeHouse("candy").Parent = assets
+		local houses = folder("Houses")
+		houses.Parent = assets
+		fakeHouse("alpine").Parent = houses
+		local broken = Instance.new("Model")
+		broken.Name = "House"
+		broken.Parent = assets
+		expect(HouseKit.variants(assets)).toHaveLength(2)
+	end)
+
+	it("collects Present models and an Assets.Presents folder, skipping ones without a Box", function()
+		local assets = folder()
+		local function present(parent, withBox)
+			local m = Instance.new("Model")
+			m.Name = "Present"
+			if withBox then
+				part(m, "Box", Vector3.new(2, 2, 2), CFrame.new())
+			end
+			m.Parent = parent
+		end
+		present(assets, true)
+		present(assets, false)
+		local presents = folder("Presents")
+		presents.Parent = assets
+		present(presents, true)
+		expect(HouseKit.presentVariants(assets)).toHaveLength(2)
+	end)
+end)
