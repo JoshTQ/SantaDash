@@ -125,6 +125,89 @@ function CanalRules.patrolAt(points: { Vector3 }, speed: number, t: number): (Ve
 	error("unreachable: the last segment always returns")
 end
 
+export type Rect = { x0: number, x1: number, z0: number, z1: number }
+export type Hill = { x: number, z: number, radius: number, height: number }
+export type Tree = { x: number, z: number, y: number, height: number, lit: boolean }
+
+local function inRect(x: number, z: number, r: Rect, pad: number): boolean
+	return x > r.x0 - pad and x < r.x1 + pad and z > r.z0 - pad and z < r.z1 + pad
+end
+
+-- Height of the snow at (x, z): flat ground (0) or the top of a hill. Hills
+-- are spheres sunk so only a gentle cap of `height` shows.
+function CanalRules.groundHeight(hills: { Hill }, x: number, z: number): number
+	local y = 0
+	for _, h in hills do
+		local dx, dz = x - h.x, z - h.z
+		local d2 = dx * dx + dz * dz
+		if d2 < h.radius * h.radius then
+			local sphere = (h.radius * h.radius + h.height * h.height) / (2 * h.height)
+			local top = h.height - sphere + math.sqrt(sphere * sphere - d2)
+			y = math.max(y, top)
+		end
+	end
+	return y
+end
+
+-- Snowy hills and a pine forest filling `regions` (stop space), clear of the
+-- `keepouts` (canals, the lake). Some trees carry Christmas lights.
+function CanalRules.woodland(rng: Random, regions: { Rect }, keepouts: { Rect }): ({ Tree }, { Hill })
+	local W = Config.Canal.Woodland
+	local hills, trees = {}, {}
+	for _, r in regions do
+		local area = (r.x1 - r.x0) * (r.z1 - r.z0)
+		for _ = 1, math.floor(area / W.HillArea + 0.5) do
+			local radius = rng:NextNumber(W.HillRadius[1], W.HillRadius[2])
+			if r.x1 - r.x0 > 2 * radius and r.z1 - r.z0 > 2 * radius then
+				local x = rng:NextNumber(r.x0 + radius, r.x1 - radius)
+				local z = rng:NextNumber(r.z0 + radius, r.z1 - radius)
+				local clear = true
+				for _, k in keepouts do
+					if inRect(x, z, k, radius) then
+						clear = false
+					end
+				end
+				if clear then
+					table.insert(hills, {
+						x = x,
+						z = z,
+						radius = radius,
+						height = rng:NextNumber(W.HillHeight[1], W.HillHeight[2]),
+					})
+				end
+			end
+		end
+	end
+	for _, r in regions do
+		local x = r.x0 + W.TreeSpacing / 2
+		while x < r.x1 do
+			local z = r.z0 + W.TreeSpacing / 2
+			while z < r.z1 do
+				local tx = x + rng:NextNumber(-W.TreeSpacing / 3, W.TreeSpacing / 3)
+				local tz = z + rng:NextNumber(-W.TreeSpacing / 3, W.TreeSpacing / 3)
+				local clear = rng:NextNumber() < W.TreeChance and inRect(tx, tz, r, 0)
+				for _, k in keepouts do
+					if inRect(tx, tz, k, 6) then
+						clear = false
+					end
+				end
+				if clear then
+					table.insert(trees, {
+						x = tx,
+						z = tz,
+						y = CanalRules.groundHeight(hills, tx, tz),
+						height = rng:NextNumber(W.TreeHeight[1], W.TreeHeight[2]),
+						lit = rng:NextNumber() < W.LitChance,
+					})
+				end
+				z += W.TreeSpacing
+			end
+			x += W.TreeSpacing
+		end
+	end
+	return trees, hills
+end
+
 -- The rink polisher circles the rink centre.
 function CanalRules.polisherAt(centre: Vector3, radius: number, t: number): (Vector3, Vector3)
 	local a = t * Config.Canal.Polisher.AngularSpeed

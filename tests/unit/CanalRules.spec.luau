@@ -65,3 +65,29 @@ test("a corgi knocks out one average present; an empty sack loses nothing", func
 	expect(st.sackCount).toBe(2)
 	expect(st.sackValue).toBe(200)
 end)
+
+test("forest and hills fill the bands and stay off the canal", function()
+	local regions = { { x0 = 90, x1 = 350, z0 = -115, z1 = 630 } }
+	local canal = { x0 = -1e4, x1 = 1e4, z0 = -70, z1 = -10 }
+	local trees, hills = CanalRules.woodland(Random.new(3), regions, { canal })
+	expect(#trees).toBeGreaterThan(80)
+	expect(#hills).toBeGreaterThan(5)
+	local lit, raised = 0, 0
+	for _, t in trees do
+		expect(t.z < -76 or t.z > -4).toBeTruthy()
+		expect(t.x >= 90 and t.x <= 350).toBeTruthy()
+		if t.lit then
+			lit += 1
+		end
+		if t.y > 0.5 then
+			raised += 1
+		end
+	end
+	expect(lit).toBeGreaterThan(0)
+	expect(raised).toBeGreaterThan(0) -- some trees stand on hills
+	for _, h in hills do
+		expect(CanalRules.groundHeight(hills, h.x, h.z)).toBeGreaterThan(h.height - 0.01) -- overlaps only add
+		expect(h.z + h.radius < -70 or h.z - h.radius > -10).toBeTruthy()
+	end
+	expect(CanalRules.groundHeight(hills, -500, -500)).toBe(0)
+end)

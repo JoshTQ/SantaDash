@@ -88,7 +88,13 @@ test("the Lair sits on its island and the lake breaks into floes around it", fun
 	local finale = route.stops[#route.stops]
 	local island = named(route.model, "Island")[1]
 	local d = ((finale.krampusSpawn.Position - island.CFrame.Position) * Vector3.new(1, 0, 1)).Magnitude
-	expect(d).toBeLessThan(map.features[5].islandRadius)
+	local lake
+	for _, f in map.features do
+		if f.kind == "FloeLake" then
+			lake = f
+		end
+	end
+	expect(d).toBeLessThan(lake.islandRadius)
 	local floes = CanalTown.breakZone(finale.canal.lake, Random.new(1))
 	expect(#floes).toBeGreaterThan(100)
 	expect(finale.canal.lake:GetAttribute("Broken")).toBe(true)
@@ -119,6 +125,28 @@ test("dog patrols keep out of the Sleigh Stop", function()
 		for _, p in dog.points do
 			local d = ((p - stop.deckCFrame.Position) * Vector3.new(1, 0, 1)).Magnitude
 			expect(d).toBeGreaterThan(Config.Map.SleighStopRadius + Config.Canal.Dogs.HitRadius)
+		end
+	end
+end)
+
+test("the town has a forest, hills and Christmas lights, all off the streets", function()
+	local route = build(6)
+	expect(#named(route.model, "PineTier")).toBeGreaterThan(300)
+	expect(#named(route.model, "SnowHill")).toBeGreaterThan(5)
+	expect(#named(route.model, "Bulb")).toBeGreaterThan(200)
+	expect(#named(route.model, "Wreath")).toBeGreaterThan(10)
+	local lamps = named(route.model, "LampGlow")
+	expect(lamps[1]:FindFirstChildOfClass("PointLight") ~= nil).toBeTruthy()
+	-- No tree trunk stands on a street canal, a canal, the lake or a Sleigh Stop.
+	local blockers = {}
+	for _, n in { "Road", "CanalIce", "LakeIce", "Plaza", "Island" } do
+		for _, p in named(route.model, n) do
+			table.insert(blockers, p)
+		end
+	end
+	for _, trunk in named(route.model, "PineTrunk") do
+		for _, b in blockers do
+			expect(over(b, trunk.CFrame.Position)).toBeFalsy()
 		end
 	end
 end)

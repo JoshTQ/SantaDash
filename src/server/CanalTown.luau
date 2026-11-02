@@ -147,6 +147,27 @@ local function ball(ctx, name: string, at: Vector3, diameter: number, color: Col
 	return part
 end
 
+-- Christmas bulbs along a sagging strand from a to b (stop space).
+local function strand(ctx, a: Vector3, b: Vector3, sag: number, spacing: number)
+	local n = math.max(2, math.floor((b - a).Magnitude / spacing))
+	for i = 0, n do
+		local t = i / n
+		local p = a:Lerp(b, t) - Vector3.new(0, sag * 4 * t * (1 - t), 0)
+		ball(ctx, "Bulb", p, 0.7, C.LightColours[i % #C.LightColours + 1], Enum.Material.Neon).CanCollide =
+			false
+	end
+end
+
+-- A warm PointLight so lamps and decorations light the snow at night.
+local function glow(part: BasePart, color: Color3, range: number)
+	local light = Instance.new("PointLight")
+	light.Color = color
+	light.Range = range
+	light.Brightness = 1.4
+	light.Shadows = false
+	light.Parent = part
+end
+
 ----------------------------------------------------------------------------
 -- CanalStreet: pavements, front gardens, hedges, fences, canal barriers
 ----------------------------------------------------------------------------
@@ -270,7 +291,7 @@ local function lamps(ctx, zEnd: number, ranges)
 					ctx.origin * CFrame.new(x, 5, z),
 					CANDY
 				)
-				ball(
+				local lamp = ball(
 					ctx,
 					"LampGlow",
 					Vector3.new(x, 10.5, z),
@@ -278,7 +299,11 @@ local function lamps(ctx, zEnd: number, ranges)
 					Color3.fromRGB(255, 235, 170),
 					Enum.Material.Neon
 				)
+				glow(lamp, Color3.fromRGB(255, 210, 150), 24)
 			end
+			-- Lights strung across the canal between each pair of lamps.
+			local x = half + C.Promenade - 0.8
+			strand(ctx, Vector3.new(-x, 10, z), Vector3.new(x, 10, z), 2.5, 3)
 		end
 		z += 44
 	end
@@ -446,6 +471,32 @@ local function terraces(ctx, zEnd: number, ranges, houses, plaza: Vector3, skipB
 				)
 				roof.CanCollide = true
 				local face = x - side * 12.2
+				-- Christmas lights along the eaves and a wreath over the door.
+				strand(
+					ctx,
+					Vector3.new(face - side * 0.6, height - 0.4, z - 16),
+					Vector3.new(face - side * 0.6, height - 0.4, z + 16),
+					0.8,
+					2.6
+				)
+				local wreath = ctx.newPart(
+					ctx.model,
+					"Wreath",
+					Vector3.new(0.6, 4, 4),
+					ctx.origin * CFrame.new(face - side * 0.2, 7, z),
+					HEDGE,
+					Enum.Material.Grass
+				)
+				wreath.Shape = Enum.PartType.Cylinder
+				ball(ctx, "WreathBow", Vector3.new(face - side * 0.5, 5.6, z), 1, CANDY, Enum.Material.Neon)
+				ctx.newPart(
+					ctx.model,
+					"TownhouseDoor",
+					Vector3.new(0.3, 5, 3.4),
+					ctx.origin * CFrame.new(face, 2.5, z),
+					WOOD,
+					Enum.Material.Wood
+				)
 				for row = 1, math.floor((height - 4) / 7) do
 					for _, dz in { -10, 0, 10 } do
 						ctx.newPart(
@@ -632,6 +683,36 @@ function SkateCanal.build(ctx)
 	while d < length - 80 do
 		hoop(ctx, frame * CFrame.new(d, 0, 0) * CFrame.Angles(0, math.pi / 2, 0))
 		d += 120
+	end
+	-- Lamp posts along both banks, with lights strung along the bank between them.
+	d = 70
+	local prev: number? = nil
+	while d < length - 60 do
+		for _, sz in { -1, 1 } do
+			local at = (frame * CFrame.new(d, 0, sz * (C.Width / 2 + 3))).Position
+			ctx.newPart(
+				ctx.model,
+				"LampPost",
+				Vector3.new(0.6, 10, 0.6),
+				ctx.origin * CFrame.new(at + Vector3.new(0, 5, 0)),
+				CANDY
+			)
+			local lamp = ball(
+				ctx,
+				"LampGlow",
+				at + Vector3.new(0, 10.5, 0),
+				1.6,
+				Color3.fromRGB(255, 235, 170),
+				Enum.Material.Neon
+			)
+			glow(lamp, Color3.fromRGB(255, 210, 150), 24)
+			if prev then
+				local from = (frame * CFrame.new(prev, 0, sz * (C.Width / 2 + 3))).Position
+				strand(ctx, from + Vector3.new(0, 9.6, 0), at + Vector3.new(0, 9.6, 0), 3, 3.2)
+			end
+		end
+		prev = d
+		d += 80
 	end
 	d = 60
 	while d < length - 40 do
@@ -1247,7 +1328,107 @@ function FloeLake.start(ctx)
 	end
 end
 
+----------------------------------------------------------------------------
+-- Woodland: pine forest and snowy hills around each stop
+----------------------------------------------------------------------------
+
+local PINE = Color3.fromRGB(30, 95, 60)
+local Woodland = {}
+
+-- Forest bands either side of the street (stop space), clear of the main
+-- canal and the Lair lake. Neighbouring stops each fill half the gap.
+local function woodlandAreas(ctx): ({ CanalRules.Rect }, { CanalRules.Rect })
+	local W = C.Woodland
+	local i, last = ctx.stop.plan.index, #Config.Run.StopKinds
+	local z0, z1 = -W.Edge, Config.Rings.Far.Distance + W.Edge
+	local outer = W.Inner + W.Band
+	-- The first and last stops get a deep forest on their outside edge, on
+	-- the snowfield that Woodland.build lays past the route's ground.
+	local left = if i == 1 then -W.Inner - W.Edge else -outer
+	local right = if i == last then W.Inner + W.Edge else outer
+	local regions = {
+		{ x0 = left, x1 = -W.Inner, z0 = z0, z1 = z1 },
+		{ x0 = W.Inner, x1 = right, z0 = z0, z1 = z1 },
+		{ x0 = -W.Inner, x1 = W.Inner, z0 = streetEnd(ctx) + 20, z1 = z1 }, -- past the street's end
+	}
+	local z = ctx.map.layout.FootPathZ
+	local keepouts = { { x0 = -1e4, x1 = 1e4, z0 = z - C.Width / 2 - 8, z1 = z + C.Width / 2 + 8 } }
+	local lake = sibling(ctx, "FloeLake")
+	if lake then
+		table.insert(
+			keepouts,
+			{ x0 = -lake.halfWidth - 4, x1 = lake.halfWidth + 4, z0 = lake.from - 4, z1 = lake.to + 4 }
+		)
+	end
+	return regions, keepouts
+end
+
+function Woodland.build(ctx)
+	local regions, keepouts = woodlandAreas(ctx)
+	-- A snowfield under the whole forest (a hair below the route's ground) so
+	-- the outer forest and the hills' edges never hang over the void.
+	local lo, hi = Vector3.new(math.huge, 0, math.huge), Vector3.new(-math.huge, 0, -math.huge)
+	for _, r in regions do
+		lo = Vector3.new(math.min(lo.X, r.x0), 0, math.min(lo.Z, r.z0))
+		hi = Vector3.new(math.max(hi.X, r.x1), 0, math.max(hi.Z, r.z1))
+	end
+	local pad = C.Woodland.HillRadius[2] * 2
+	lo -= Vector3.new(pad, 0, pad)
+	hi += Vector3.new(pad, 0, pad)
+	ctx.newPart(
+		ctx.model,
+		"Snowfield",
+		Vector3.new(hi.X - lo.X, 2, hi.Z - lo.Z),
+		ctx.origin * CFrame.new((lo.X + hi.X) / 2, -1.05, (lo.Z + hi.Z) / 2),
+		SNOW,
+		Enum.Material.Snow
+	)
+	local trees, hills = CanalRules.woodland(ctx.rng, regions, keepouts)
+	for _, h in hills do
+		-- A big sunk ball: only a gentle cap of `height` shows above the snow.
+		local sphere = (h.radius * h.radius + h.height * h.height) / (2 * h.height)
+		ball(ctx, "SnowHill", Vector3.new(h.x, h.height - sphere, h.z), sphere * 2, SNOW, Enum.Material.Snow)
+	end
+	for _, t in trees do
+		local base = Vector3.new(t.x, t.y, t.z)
+		local h = t.height
+		ctx.newPart(
+			ctx.model,
+			"PineTrunk",
+			Vector3.new(1.6, h * 0.25, 1.6),
+			ctx.origin * CFrame.new(base + Vector3.new(0, h * 0.125, 0)),
+			WOOD,
+			Enum.Material.Wood
+		)
+		for k, frac in { 0.55, 0.32 } do
+			local width = h * frac
+			local tier = ctx.newPart(
+				ctx.model,
+				"PineTier",
+				Vector3.new(h * 0.4, width, width),
+				ctx.origin
+					* CFrame.new(base + Vector3.new(0, h * (0.2 + k * 0.3), 0))
+					* CFrame.Angles(0, 0, math.pi / 2),
+				PINE,
+				Enum.Material.Grass
+			)
+			tier.Shape = Enum.PartType.Cylinder
+		end
+		ball(ctx, "PineSnow", base + Vector3.new(0, h * 0.98, 0), h * 0.14, SNOW, Enum.Material.Snow)
+		if t.lit then
+			for k = 0, 5 do
+				local a = k * 1.9
+				local r = h * (0.27 - k * 0.025)
+				local p = base + Vector3.new(math.cos(a) * r, h * (0.25 + k * 0.11), math.sin(a) * r)
+				ball(ctx, "Bulb", p, 0.9, C.LightColours[k % #C.LightColours + 1], Enum.Material.Neon).CanCollide =
+					false
+			end
+		end
+	end
+end
+
 CanalTown.features = {
+	Woodland = Woodland,
 	CanalStreet = CanalStreet,
 	SkateCanal = SkateCanal,
 	ChristmasMarket = ChristmasMarket,
