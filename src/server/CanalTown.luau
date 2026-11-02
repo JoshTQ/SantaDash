@@ -1241,7 +1241,6 @@ local IRON = Color3.fromRGB(35, 30, 45)
 local DEADWOOD = Color3.fromRGB(70, 50, 45)
 local SPOOKY = { Color3.fromRGB(170, 90, 255), Color3.fromRGB(110, 255, 160) } -- purple, green
 local HORN = Color3.fromRGB(235, 220, 190)
-local FLAME = Color3.fromRGB(255, 150, 60)
 
 local function rock(ctx, at: Vector3, size: number)
 	local part = ctx.newPart(
@@ -1312,18 +1311,108 @@ local function lantern(ctx, at: Vector3, color: Color3)
 	glow(flame, color, 26)
 end
 
-local function torch(ctx, at: Vector3)
+-- Witch fire (Josh, 2 Nov: "evil fire, scary castle lantern vibes"): a
+-- glowing core with a real Roblox Fire in Krampus's green and purple. It's
+-- decoration only and never hurts anyone.
+local EVIL = { Color3.fromRGB(90, 255, 120), Color3.fromRGB(185, 80, 255) }
+
+local function evilFire(ctx, at: Vector3, size: number, color: Color3)
+	local core = ball(ctx, "EvilFlame", at, size * 0.35, color, Enum.Material.Neon)
+	core.CanCollide = false
+	core.CanQuery = false
+	local fire = Instance.new("Fire")
+	fire.Color = color
+	fire.SecondaryColor = Color3.new(color.R * 0.3, color.G * 0.3, color.B * 0.3)
+	fire.Size = size
+	fire.Heat = size * 1.5
+	fire.Parent = core
+	glow(core, color, size * 4 + 10)
+	return core
+end
+
+local function torch(ctx, at: Vector3, color: Color3)
 	ctx.newPart(
 		ctx.model,
 		"Torch",
 		Vector3.new(0.8, 5, 0.8),
 		ctx.origin * CFrame.new(at + Vector3.new(0, 2.5, 0)),
-		WOOD,
-		Enum.Material.Wood
+		IRON,
+		Enum.Material.Metal
 	)
-	local fire = ball(ctx, "TorchFlame", at + Vector3.new(0, 5.6, 0), 1.6, FLAME, Enum.Material.Neon)
-	fire.CanCollide = false
-	glow(fire, FLAME, 22)
+	evilFire(ctx, at + Vector3.new(0, 5.6, 0), 4, color)
+end
+
+-- A stone pillar topped with an iron bowl of witch fire.
+local function brazier(ctx, at: Vector3, color: Color3)
+	ctx.newPart(
+		ctx.model,
+		"BrazierPillar",
+		Vector3.new(2.8, 6, 2.8),
+		ctx.origin * CFrame.new(at + Vector3.new(0, 3, 0)),
+		ROCK,
+		Enum.Material.Slate
+	)
+	local bowl = ctx.newPart(
+		ctx.model,
+		"BrazierBowl",
+		Vector3.new(1.2, 4.2, 4.2),
+		ctx.origin * CFrame.new(at + Vector3.new(0, 6.6, 0)) * CFrame.Angles(0, 0, math.pi / 2),
+		IRON,
+		Enum.Material.Metal
+	)
+	bowl.Shape = Enum.PartType.Cylinder
+	evilFire(ctx, at + Vector3.new(0, 7.6, 0), 7, color)
+end
+
+-- A castle lantern: an iron post and arm with a caged flame hanging from it.
+local function castleLantern(ctx, at: Vector3, out: number, color: Color3)
+	ctx.newPart(
+		ctx.model,
+		"CastleLanternPost",
+		Vector3.new(0.6, 9, 0.6),
+		ctx.origin * CFrame.new(at + Vector3.new(0, 4.5, 0)),
+		IRON,
+		Enum.Material.Metal
+	)
+	ctx.newPart(
+		ctx.model,
+		"CastleLanternArm",
+		Vector3.new(2.6, 0.4, 0.4),
+		ctx.origin * CFrame.new(at + Vector3.new(out * 1.1, 8.8, 0)),
+		IRON,
+		Enum.Material.Metal
+	)
+	local c = at + Vector3.new(out * 2.2, 6.6, 0)
+	for _, dy in { -1.3, 1.3 } do
+		ctx.newPart(
+			ctx.model,
+			"CageCap",
+			Vector3.new(1.8, 0.3, 1.8),
+			ctx.origin * CFrame.new(c + Vector3.new(0, dy, 0)),
+			IRON,
+			Enum.Material.Metal
+		).CanCollide =
+			false
+	end
+	for _, d in
+		{
+			Vector3.new(0.8, 0, 0.8),
+			Vector3.new(-0.8, 0, 0.8),
+			Vector3.new(0.8, 0, -0.8),
+			Vector3.new(-0.8, 0, -0.8),
+		}
+	do
+		ctx.newPart(
+			ctx.model,
+			"CageBar",
+			Vector3.new(0.18, 2.6, 0.18),
+			ctx.origin * CFrame.new(c + d),
+			IRON,
+			Enum.Material.Metal
+		).CanCollide =
+			false
+	end
+	evilFire(ctx, c, 2, color)
 end
 
 -- Goat horns on top of the gate: three tilted segments curling outwards.
@@ -1334,6 +1423,197 @@ local function horn(ctx, base: Vector3, side: number)
 		cf = cf * CFrame.Angles(0, 0, -side * 0.55) * CFrame.new(0, len / 2, 0)
 		ctx.newPart(ctx.model, "GateHorn", Vector3.new(1.6 - k * 0.35, len, 1.6 - k * 0.35), cf, HORN)
 		cf = cf * CFrame.new(0, len / 2, 0)
+	end
+end
+
+-- A crooked, whimsical castle wall round the Lair (Josh, 2 Nov): leaning
+-- stone towers with curly candy-striped spires, candy-striped battlements
+-- strung with Christmas lights, and two wide gates (front to the bridge,
+-- back to the lake) so a chased Santa is never trapped inside.
+local CASTLE = Color3.fromRGB(95, 85, 115)
+local CASTLE_DARK = Color3.fromRGB(70, 62, 88)
+
+local function curlySpire(ctx, top: Vector3, radius: number)
+	local cf = ctx.origin * CFrame.new(top)
+	local lean = ctx.rng:NextNumber(0.18, 0.32) * (if ctx.rng:NextNumber() < 0.5 then -1 else 1)
+	local w = radius * 2.2
+	for k = 1, 6 do
+		local h = 2.2
+		cf = cf * CFrame.Angles(0, 0.5, lean * 0.6) * CFrame.new(0, h / 2, 0)
+		local tier = ctx.newPart(
+			ctx.model,
+			"SpireTier",
+			Vector3.new(h, w, w),
+			cf * CFrame.Angles(0, 0, math.pi / 2),
+			if k % 2 == 0 then WHITE else CANDY
+		)
+		tier.Shape = Enum.PartType.Cylinder
+		cf = cf * CFrame.new(0, h / 2, 0)
+		w *= 0.72
+	end
+	local tip = ball(ctx, "SpireBauble", Vector3.zero, 2, GOLD, Enum.Material.Neon)
+	tip.CFrame = cf * CFrame.new(0, 1, 0)
+	tip.CanCollide = false
+end
+
+local function castleWall(ctx, centre: Vector3, radius: number, front: number, gapAt)
+	local rng = ctx.rng
+	local towers = 12
+	local spots = {}
+	for k = 0, towers - 1 do
+		local a = front + (k + 0.5) / towers * math.pi * 2
+		table.insert(spots, a)
+	end
+	local function at(a: number, rad: number): Vector3
+		return centre + Vector3.new(math.sin(a) * rad, 0, math.cos(a) * rad)
+	end
+	-- Wall runs between neighbouring towers, unless the run crosses a gate.
+	for k, a in spots do
+		local b = spots[k % #spots + 1]
+		if b < a then
+			b += math.pi * 2
+		end
+		local mid = (a + b) / 2
+		if not gapAt(mid, 0.3) then
+			local p, q = at(a, radius), at(b, radius)
+			local height = rng:NextNumber(9, 11)
+			wall(
+				ctx,
+				"CastleWall",
+				p,
+				q,
+				3,
+				height,
+				if k % 2 == 0 then CASTLE else CASTLE_DARK,
+				Enum.Material.Slate
+			)
+			-- Candy-striped battlements and a string of lights along the top.
+			local n = math.floor((q - p).Magnitude / 3)
+			for m = 0, n - 1 do
+				if m % 2 == 0 then
+					local mp = p:Lerp(q, (m + 0.5) / n)
+					ctx.newPart(
+						ctx.model,
+						"Battlement",
+						Vector3.new(2.2, 1.8, 2.2),
+						ctx.origin * CFrame.lookAt(mp, mp + (q - p)) * CFrame.new(0, height + 0.9, 0),
+						if m % 4 == 0 then CANDY else WHITE
+					)
+				end
+			end
+			local inward = (centre - (p + q) / 2).Unit
+			strand(
+				ctx,
+				p + inward * 1.8 + Vector3.new(0, height - 1, 0),
+				q + inward * 1.8 + Vector3.new(0, height - 1, 0),
+				1.4,
+				2.6
+			)
+		end
+	end
+	-- Leaning towers (taller either side of each gate), every other one with witch fire.
+	for k, a in spots do
+		local p = at(a, radius)
+		local byGate = gapAt(a, 0.55)
+		local h = if byGate then rng:NextNumber(22, 26) else rng:NextNumber(15, 20)
+		local rad = if byGate then 5 else 4
+		local lean = CFrame.Angles(rng:NextNumber(-0.06, 0.06), 0, rng:NextNumber(-0.06, 0.06))
+		local base = ctx.origin * CFrame.new(p) * lean
+		local tower = ctx.newPart(
+			ctx.model,
+			"CastleTower",
+			Vector3.new(h, rad * 2, rad * 2),
+			base * CFrame.new(0, h / 2, 0) * CFrame.Angles(0, 0, math.pi / 2),
+			CASTLE,
+			Enum.Material.Slate
+		)
+		tower.Shape = Enum.PartType.Cylinder
+		for _, y in { h * 0.45, h * 0.7 } do
+			ctx.newPart(
+				ctx.model,
+				"TowerWindow",
+				Vector3.new(1.4, 2.4, 0.4),
+				base * CFrame.new(0, y, 0) * CFrame.Angles(0, a, 0) * CFrame.new(0, 0, -rad),
+				EVIL[k % 2 + 1],
+				Enum.Material.Neon
+			).CanCollide =
+				false
+		end
+		local topAt = ctx.origin:PointToObjectSpace((base * CFrame.new(0, h, 0)).Position)
+		if k % 2 == 0 then
+			local bowl = ctx.newPart(
+				ctx.model,
+				"TowerBrazier",
+				Vector3.new(1, rad * 1.6, rad * 1.6),
+				ctx.origin * CFrame.new(topAt + Vector3.new(0, 0.5, 0)) * CFrame.Angles(0, 0, math.pi / 2),
+				IRON,
+				Enum.Material.Metal
+			)
+			bowl.Shape = Enum.PartType.Cylinder
+			evilFire(ctx, topAt + Vector3.new(0, 1.8, 0), 6, EVIL[(k // 2) % 2 + 1])
+		else
+			curlySpire(ctx, topAt, rad)
+		end
+		-- A giant bauble hanging off the tower's outer face.
+		local out = (p - centre).Unit
+		ball(
+			ctx,
+			"TowerBauble",
+			p + out * (rad + 1.2) + Vector3.new(0, h * 0.55, 0),
+			2.6,
+			C.LightColours[k % #C.LightColours + 1],
+			Enum.Material.Glass
+		).CanCollide =
+			false
+	end
+	-- A big wreath with a bow over the front gate.
+	local gate = at(front, radius) + Vector3.new(0, 16, 0)
+	local wreath = ctx.newPart(
+		ctx.model,
+		"GateWreath",
+		Vector3.new(1, 9, 9),
+		ctx.origin * CFrame.new(gate) * CFrame.Angles(0, front + math.pi / 2, 0),
+		HEDGE,
+		Enum.Material.Grass
+	)
+	wreath.Shape = Enum.PartType.Cylinder
+	wreath.CanCollide = false
+	ball(ctx, "GateBow", gate - Vector3.new(0, 3.6, 0), 2.2, CANDY, Enum.Material.Neon).CanCollide = false
+	strand(
+		ctx,
+		at(front - 0.33, radius) + Vector3.new(0, 14, 0),
+		at(front + 0.33, radius) + Vector3.new(0, 14, 0),
+		3,
+		2.4
+	)
+end
+
+-- Wonky stacks of giant presents inside the walls.
+local function presentStack(ctx, base: Vector3)
+	local rng = ctx.rng
+	local y = 0
+	for k = 1, rng:NextInteger(2, 4) do
+		local size = 5 - k + rng:NextNumber(0, 1)
+		local cf = ctx.origin
+			* CFrame.new(
+				base + Vector3.new(rng:NextNumber(-0.6, 0.6), y + size / 2, rng:NextNumber(-0.6, 0.6))
+			)
+			* CFrame.Angles(
+				rng:NextNumber(-0.12, 0.12),
+				rng:NextNumber(0, math.pi),
+				rng:NextNumber(-0.12, 0.12)
+			)
+		ctx.newPart(
+			ctx.model,
+			"GiantPresent",
+			Vector3.one * size,
+			cf,
+			C.LightColours[rng:NextInteger(1, #C.LightColours)]
+		)
+		for _, sz in { Vector3.new(1.03, 1.03, 0.15), Vector3.new(0.15, 1.03, 1.03) } do
+			ctx.newPart(ctx.model, "GiantRibbon", sz * size, cf, GOLD).CanCollide = false
+		end
+		y += size * 0.95
 	end
 end
 
@@ -1388,7 +1668,7 @@ local function lairGrounds(ctx, f, bridgeFrom: number)
 			Enum.Material.Slate
 		)
 		horn(ctx, Vector3.new(sx * 7, 16, gz), sx)
-		torch(ctx, Vector3.new(sx * 10.5, 0, gz - 3))
+		torch(ctx, Vector3.new(sx * 10.5, 0, gz - 3), EVIL[1])
 	end
 	local beam = ctx.newPart(
 		ctx.model,
@@ -1419,9 +1699,13 @@ local function lairGrounds(ctx, f, bridgeFrom: number)
 		local diff = math.abs((a - towardBridge + math.pi) % (2 * math.pi) - math.pi)
 		return diff < width
 	end
+	-- Castle gates: the front faces the bridge, the back opens onto the lake.
+	local function gateAt(a: number, width: number): boolean
+		return gapAt(a, width) or gapAt(a + math.pi, width)
+	end
 	for k = 0, 17 do
 		local a = k / 18 * math.pi * 2 + rng:NextNumber(-0.1, 0.1)
-		if not gapAt(a, 0.35) then
+		if not gateAt(a, 0.35) then
 			rock(
 				ctx,
 				isl + Vector3.new(math.sin(a) * (r - 2), 0, math.cos(a) * (r - 2)),
@@ -1429,44 +1713,36 @@ local function lairGrounds(ctx, f, bridgeFrom: number)
 			)
 		end
 	end
-	local fenceR = r - 10
-	local posts = math.floor(2 * math.pi * fenceR / 3.2)
-	local prev: Vector3? = nil
-	for k = 0, posts do
-		local a = k / posts * math.pi * 2
-		if gapAt(a, 0.22) then
-			prev = nil
-		else
-			local at = isl + Vector3.new(math.sin(a) * fenceR, 0, math.cos(a) * fenceR)
-			ctx.newPart(
-				ctx.model,
-				"FenceSpike",
-				Vector3.new(0.4, 6, 0.4),
-				ctx.origin * CFrame.new(at + Vector3.new(0, 3, 0)),
-				IRON,
-				Enum.Material.Metal
-			)
-			if k % 4 == 0 then
-				ball(ctx, "FenceKnob", at + Vector3.new(0, 6.3, 0), 0.8, SPOOKY[1], Enum.Material.Neon).CanCollide =
-					false
-			end
-			if prev then
-				wall(
-					ctx,
-					"FenceBar",
-					prev + Vector3.new(0, 4.6, 0),
-					at + Vector3.new(0, 4.6, 0),
-					0.25,
-					0.3,
-					IRON
-				)
-			end
-			prev = at
-		end
+	castleWall(ctx, isl, r - 11, towardBridge, gateAt)
+	for k = 1, 3 do
+		local a = towardBridge + math.pi * (0.4 + k * 0.4)
+		presentStack(ctx, isl + Vector3.new(math.sin(a) * (r - 18), 0.3, math.cos(a) * (r - 18)))
 	end
 	for k = 0, 5 do
 		local a = towardBridge + (k + 0.5) / 6 * math.pi * 2
 		lantern(ctx, isl + Vector3.new(math.sin(a) * (r - 15), 0, math.cos(a) * (r - 15)), SPOOKY[k % 2 + 1])
+	end
+	-- Braziers of witch fire round the island's rim, and a ring of fire pots
+	-- burning on the ice all round it (open where the bridge lands).
+	for k = 0, 7 do
+		local a = towardBridge + (k + 0.5) / 8 * math.pi * 2
+		brazier(ctx, isl + Vector3.new(math.sin(a) * (r - 4), 0.3, math.cos(a) * (r - 4)), EVIL[k % 2 + 1])
+	end
+	for k = 0, 23 do
+		local a = k / 24 * math.pi * 2
+		if not gapAt(a, 0.2) then
+			local at = isl + Vector3.new(math.sin(a) * (r + 5), 0, math.cos(a) * (r + 5))
+			local pot = ctx.newPart(
+				ctx.model,
+				"FirePot",
+				Vector3.new(1.4, 2.4, 2.4),
+				ctx.origin * CFrame.new(at + Vector3.new(0, 0.7, 0)) * CFrame.Angles(0, 0, math.pi / 2),
+				IRON,
+				Enum.Material.Metal
+			)
+			pot.Shape = Enum.PartType.Cylinder
+			evilFire(ctx, at + Vector3.new(0, 1.8, 0), 3, EVIL[k % 2 + 1])
+		end
 	end
 	for k = 1, 4 do
 		local a = towardBridge + math.pi * (0.35 + k * 0.32)
@@ -1629,12 +1905,15 @@ function FloeLake.build(ctx)
 				Enum.Material.Wood
 			)
 			ball(ctx, "BridgeBell", Vector3.new(s * 4.8, 5.4, z), 1.4, GOLD, Enum.Material.Neon)
+			if z + 12 < bridgeTo - 4 then
+				castleLantern(ctx, Vector3.new(s * 5.4, 0.5, z + 12), s, EVIL[if s < 0 then 1 else 2])
+			end
 			z += 24
 		end
 	end
 	-- Floes keep clear of the island and the bridge (zone space).
 	keepoutsFor[lake] = {
-		{ x = f.island.X, z = f.island.Z - midZ, radius = f.islandRadius },
+		{ x = f.island.X, z = f.island.Z - midZ, radius = f.islandRadius + 8 }, -- + the fire pots
 		{ x = 0, z = (bridgeFrom + bridgeTo) / 2 - midZ, halfX = 5, halfZ = (bridgeTo - bridgeFrom) / 2 },
 	}
 	lairGrounds(ctx, f, bridgeFrom)

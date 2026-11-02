@@ -155,15 +155,33 @@ test("the Lair grounds are dressed and the way from the gate to the Lair is clea
 	local route = build(8)
 	local finale = route.model:FindFirstChild("Stop3_Finale")
 	for _, name in
-		{ "GatePillar", "FenceSpike", "LanternFlame", "DeadTree", "ShoreMound", "IceSpire", "LairMist" }
+		{
+			"GatePillar",
+			"CastleWall",
+			"CastleTower",
+			"SpireTier",
+			"GiantPresent",
+			"LanternFlame",
+			"DeadTree",
+			"ShoreMound",
+			"IceSpire",
+			"LairMist",
+		}
 	do
 		expect(#named(finale, name)).toBeGreaterThan(0)
 	end
 	expect(#named(route.model:FindFirstChild("Stop1_Street"), "GatePillar")).toBe(0)
-	-- The fence and lanterns ring the Lair without clipping into it.
+	local fires = 0
+	for _, d in finale:GetDescendants() do
+		if d.ClassName == "Fire" then
+			fires += 1
+		end
+	end
+	expect(fires).toBeGreaterThan(30) -- witch fire all round the island
+	-- The castle wall, lanterns and presents ring the Lair without clipping into it.
 	local half = Config.Houses.Types.Lair.Size.X / 2
 	local centre = named(finale, "Island")[1].CFrame.Position
-	for _, n in { "FenceSpike", "LanternPost", "DeadTree" } do
+	for _, n in { "CastleWall", "CastleTower", "LanternPost", "DeadTree", "GiantPresent" } do
 		for _, part in named(finale, n) do
 			local d = (part.CFrame.Position - centre) * Vector3.new(1, 0, 1)
 			expect(math.max(math.abs(d.X), math.abs(d.Z))).toBeGreaterThan(half + 2)
@@ -173,7 +191,7 @@ test("the Lair grounds are dressed and the way from the gate to the Lair is clea
 	local bridge = named(finale, "BellBridge")[1]
 	local island = named(finale, "Island")[1]
 	local from = bridge.CFrame * Vector3.new(0, 0, bridge.Size.Z / 2 + 4)
-	-- ...through the fence's gate, up to just in front of the Lair's door.
+	-- ...through the castle gate, up to just in front of the Lair's door.
 	local lairHalf = Config.Houses.Types.Lair.Size.Z / 2
 	local to = island.CFrame.Position - Vector3.new(0, 0, lairHalf + 2)
 	local ignore =
@@ -188,6 +206,36 @@ test("the Lair grounds are dressed and the way from the gate to the Lair is clea
 					and math.abs(l.Z) < part.Size.Z / 2
 				if inside then
 					error(part.Name .. " blocks the way to the Lair at " .. tostring(p))
+				end
+			end
+		end
+	end
+end)
+
+test("the castle has a back gate too, so a chased Santa is never trapped", function()
+	local route = build(9)
+	local finale = route.model:FindFirstChild("Stop3_Finale")
+	local island = named(finale, "Island")[1].CFrame.Position
+	local half = Config.Houses.Types.Lair.Size.Z / 2
+	-- Walk straight out of the back of the Lair to the lake.
+	local from = island + Vector3.new(0, 3, half + 2)
+	local to = island + Vector3.new(0, 3, 80)
+	for k = 0, 30 do
+		local p = from:Lerp(to, k / 30)
+		for _, part in finale:GetDescendants() do
+			if
+				part:IsA("BasePart")
+				and part.CanCollide
+				and part.Name ~= "Island"
+				and part.Name ~= "LakeIce"
+			then
+				local l = part.CFrame:PointToObjectSpace(p)
+				if
+					math.abs(l.X) < part.Size.X / 2
+					and math.abs(l.Y) < part.Size.Y / 2
+					and math.abs(l.Z) < part.Size.Z / 2
+				then
+					error(part.Name .. " blocks the back gate at " .. tostring(p))
 				end
 			end
 		end
