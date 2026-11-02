@@ -6,8 +6,6 @@
 		Krampus, KrampusTease, Hide, Captive
 	LeaveCrew (client -> server): leave the queue or the current run.
 	Input (client -> server): "Tap" (breath / wiggle) or "Unhide".
-
-	Also on Hud: Sfx { key } plays a 2D Sounds.luau key for that player.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")

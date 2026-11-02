@@ -135,6 +135,7 @@ function Run:_banner(target: Player?, text: string, seconds: number?)
 end
 
 -- A 2D sound for one player (or everyone): buzzers and other UI feedback.
+-- Sent as the Hud kind "Sfx" { key }; Audio.client.luau plays it.
 function Run:_sfx(target: Player?, key: string)
 	self:_send(target, "Sfx", { key = key })
 end
