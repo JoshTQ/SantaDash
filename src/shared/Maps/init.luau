@@ -13,11 +13,14 @@ local Maps = {}
 
 local Defs = {
 	SnowyStreet = require(script.SnowyStreet),
+	FrozenCanal = require(script.FrozenCanal),
 }
 
 Maps.Default = "SnowyStreet"
 -- Runs pick from these at random, avoiding the map the crew just played.
-Maps.Rotation = { "SnowyStreet" }
+-- Launch ships Frozen Canal Town only (Josh, 1 Nov 2026); SnowyStreet stays
+-- as the greybox reference map and comes back once it has its own art.
+Maps.Rotation = { "FrozenCanal" }
 
 export type Look = { any } -- { Color3, Enum.Material? }
 

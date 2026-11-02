@@ -187,6 +187,18 @@ function Loot.planOnFoot(rng: Random): { PresentPlan }
 	return presents
 end
 
+-- A security dog knocks one present out of the sack (the sack's average
+-- value). Returns that value, or nil when the sack is empty.
+function Loot.dropOne(st: PlayerState): number?
+	if st.sackCount <= 0 then
+		return nil
+	end
+	local value = math.floor(st.sackValue / st.sackCount)
+	st.sackCount -= 1
+	st.sackValue -= value
+	return value
+end
+
 function Loot.newPlayerState(): PlayerState
 	return {
 		jingle = Config.Jingle.Start,

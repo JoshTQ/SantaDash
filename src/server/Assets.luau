@@ -11,6 +11,7 @@
 	House, KrampusLair, VaultDoor  see HouseKit.luau
 	CocoaMachine  PrimaryPart "Body", "BuyPrompt" Attachment (+ Sign, TopMug,
 	          Dispenser, PricePlate); placed standing on the street
+	DogCorgi/DogTin  Humanoid, HumanoidRootPart (Frozen Canal market security dogs)
 	The Sleigh's Seats are disabled: Run carries riders at each Seat's spot.
 
 	Map set dressing lives in ServerStorage.Maps.<dressing> (see shared/Maps):

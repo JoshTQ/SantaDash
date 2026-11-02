@@ -21,6 +21,7 @@ export type BuildContext = {
 	rng: Random,
 	stop: any, -- MapBuilder.Stop
 	newPart: (...any) -> BasePart,
+	map: any, -- Maps.Map: the whole definition (layout, features)
 }
 
 export type StartContext = {
@@ -34,6 +35,7 @@ export type Feature = {
 	start: ((ctx: StartContext) -> (() -> ())?)?,
 }
 
-local MapFeatures: { [string]: Feature } = {}
+-- Frozen Canal Town: CanalStreet, SkateCanal, ChristmasMarket, IceRink, FloeLake.
+local MapFeatures: { [string]: Feature } = table.clone(require(script.Parent.CanalTown).features)
 
 return MapFeatures

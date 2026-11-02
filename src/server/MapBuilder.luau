@@ -639,6 +639,7 @@ local function buildStop(
 				rng = rng,
 				stop = stop,
 				newPart = newPart,
+				map = mapDef,
 			})
 		end
 	end
