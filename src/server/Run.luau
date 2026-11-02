@@ -14,6 +14,7 @@ local RunService = game:GetService("RunService")
 local Config = require(ReplicatedStorage.Shared.Config)
 local Maps = require(ReplicatedStorage.Shared.Maps)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local SoundPlayer = require(ReplicatedStorage.Shared.SoundPlayer)
 local Util = require(ReplicatedStorage.Shared.Util)
 local Assets = require(script.Parent.Assets)
 local ElfBot = require(script.Parent.ElfBot)
@@ -65,6 +66,7 @@ function Run.new(
 	self.krampus = nil
 	self.ended = false
 	self.featureCleanups = {} :: { () -> () }
+	self.snores = {} :: { SoundPlayer.Loop }
 	self.times = { departAt = 0 }
 
 	local rng = Random.new()
@@ -130,6 +132,11 @@ end
 
 function Run:_banner(target: Player?, text: string, seconds: number?)
 	self:_send(target, "Banner", { text = text, seconds = seconds or 3 })
+end
+
+-- A 2D sound for one player (or everyone): buzzers and other UI feedback.
+function Run:_sfx(target: Player?, key: string)
+	self:_send(target, "Sfx", { key = key })
 end
 
 function Run:_sendPlayer(player: Player)
@@ -280,11 +287,13 @@ function Run:_wirePrompts()
 			on(chimney.down, function(player)
 				if self:_free(player) then
 					Util.teleport(player, chimney.inside)
+					SoundPlayer.at("ChimneySlide", chimney.inside.Position)
 				end
 			end)
 			on(chimney.up, function(player)
 				if self:_free(player) then
 					Util.teleport(player, chimney.roof)
+					SoundPlayer.at("ChimneyClimb", chimney.roof.Position)
 				end
 			end)
 		end
@@ -300,6 +309,7 @@ function Run:_wirePrompts()
 					door.door.CFrame = HouseKit.doorCFrame(door.closed, door.door.Size, door.open)
 					door.door.CanCollide = not door.open
 					door.prompt.ActionText = if door.open then "Close" else "Open"
+					SoundPlayer.at(if door.open then "DoorOpen" else "DoorClose", door.door)
 				end
 			end)
 		end
@@ -322,11 +332,13 @@ function Run:_collect(player: Player, st: PlayerState, present, from: Vector3)
 	end
 	if not Loot.grab(st, present.plan) then
 		self:_banner(player, "Sack full! Get back on the sleigh to bank it.", 2)
+		SoundPlayer.at("SackFull", from)
 		return
 	end
 	present.taken = true
 	self.lastNoisePos = from
 	present.model:Destroy()
+	SoundPlayer.at(if present.plan.naughtyList then "NaughtyListGrab" else "PresentGrab", from)
 	self:_addNoise(Loot.noiseForGrab(math.max(self.stopIndex, 1), present.plan.threats))
 	self:_sendPlayer(player)
 	if present.plan.naughtyList then
@@ -397,6 +409,7 @@ function Run:_spend(player: Player, cost: number): boolean
 	end
 	if st.jingle < cost then
 		self:_banner(player, "Need " .. (cost - st.jingle) .. " more Jingle", 2)
+		self:_sfx(player, "Nope")
 		return false
 	end
 	st.jingle -= cost
@@ -408,8 +421,13 @@ function Run:_buyPeppermintRush(player: Player)
 	local st = self.players[player]
 	if st and st.perks.PeppermintRush then
 		self:_banner(player, "You already have Peppermint Rush", 2)
+		self:_sfx(player, "Nope")
 	elseif st and self:_spend(player, Config.Buys.PeppermintRush.Cost) then
 		st.perks.PeppermintRush = true
+		local root = rootOf(player)
+		if root then
+			SoundPlayer.at("CocoaSlurp", root.Position)
+		end
 		self:_applyPerks(player)
 		self:_sendPlayer(player)
 		self:_banner(player, "Peppermint Rush! You're faster until Krampus catches you.", 3)
@@ -423,6 +441,7 @@ function Run:_buyVault(player: Player, stop)
 		local vaultDoor = stop.vaultDoor
 		vaultDoor.CFrame = HouseKit.doorCFrame(vaultDoor.CFrame, vaultDoor.Size, true)
 		vaultDoor.CanCollide = false
+		SoundPlayer.at("VaultOpen", vaultDoor)
 		self:_sendPlayer(player)
 		self:_banner(nil, player.DisplayName .. " opened the vault!", 3)
 	end
@@ -439,6 +458,7 @@ function Run:_hide(player: Player, spot)
 	st.breath = 1
 	root.Anchored = true
 	root.CFrame = spot.inside
+	SoundPlayer.at("HideIn", spot.inside.Position)
 	self:_send(player, "Hide", { hidden = true, breath = 1 })
 end
 
@@ -455,6 +475,7 @@ function Run:_unhide(player: Player)
 		root.Anchored = false
 	end
 	Util.teleport(player, spot.exit)
+	SoundPlayer.at("HideOut", spot.exit.Position)
 	self:_send(player, "Hide", { hidden = false })
 end
 
@@ -523,6 +544,7 @@ function Run:krampusBreath(from: Vector3, dt: number)
 				self:_unhide(player)
 				self.lastNoisePos = spot.exit.Position
 				self:_addNoise(Config.Noise.Gasp)
+				SoundPlayer.at("Gasp", spot.exit.Position)
 				self:_banner(nil, player.DisplayName .. " gasped for air!", 2)
 			elseif st.breath ~= before then
 				self:_send(player, "Hide", { hidden = true, breath = st.breath })
@@ -544,6 +566,7 @@ function Run:onSnatched(player: Player)
 	local root = rootOf(player)
 	if root then
 		root.Anchored = true
+		SoundPlayer.at("KrampusSnatch", root.Position)
 	end
 	self:_banner(nil, "Krampus snatched " .. player.DisplayName .. "! Ring the bells behind him!", 3)
 	self:_send(player, "Captive", { captive = true, wiggles = 0, needed = KrampusBrain.wiggleNeeded() })
@@ -560,6 +583,7 @@ function Run:onReleased(player: Player, at: CFrame)
 		root.Anchored = false
 	end
 	Util.teleport(player, at)
+	SoundPlayer.at("Boing", at.Position)
 	self:_send(player, "Captive", { captive = false })
 end
 
@@ -594,6 +618,42 @@ function Run:_startFeatures(stop)
 			end
 		end
 	end
+end
+
+-- Parents asleep in every house during the sneak phase: snores you can
+-- follow (and tiptoe past) until the lights come on.
+function Run:_startSnores(stop)
+	if stop.plan.kindName == "Finale" then
+		return -- nobody sleeps in Krampus's Lair
+	end
+	for _, light in stop.lights do
+		local lamp = light.Parent
+		if lamp and lamp:IsA("BasePart") then
+			table.insert(self.snores, SoundPlayer.loop("ParentSnore", lamp))
+		end
+	end
+end
+
+-- Lights on: the snoring stops and each house grumbles awake.
+function Run:_wakeParents(stop)
+	local woke = #self.snores > 0
+	self:_stopSnores()
+	if not woke then
+		return
+	end
+	for _, light in stop.lights do
+		local lamp = light.Parent
+		if lamp and lamp:IsA("BasePart") then
+			task.delay(math.random() * 0.6, SoundPlayer.at, "ParentWake", lamp)
+		end
+	end
+end
+
+function Run:_stopSnores()
+	for _, snore in self.snores do
+		snore.stop(0.3)
+	end
+	self.snores = {}
 end
 
 function Run:_stopFeatures()
@@ -679,6 +739,7 @@ function Run:_playStop(stop): { Player }
 		self:_spawnElves() -- elves hop off with their Santa at the first stop
 	end
 	self:_startFeatures(stop)
+	self:_startSnores(stop)
 
 	-- Timed phases, entered in order once their time has passed.
 	local phases = {
@@ -689,6 +750,7 @@ function Run:_playStop(stop): { Player }
 				for _, light in stop.lights do
 					light.Enabled = true
 				end
+				self:_wakeParents(stop)
 				self:_banner(nil, "The lights are on! Heat is rising.", 3)
 			end,
 		},
@@ -739,6 +801,7 @@ function Run:_playStop(stop): { Player }
 
 	self:_stopFeatures()
 	self:_stopKrampus()
+	self:_stopSnores()
 	local aboard = {}
 	for _, player in table.clone(self.order) do
 		local st = self.players[player]
@@ -746,9 +809,15 @@ function Run:_playStop(stop): { Player }
 		self:_unhide(player)
 		if st and root and MapBuilder.isAboard(stop.deckCFrame, root.Position) then
 			table.insert(aboard, player)
+			if st.sackCount > 0 then
+				self:_sfx(player, "Bank")
+			end
 			Loot.bank(st, plan.escapeMultiplier)
 			self:_sendPlayer(player)
 		elseif st and plan.escapeMultiplier then
+			if st.sackCount > 0 then
+				self:_sfx(player, "SackSpill")
+			end
 			Loot.bankMissed(st)
 			self:_sendPlayer(player)
 			self:_banner(player, "You missed the last sleigh! Half your sack fell out.", 4)
@@ -815,6 +884,7 @@ function Run:_finish()
 	end
 	self:_stopFeatures()
 	self:_stopKrampus()
+	self:_stopSnores()
 	self:_removeElves()
 	self.ended = true
 	local survivors = {}

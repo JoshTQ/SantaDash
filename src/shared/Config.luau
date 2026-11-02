@@ -264,6 +264,7 @@ Config.Canal = {
 		Knockback = 40,
 		CorgiCooldown = 5, -- seconds before the same corgi can ram you again
 		TinWindDown = 3, -- a tin dog stops for this long after a bonk
+		WarnRadius = 14, -- a dog growls (corgi) or whirrs (tin) at Santas this close
 	},
 	Polisher = { AngularSpeed = 0.35, HitRadius = 5 }, -- Ice Rink Square, Stop 2
 	StompDelay = 8,
@@ -287,6 +288,16 @@ Config.Canal = {
 		Color3.fromRGB(90, 160, 255),
 		Color3.fromRGB(255, 120, 210),
 	}, -- Lair: seconds after landing before Krampus stomps the lake into floes
+}
+
+-- Sound mix (Sounds.luau has the catalogue). Phone speakers clip easily, so
+-- groups stay below 1 and music sits well under the effects.
+Config.Audio = {
+	Enabled = true,
+	MusicEnabled = true,
+	Groups = { Sfx = 0.8, Ui = 0.7, Music = 0.35, Ambience = 0.4 },
+	FolderName = "SoundAssets", -- ReplicatedStorage.SoundAssets: Sounds named by key override the ids
+	MusicFade = 1.2, -- seconds to cross-fade between music loops
 }
 
 return Config

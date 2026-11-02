@@ -208,6 +208,11 @@ local function load(dotted: string)
 	return loadModule(string.split(dotted, "."))
 end
 
+-- Reads a repo file as text (for specs that check source, e.g. sound keys).
+local function readSource(file: string): string
+	return fs.readFile(file)
+end
+
 local helpers = {
 	test = test,
 	expect = expect,
@@ -218,6 +223,8 @@ local helpers = {
 		return roblox.Instance.new("Folder")
 	end,
 }
+helpers.readSource = readSource
+helpers.listDir = fs.readDir
 
 local filter = process.args[1]
 local files = {}

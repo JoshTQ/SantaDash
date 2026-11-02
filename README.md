@@ -79,6 +79,24 @@ Krampus and the sleigh. `Maps/SnowyStreet.luau` is the reference shape.
 - **Dressing:** an approved Model in `ServerStorage.Maps.<dressing>` with
   `StopDressing` (cloned at every stop) and `RouteDressing` (once). Art only.
 
+## Sounds
+
+Every sound has a key in `src/shared/Sounds.luau` (51 keys, ranked in three
+tiers). To give a key real audio, either:
+
+- drop a `Sound` named after the key into `ReplicatedStorage.SoundAssets` in
+  Studio (its SoundId, Volume and PlaybackSpeed are kept; the 3D range comes
+  from the catalogue), or
+- set its `id` in `Sounds.luau` to a Roblox audio asset id.
+
+Keys with neither are silent (Studio prints one warning each with what to
+search for), so the game runs before every sound is picked. Use the Creator
+Store's Audio tab filtered to the **Roblox** creator so the audio is free and
+licensed. World sounds (snoring parents, dogs, Krampus's bells, presents,
+doors) are 3D and played by the server; music, the sleigh countdown, the
+Krampus heartbeat and UI sounds are 2D on each client (`Audio.client.luau`).
+Mix levels are in `Config.Audio` (kept under 1 for phone speakers).
+
 ## Lobby and run places (cross-server matchmaking)
 
 The same build runs in two places. The **lobby place** queues crews and
@@ -127,6 +145,8 @@ Servers.
 src/shared/Config.luau        every tuning number
 src/shared/Remotes.luau       RemoteEvents (Hud, LeaveCrew, Input)
 src/shared/Util.luau          clock, character helpers, weighted pick
+src/shared/Sounds.luau        sound catalogue and pure cue rules (leave warning, noise, heartbeat)
+src/shared/SoundPlayer.luau   plays catalogue sounds (3D on server, 2D on client)
 src/server/Main.server.luau   entry point
 src/server/Lobby.luau         Quick Join queue, run slots, requeue (single-server mode)
 src/server/RunHost.luau       run place: receive a crew, run back to back, return leavers
@@ -144,6 +164,7 @@ src/server/HouseKit.luau      houses, Lair and vault door from the approved mode
 src/server/MapBuilder.luau    greybox hub, houses, streets, sleigh, Krampus and elf stand-ins
 src/server/Loot.luau          pure House Card rolls, stop plans, loot and results
 src/client/Hud.client.luau    timer, Jingle, sack, noise, bells, breath, wiggle, queue, results
+src/client/Audio.client.luau  music, sleigh countdown, Krampus heartbeat, loot and UI sounds
 tests/runner.luau             Lune test runner
 tests/unit, tests/integration specs
 ```
