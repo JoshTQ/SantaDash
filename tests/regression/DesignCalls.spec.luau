@@ -142,3 +142,90 @@ describe("crews", function()
 		expect(#MapBuilder.SeatOffsets).toBeGreaterThanOrEqual(Config.Lobby.CrewMax)
 	end)
 end)
+
+-- The same calls, checked in whole runs (headless world).
+describe("in a real run", function()
+	local function runWith(names)
+		local world = headless()
+		local engine = world.engine
+		world.load("ReplicatedStorage.Shared.Remotes").init()
+		local Run = world.load("ServerScriptService.Server.Run")
+		local players = {}
+		for i, name in names do
+			players[i] = engine:addPlayer(name)
+		end
+		return world, engine, Run, players
+	end
+
+	it("Krampus never shows up at Stops 1-2, even with the noise meter full", function()
+		local world, _, Run, players = runWith({ "Loud" })
+		world.run(function()
+			local run = Run.new(1, players, function() end)
+			run:start()
+			while run.stopIndex < 3 do
+				if run.stopIndex >= 1 and run.phase ~= "Flight" then
+					run:_addNoise(1000)
+				end
+				expect(run.krampus).toBeNil()
+				world.wait(1)
+			end
+			run.ended = true
+		end)
+	end)
+
+	it("Krampus never snatches a Santa standing in the Sleigh Stop clearing", function()
+		local world, engine, Run, players = runWith({ "Safe" })
+		local santa = players[1]
+		world.run(function()
+			local run = Run.new(1, players, function() end)
+			run:start()
+			while not run.krampus do
+				world.wait(0.5)
+			end
+			local deck = run.route.stops[3].deckCFrame
+			-- Standing on the ground inside the clearing, not on the sleigh.
+			engine:teleport(santa, (deck * CFrame.new(12, 0, 0)).Position)
+			local krampus = run.krampus
+			krampus.body.model:PivotTo(deck * CFrame.new(0, 0, 25))
+			for _ = 1, 60 do
+				world.wait(0.5)
+				expect(run.players[santa].captive).toBe(false)
+			end
+			run.ended = true
+		end)
+	end)
+
+	it("missing the final sleigh keeps half the sack, escaping doubles, in the results", function()
+		local world, engine, Run, players = runWith({ "Escapes", "Misses" })
+		local escapes, misses = players[1], players[2]
+		local done = false
+		world.run(function()
+			local run = Run.new(1, players, function()
+				done = true
+			end)
+			run:start()
+			while not run.krampus do
+				world.wait(0.5)
+			end
+			run.krampus.stunnedUntil = math.huge
+			for _, p in players do
+				local st = run.players[p]
+				st.banked = 300
+				st.sackValue = 100
+				st.sackCount = 1
+			end
+			engine:teleport(misses, run.route.stops[3].deckCFrame.Position + Vector3.new(0, 0, 200))
+			while not done do
+				world.wait(1)
+			end
+		end)
+		local results = engine:hudMessages(escapes, "Results")
+		local rows = results[#results].data.rows
+		local loot = {}
+		for _, row in rows do
+			loot[row.name] = row.loot
+		end
+		expect(loot.Escapes).toBe((300 + 100) * 2)
+		expect(loot.Misses).toBe(300 + 50)
+	end)
+end)
