@@ -150,3 +150,46 @@ test("the town has a forest, hills and Christmas lights, all off the streets", f
 		end
 	end
 end)
+
+test("the Lair grounds are dressed and the way from the gate to the Lair is clear", function()
+	local route = build(8)
+	local finale = route.model:FindFirstChild("Stop3_Finale")
+	for _, name in
+		{ "GatePillar", "FenceSpike", "LanternFlame", "DeadTree", "ShoreMound", "IceSpire", "LairMist" }
+	do
+		expect(#named(finale, name)).toBeGreaterThan(0)
+	end
+	expect(#named(route.model:FindFirstChild("Stop1_Street"), "GatePillar")).toBe(0)
+	-- The fence and lanterns ring the Lair without clipping into it.
+	local half = Config.Houses.Types.Lair.Size.X / 2
+	local centre = named(finale, "Island")[1].CFrame.Position
+	for _, n in { "FenceSpike", "LanternPost", "DeadTree" } do
+		for _, part in named(finale, n) do
+			local d = (part.CFrame.Position - centre) * Vector3.new(1, 0, 1)
+			expect(math.max(math.abs(d.X), math.abs(d.Z))).toBeGreaterThan(half + 2)
+		end
+	end
+	-- Walk the bridge centre line into the island: nothing solid in the way at chest height.
+	local bridge = named(finale, "BellBridge")[1]
+	local island = named(finale, "Island")[1]
+	local from = bridge.CFrame * Vector3.new(0, 0, bridge.Size.Z / 2 + 4)
+	-- ...through the fence's gate, up to just in front of the Lair's door.
+	local lairHalf = Config.Houses.Types.Lair.Size.Z / 2
+	local to = island.CFrame.Position - Vector3.new(0, 0, lairHalf + 2)
+	local ignore =
+		{ BellBridge = true, Island = true, LakeIce = true, Road = true, Ground = true, Snowfield = true }
+	for k = 0, 40 do
+		local p = from:Lerp(to, k / 40) + Vector3.new(0, 3, 0)
+		for _, part in finale:GetDescendants() do
+			if part:IsA("BasePart") and part.CanCollide and not ignore[part.Name] then
+				local l = part.CFrame:PointToObjectSpace(p)
+				local inside = math.abs(l.X) < part.Size.X / 2
+					and math.abs(l.Y) < part.Size.Y / 2
+					and math.abs(l.Z) < part.Size.Z / 2
+				if inside then
+					error(part.Name .. " blocks the way to the Lair at " .. tostring(p))
+				end
+			end
+		end
+	end
+end)

@@ -1230,6 +1230,343 @@ end
 
 local FloeLake = {}
 
+----------------------------------------------------------------------------
+-- Lair grounds: rocky shore, the Keep Out gate, the island's fence, lanterns,
+-- dead trees, coal heaps, ice spires and purple mist (Josh, 2 Nov: "make the
+-- area around the Lair more interesting"). Spooky-fun, never scary.
+----------------------------------------------------------------------------
+
+local ROCK = Color3.fromRGB(85, 80, 100)
+local IRON = Color3.fromRGB(35, 30, 45)
+local DEADWOOD = Color3.fromRGB(70, 50, 45)
+local SPOOKY = { Color3.fromRGB(170, 90, 255), Color3.fromRGB(110, 255, 160) } -- purple, green
+local HORN = Color3.fromRGB(235, 220, 190)
+local FLAME = Color3.fromRGB(255, 150, 60)
+
+local function rock(ctx, at: Vector3, size: number)
+	local part = ctx.newPart(
+		ctx.model,
+		"LairRock",
+		Vector3.new(size * ctx.rng:NextNumber(1, 1.6), size, size * ctx.rng:NextNumber(1, 1.4)),
+		ctx.origin
+			* CFrame.new(at + Vector3.new(0, size * 0.3, 0))
+			* CFrame.Angles(
+				ctx.rng:NextNumber(-0.3, 0.3),
+				ctx.rng:NextNumber(0, math.pi),
+				ctx.rng:NextNumber(-0.3, 0.3)
+			),
+		ROCK,
+		Enum.Material.Slate
+	)
+	return part
+end
+
+-- A bare, crooked tree: a leaning trunk and three forked branches.
+local function deadTree(ctx, base: Vector3, h: number)
+	local lean = CFrame.Angles(
+		ctx.rng:NextNumber(-0.15, 0.15),
+		ctx.rng:NextNumber(0, math.pi * 2),
+		ctx.rng:NextNumber(-0.15, 0.15)
+	)
+	local root = ctx.origin * CFrame.new(base) * lean
+	ctx.newPart(
+		ctx.model,
+		"DeadTree",
+		Vector3.new(1.4, h, 1.4),
+		root * CFrame.new(0, h / 2, 0),
+		DEADWOOD,
+		Enum.Material.Wood
+	)
+	for k = 1, 3 do
+		local y = h * (0.5 + k * 0.14)
+		local len = h * (0.45 - k * 0.08)
+		local cf = root
+			* CFrame.new(0, y, 0)
+			* CFrame.Angles(0, k * 2.1, 0)
+			* CFrame.Angles(0, 0, -0.9)
+			* CFrame.new(0, len / 2, 0)
+		ctx.newPart(ctx.model, "DeadBranch", Vector3.new(0.6, len, 0.6), cf, DEADWOOD, Enum.Material.Wood).CanCollide =
+			false
+	end
+end
+
+local function lantern(ctx, at: Vector3, color: Color3)
+	ctx.newPart(
+		ctx.model,
+		"LanternPost",
+		Vector3.new(0.7, 8, 0.7),
+		ctx.origin * CFrame.new(at + Vector3.new(0, 4, 0)),
+		IRON,
+		Enum.Material.Metal
+	)
+	ctx.newPart(
+		ctx.model,
+		"LanternArm",
+		Vector3.new(2.4, 0.4, 0.4),
+		ctx.origin * CFrame.new(at + Vector3.new(1, 8, 0)),
+		IRON,
+		Enum.Material.Metal
+	)
+	local flame = ball(ctx, "LanternFlame", at + Vector3.new(2, 7, 0), 1.4, color, Enum.Material.Neon)
+	flame.CanCollide = false
+	glow(flame, color, 26)
+end
+
+local function torch(ctx, at: Vector3)
+	ctx.newPart(
+		ctx.model,
+		"Torch",
+		Vector3.new(0.8, 5, 0.8),
+		ctx.origin * CFrame.new(at + Vector3.new(0, 2.5, 0)),
+		WOOD,
+		Enum.Material.Wood
+	)
+	local fire = ball(ctx, "TorchFlame", at + Vector3.new(0, 5.6, 0), 1.6, FLAME, Enum.Material.Neon)
+	fire.CanCollide = false
+	glow(fire, FLAME, 22)
+end
+
+-- Goat horns on top of the gate: three tilted segments curling outwards.
+local function horn(ctx, base: Vector3, side: number)
+	local cf = ctx.origin * CFrame.new(base)
+	for k = 1, 3 do
+		local len = 3.4 - k * 0.6
+		cf = cf * CFrame.Angles(0, 0, -side * 0.55) * CFrame.new(0, len / 2, 0)
+		ctx.newPart(ctx.model, "GateHorn", Vector3.new(1.6 - k * 0.35, len, 1.6 - k * 0.35), cf, HORN)
+		cf = cf * CFrame.new(0, len / 2, 0)
+	end
+end
+
+local function lairGrounds(ctx, f, bridgeFrom: number)
+	local rng = ctx.rng
+	local w, z0, z1 = f.halfWidth, f.from, f.to
+	local isl, r = f.island, f.islandRadius
+
+	-- A rocky, snowy shore so the lake isn't a rectangle: mounds and boulders
+	-- all round the edge, leaving the street canal and the bridge open.
+	local perimeter = {}
+	local step = 20
+	for x = -w, w, step do
+		table.insert(perimeter, Vector3.new(x, 0, z0))
+		table.insert(perimeter, Vector3.new(x, 0, z1))
+	end
+	for z = z0 + step, z1 - step, step do
+		table.insert(perimeter, Vector3.new(-w, 0, z))
+		table.insert(perimeter, Vector3.new(w, 0, z))
+	end
+	for _, p in perimeter do
+		if not (p.Z == z0 and math.abs(p.X) < 30) then
+			local inward = Vector3.new(-math.sign(p.X) * rng:NextNumber(0, 10), 0, 0)
+			if p.Z == z0 or p.Z == z1 then
+				inward = Vector3.new(0, 0, (if p.Z == z0 then 1 else -1) * rng:NextNumber(0, 10))
+			end
+			local size = rng:NextNumber(14, 30)
+			local mound = ball(
+				ctx,
+				"ShoreMound",
+				p + inward - Vector3.new(0, size * 0.32, 0),
+				size,
+				SNOW,
+				Enum.Material.Snow
+			)
+			mound.CanCollide = true
+			if rng:NextNumber() < 0.45 then
+				rock(ctx, p + inward * 1.4, rng:NextNumber(4, 9))
+			end
+		end
+	end
+
+	-- The Keep Out gate where the bridge starts: rock pillars, horns, bells, torches.
+	local gz = bridgeFrom - 3
+	for _, sx in { -1, 1 } do
+		ctx.newPart(
+			ctx.model,
+			"GatePillar",
+			Vector3.new(3, 16, 3),
+			ctx.origin * CFrame.new(sx * 7, 8, gz),
+			ROCK,
+			Enum.Material.Slate
+		)
+		horn(ctx, Vector3.new(sx * 7, 16, gz), sx)
+		torch(ctx, Vector3.new(sx * 10.5, 0, gz - 3))
+	end
+	local beam = ctx.newPart(
+		ctx.model,
+		"GateBeam",
+		Vector3.new(17, 2.4, 2.4),
+		ctx.origin * CFrame.new(0, 14.5, gz),
+		IRON,
+		Enum.Material.Metal
+	)
+	label(beam, "KEEP OUT!", Color3.fromRGB(255, 120, 120), 3, 160)
+	for _, bx in { -3.5, 0, 3.5 } do
+		ctx.newPart(
+			ctx.model,
+			"GateChain",
+			Vector3.new(0.3, 2.4, 0.3),
+			ctx.origin * CFrame.new(bx, 12.1, gz),
+			IRON,
+			Enum.Material.Metal
+		).CanCollide =
+			false
+		ball(ctx, "GateBell", Vector3.new(bx, 10.4, gz), 1.6, GOLD, Enum.Material.Neon).CanCollide = false
+	end
+
+	-- The island: a ring of boulders, a spiked iron fence with a gate facing
+	-- the bridge, spooky lanterns, dead trees and heaps of coal.
+	local towardBridge = math.atan2(0, bridgeFrom - isl.Z) -- angle a of (sin a, cos a) pointing up the bridge
+	local function gapAt(a: number, width: number): boolean
+		local diff = math.abs((a - towardBridge + math.pi) % (2 * math.pi) - math.pi)
+		return diff < width
+	end
+	for k = 0, 17 do
+		local a = k / 18 * math.pi * 2 + rng:NextNumber(-0.1, 0.1)
+		if not gapAt(a, 0.35) then
+			rock(
+				ctx,
+				isl + Vector3.new(math.sin(a) * (r - 2), 0, math.cos(a) * (r - 2)),
+				rng:NextNumber(4, 8)
+			)
+		end
+	end
+	local fenceR = r - 10
+	local posts = math.floor(2 * math.pi * fenceR / 3.2)
+	local prev: Vector3? = nil
+	for k = 0, posts do
+		local a = k / posts * math.pi * 2
+		if gapAt(a, 0.22) then
+			prev = nil
+		else
+			local at = isl + Vector3.new(math.sin(a) * fenceR, 0, math.cos(a) * fenceR)
+			ctx.newPart(
+				ctx.model,
+				"FenceSpike",
+				Vector3.new(0.4, 6, 0.4),
+				ctx.origin * CFrame.new(at + Vector3.new(0, 3, 0)),
+				IRON,
+				Enum.Material.Metal
+			)
+			if k % 4 == 0 then
+				ball(ctx, "FenceKnob", at + Vector3.new(0, 6.3, 0), 0.8, SPOOKY[1], Enum.Material.Neon).CanCollide =
+					false
+			end
+			if prev then
+				wall(
+					ctx,
+					"FenceBar",
+					prev + Vector3.new(0, 4.6, 0),
+					at + Vector3.new(0, 4.6, 0),
+					0.25,
+					0.3,
+					IRON
+				)
+			end
+			prev = at
+		end
+	end
+	for k = 0, 5 do
+		local a = towardBridge + (k + 0.5) / 6 * math.pi * 2
+		lantern(ctx, isl + Vector3.new(math.sin(a) * (r - 15), 0, math.cos(a) * (r - 15)), SPOOKY[k % 2 + 1])
+	end
+	for k = 1, 4 do
+		local a = towardBridge + math.pi * (0.35 + k * 0.32)
+		deadTree(
+			ctx,
+			isl + Vector3.new(math.sin(a) * (r - 4), 0.3, math.cos(a) * (r - 4)),
+			rng:NextNumber(12, 18)
+		)
+	end
+	for k = 1, 3 do
+		local a = towardBridge + k * 1.9 + 0.6
+		local c = isl + Vector3.new(math.sin(a) * (r - 17), 0, math.cos(a) * (r - 17))
+		for _ = 1, 5 do
+			ball(
+				ctx,
+				"Coal",
+				c
+					+ Vector3.new(
+						rng:NextNumber(-1.6, 1.6),
+						rng:NextNumber(0.3, 1.4),
+						rng:NextNumber(-1.6, 1.6)
+					),
+				rng:NextNumber(1.2, 2.2),
+				Color3.fromRGB(28, 28, 32),
+				Enum.Material.Slate
+			).CanCollide =
+				false
+		end
+	end
+	local sign = ctx.newPart(
+		ctx.model,
+		"NaughtySign",
+		Vector3.new(5, 2.4, 0.4),
+		ctx.origin * CFrame.new(isl + Vector3.new(9, 4.4, -(r - 16))) * CFrame.Angles(0, 0, 0.12),
+		WOOD,
+		Enum.Material.WoodPlanks
+	)
+	ctx.newPart(
+		ctx.model,
+		"NaughtySignPost",
+		Vector3.new(0.5, 4, 0.5),
+		ctx.origin * CFrame.new(isl + Vector3.new(9, 2, -(r - 16))),
+		WOOD,
+		Enum.Material.Wood
+	)
+	label(sign, "NAUGHTY ONLY", Color3.fromRGB(255, 220, 120), 2.5, 90)
+
+	-- Ice spires and dead trees on the shore; glowing purple mist over the lake.
+	for _ = 1, 9 do
+		local x = rng:NextNumber(-w + 25, w - 25)
+		local z = rng:NextNumber(z0 + 25, z1 - 25)
+		local p = Vector3.new(x, 0, z)
+		local flat = (p - isl) * Vector3.new(1, 0, 1)
+		if flat.Magnitude > r + 14 and math.abs(x) > 14 then
+			for k = 1, 3 do
+				local h = rng:NextNumber(5, 14)
+				local spire = ctx.newPart(
+					ctx.model,
+					"IceSpire",
+					Vector3.new(1.6, h, 1.6),
+					ctx.origin
+						* CFrame.new(
+							p + Vector3.new(rng:NextNumber(-2, 2), h / 2 - 0.5, rng:NextNumber(-2, 2))
+						)
+						* CFrame.Angles(
+							rng:NextNumber(-0.3, 0.3),
+							rng:NextNumber(0, 1.5),
+							rng:NextNumber(-0.3, 0.3)
+						),
+					Color3.fromRGB(170, 230, 255),
+					Enum.Material.Glass
+				)
+				spire.Transparency = 0.25
+				spire.CanCollide = k == 1
+			end
+		end
+	end
+	for k = 0, 9 do
+		local side = if k % 2 == 0 then -1 else 1
+		local z = z0 + 20 + (z1 - z0 - 40) * (k / 9)
+		deadTree(ctx, Vector3.new(side * (w + rng:NextNumber(4, 14)), 0, z), rng:NextNumber(12, 20))
+	end
+	for k = 0, 5 do
+		local a = k / 6 * math.pi * 2 + 0.4
+		local p = isl + Vector3.new(math.sin(a) * (r + 22), 0.6, math.cos(a) * (r + 22))
+		local mist = ctx.newPart(
+			ctx.model,
+			"LairMist",
+			Vector3.new(0.4, 34, 34),
+			ctx.origin * CFrame.new(p) * CFrame.Angles(0, 0, math.pi / 2),
+			SPOOKY[1],
+			Enum.Material.Neon
+		)
+		mist.Shape = Enum.PartType.Cylinder
+		mist.Transparency = 0.88
+		mist.CanCollide = false
+		mist.CanQuery = false
+	end
+end
+
 function FloeLake.build(ctx)
 	local f = ctx.feature
 	local state = canalState(ctx.stop)
@@ -1300,6 +1637,7 @@ function FloeLake.build(ctx)
 		{ x = f.island.X, z = f.island.Z - midZ, radius = f.islandRadius },
 		{ x = 0, z = (bridgeFrom + bridgeTo) / 2 - midZ, halfX = 5, halfZ = (bridgeTo - bridgeFrom) / 2 },
 	}
+	lairGrounds(ctx, f, bridgeFrom)
 	-- Red beacon over the Lair island.
 	local beacon = ctx.newPart(
 		ctx.model,

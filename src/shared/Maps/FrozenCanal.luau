@@ -52,7 +52,7 @@ return {
 			to = 640,
 			halfWidth = 150,
 			island = ISLAND,
-			islandRadius = 40,
+			islandRadius = 58, -- room for the Lair (48 wide), its fence, lanterns and trees
 		},
 	},
 	-- Random map events (MapEvents, from the events work): Blizzard at launch.
