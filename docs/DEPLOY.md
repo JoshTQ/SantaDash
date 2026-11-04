@@ -87,7 +87,7 @@ group-owned game, switch to the group at the top left first).
   | `universe-places` | Write | Publishing the places |
   | `luau-execution-sessions` | Write (and Read if offered) | Smoke test and engine tests |
   | `universe` | Write | Optional: restarting servers after a deploy |
-  | `asset` | Read, Write | Optional: uploading the sounds from CI |
+  | `asset` | Read, Write | Uploading models (Meshy workflow) and sounds |
 
 - **Security**: leave **Restrict IP addresses off** (GitHub's runners have no
   fixed IP; a restricted key fails with 401/403).
