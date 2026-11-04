@@ -16,6 +16,8 @@
 		          pivot, e.g. the sleigh or Krampus) or "self" (the local Santa)
 		pops      big comic text { at, hold, text, color, size? }
 		cues      one-off client gags { at, kind = "sfx" | "shake" | "hatsOff" | "drop" | "marks", ... }
+		          Every scene starts its own music cue (CutsceneMusic*) at 0. Audio
+		          is made by the sounds thread (PR #9 catalogue, "Cutscenes").
 		tint      optional screen wash { color, pulse }
 ]]
 
@@ -69,6 +71,7 @@ local SCENES: { [string]: Scene } = {
 			{ at = 4.6, hold = 0.4, text = "THUMP!", color = "snow" },
 		},
 		cues = {
+			{ at = 0, kind = "sfx", key = "CutsceneMusicTakeoff" },
 			{ at = 0.3, kind = "sfx", key = "CutsceneSneeze" },
 			{ at = 2.2, kind = "marks", hold = 2 },
 			{ at = 4.6, kind = "shake", power = 0.8, hold = 0.35 },
@@ -97,6 +100,7 @@ local SCENES: { [string]: Scene } = {
 			{ at = 3.1, hold = 0.9, text = "KRAMPUS IS COMING!", color = "red" },
 		},
 		cues = {
+			{ at = 0, kind = "sfx", key = "CutsceneMusicKrampus" },
 			{ at = 0, kind = "sfx", key = "CutsceneBells" },
 			{ at = 2.2, kind = "shake", power = 0.5, hold = 0.25 },
 			{ at = 2.2, kind = "sfx", key = "CutsceneClonk" },
@@ -124,6 +128,7 @@ local SCENES: { [string]: Scene } = {
 			{ at = 2.8, hold = 1.2, text = "LOOT x2", color = "gold", size = 1.2 },
 		},
 		cues = {
+			{ at = 0, kind = "sfx", key = "CutsceneMusicGetaway" },
 			{ at = 0.2, kind = "sfx", key = "CutsceneStrain" },
 			{ at = 2.05, kind = "shake", power = 1, hold = 0.4 },
 			{ at = 2.05, kind = "sfx", key = "CutsceneFlump" },
@@ -138,7 +143,7 @@ local SCENES: { [string]: Scene } = {
 		audience = "self",
 		keys = {
 			{ at = 0, eye = at("follow", -10, 9, -14), look = at("follow", 0, 8, 0) },
-			{ at = 0.8, eye = at("follow", 10, 12, 8), look = at("follow", 0, 9, 2) },
+			{ at = 0.8, eye = at("follow", 12, 12, -10), look = at("follow", 0, 9, 2) }, -- swings round his front, never through him
 			{ at = 1.4, eye = at("follow", 0, 17, 15), look = at("follow", 0, 8, 0) },
 			{ at = 2, eye = at("follow", 0, 18, 16), look = at("follow", 0, 8, 0) },
 		},
@@ -148,6 +153,7 @@ local SCENES: { [string]: Scene } = {
 			{ at = 1.4, hold = 0.6, text = "RING BELLS TO FREE ME!", color = "gold", size = 0.7 },
 		},
 		cues = {
+			{ at = 0, kind = "sfx", key = "CutsceneMusicSnatched" },
 			{ at = 0.1, kind = "sfx", key = "CutsceneYoink" },
 			{ at = 0.8, kind = "shake", power = 0.6, hold = 0.25 },
 			{ at = 0.8, kind = "sfx", key = "CutsceneBonk" },
@@ -172,6 +178,7 @@ local SCENES: { [string]: Scene } = {
 			{ at = 1.6, hold = 0.4, text = "Follow the path!", color = "mint", size = 0.7 },
 		},
 		cues = {
+			{ at = 0, kind = "sfx", key = "CutsceneMusicLeftBehind" },
 			{ at = 0, kind = "sfx", key = "CutsceneHonk" },
 			{ at = 0.8, kind = "sfx", key = "CutsceneRaspberry" },
 			{ at = 1.2, kind = "drop" },

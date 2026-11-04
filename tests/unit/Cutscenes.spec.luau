@@ -185,3 +185,46 @@ test("Krampus belly-flops short of the deck and ends face down", function()
 	local close = Cutscenes.krampusFlop(4, CFrame.new(0, 5, 3), deck)
 	expect(close.Position.Z).toBeNear(3, 1e-4)
 end)
+
+test("the camera never passes through Krampus (or the sleigh) it follows", function()
+	-- Krampus is 11 studs tall and about 6 wide; keep the camera outside a
+	-- 6-stud column round whatever it follows, below head height.
+	for _, id in Cutscenes.Order do
+		local scene = Cutscenes.get(id)
+		for step = 0, 100 do
+			local t = scene.seconds * step / 100
+			local a, b = Cutscenes.keyPair(scene, t)
+			if a.eye.space == "follow" and b.eye.space == "follow" then
+				local eye = Cutscenes.camera(scene, t, FRAMES)
+				local rel = FRAMES.follow:PointToObjectSpace(eye)
+				local flat = Vector3.new(rel.X, 0, rel.Z).Magnitude
+				expect(flat > 6 or rel.Y > 13).toBeTruthy()
+			end
+		end
+	end
+end)
+
+test("every scene starts its own music at 0 and every sound key is a Cutscene key", function()
+	local seen = {}
+	for _, id in Cutscenes.Order do
+		local scene = Cutscenes.get(id)
+		local music = 0
+		for _, cue in scene.cues do
+			if cue.kind == "sfx" then
+				expect(string.sub(cue.key, 1, 8)).toBe("Cutscene")
+				seen[cue.key] = true
+				if string.sub(cue.key, 1, 13) == "CutsceneMusic" then
+					music += 1
+					expect(cue.at).toBe(0)
+				end
+			end
+		end
+		expect(music).toBe(1)
+	end
+	-- The 17 keys the sounds thread made (12 effects + 5 music cues).
+	local count = 0
+	for _ in seen do
+		count += 1
+	end
+	expect(count).toBe(17)
+end)

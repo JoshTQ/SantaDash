@@ -12,7 +12,6 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
 
 local Cutscenes = require(ReplicatedStorage.Shared.Cutscenes)
@@ -96,11 +95,17 @@ local function buildGui(onSkip: () -> ())
 	return gui, pop, tint
 end
 
-local function playSfx(key: string?)
+-- Plays a SoundAssets sound inside the cutscene GUI, so Skip (which destroys
+-- the GUI) cuts it off. `late` starts it part-way in when we joined late.
+-- A key with no Sound yet is silent.
+local function playSfx(state, key: string?, late: number)
 	local folder = key and ReplicatedStorage:FindFirstChild("SoundAssets")
-	local sound = folder and folder:FindFirstChild(key :: string)
-	if sound and sound:IsA("Sound") then
-		SoundService:PlayLocalSound(sound) -- silent until Josh picks the audio
+	local template = folder and folder:FindFirstChild(key :: string)
+	if template and template:IsA("Sound") then
+		local sound = template:Clone()
+		sound.Parent = state.gui -- a Sound under PlayerGui plays 2D for this player only
+		sound.TimePosition = late
+		sound:Play()
 	end
 end
 
@@ -284,7 +289,7 @@ function CutscenePlayer.play(data)
 
 		for _, cue in Cutscenes.cuesBetween(scene, state.lastT, t) do
 			if cue.kind == "sfx" then
-				playSfx(cue.key)
+				playSfx(state, cue.key, math.max(0, t - cue.at))
 			elseif cue.kind == "shake" then
 				state.shake = { power = cue.power or 1, untilT = cue.at + (cue.hold or 0.3) }
 			elseif cue.kind == "hatsOff" then
