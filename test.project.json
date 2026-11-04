@@ -23,6 +23,11 @@
       "Server": {
         "$path": "build/engine-src/server"
       }
+    },
+    "ServerScriptService": {
+      "$properties": {
+        "LoadStringEnabled": true
+      }
     }
   }
 }
