@@ -108,12 +108,20 @@ live experience only, and add it as the `ROBLOX_API_KEY` secret on the
 | Variable | `ROBLOX_UNIVERSE_ID` | Staging universe id (for the engine tests) |
 | Variable | `ROBLOX_PLACE_ID` | Staging **EngineTests** place id |
 | Variable | `DEPLOY_ENABLED` | `true` (only once step 5 is done; until then deploys are skipped and main stays green) |
+| Variable | `PRODUCTION_ENABLED` | `true` only once the live experience is set up; until then nothing deploys past Staging |
 
 `ROBLOX_UNIVERSE_ID` and `ROBLOX_PLACE_ID` are the same variables the CI
 workflow's engine job uses, so setting them also turns on the in-engine tests
 on every pull request.
 
-### 5. Two GitHub environments (Settings > Environments > New environment)
+### 5. GitHub environments
+
+Staging only for now: create **staging** and leave out **production** and
+`PRODUCTION_ENABLED`. Every deploy then stops after Staging. When the live
+experience exists, add the production environment below and set the repo
+variable `PRODUCTION_ENABLED` to `true`.
+
+### 5a. The two environments (Settings > Environments > New environment)
 
 **staging**, with these environment variables:
 
