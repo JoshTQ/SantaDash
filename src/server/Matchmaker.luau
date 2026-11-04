@@ -33,29 +33,76 @@ local Util = require(ReplicatedStorage.Shared.Util)
 
 local Matchmaker = {}
 
-local pending: { [Player]: number } = {} -- waiting for a crew on this server, since when
+type Pending = { since: number, ticket: string }
+
+local pending: { [Player]: Pending } = {} -- waiting for a crew on this server
 local announced: { [string]: boolean } = {} -- crewIds already handled here
 local queue: MemoryStoreQueue? = nil
+local cancelledMap: MemoryStoreSortedMap? = nil -- UserId -> ticket id they hopped off
 local onFailed: ((players: { Player }, reason: string) -> ())? = nil
 
 function Matchmaker.enabled(): boolean
 	return Config.Places.Lobby ~= 0 and Config.Places.Run ~= 0 and not RunService:IsStudio()
 end
 
--- Players waiting longer than LocalFallbackSeconds (the queue is probably down).
-function Matchmaker.overdue(now: number): { Player }
+-- Groups (one per ticket, so a Party stays together) waiting longer than
+-- LocalFallbackSeconds: the queue is probably down.
+function Matchmaker.overdue(now: number): { { Player } }
+	local groups: { [string]: { Player } } = {}
 	local out = {}
-	for player, since in pending do
-		if now - since >= Config.Matchmaking.LocalFallbackSeconds then
-			table.insert(out, player)
+	for player, p in pending do
+		if now - p.since >= Config.Matchmaking.LocalFallbackSeconds then
+			local group = groups[p.ticket]
+			if not group then
+				group = {}
+				groups[p.ticket] = group
+				table.insert(out, group)
+			end
+			table.insert(group, player)
 		end
 	end
 	return out
 end
 
--- Stop waiting for a crew (hopped off, left, or sent somewhere else).
+-- Stop waiting for a crew (hopped off, left, or sent somewhere else). The
+-- ticket is already in the shared queue, so leave a short-lived note that
+-- takes this player out of it wherever it gets packed.
 function Matchmaker.cancel(player: Player)
+	local p = pending[player]
+	if not p then
+		return
+	end
 	pending[player] = nil
+	local map = cancelledMap
+	if map then
+		task.spawn(function()
+			local ok, err = pcall(function()
+				map:SetAsync(tostring(player.UserId), p.ticket, Config.Matchmaking.TicketTTLSeconds)
+			end)
+			if not ok then
+				warn("[Matchmaker] could not cancel a ticket: " .. tostring(err))
+			end
+		end)
+	end
+end
+
+-- UserId -> ticket id for riders who hopped off (one read per pack).
+local function readCancelled(): { [number]: string }
+	local out = {}
+	local ok, entries = pcall(function()
+		return (cancelledMap :: MemoryStoreSortedMap):GetRangeAsync(Enum.SortDirection.Ascending, 200)
+	end)
+	if ok then
+		for _, entry in entries do
+			local userId = tonumber(entry.key)
+			if userId and type(entry.value) == "string" then
+				out[userId] = entry.value
+			end
+		end
+	else
+		warn("[Matchmaker] could not read cancellations: " .. tostring(entries))
+	end
+	return out
 end
 
 local function teleport(players: { Player }, accessCode: string, data)
@@ -126,14 +173,15 @@ end
 -- Puts a Public rider or a Party group in the shared queue.
 function Matchmaker.enqueue(kind: string, players: { Player }, since: number?)
 	local now = Util.now()
+	local id = HttpService:GenerateGUID(false)
 	local members, servers = {}, {}
 	for _, player in players do
-		pending[player] = now
+		pending[player] = { since = now, ticket = id }
 		table.insert(members, player.UserId)
 		table.insert(servers, game.JobId)
 	end
 	local ticket = {
-		id = HttpService:GenerateGUID(false),
+		id = id,
 		kind = kind,
 		members = members,
 		servers = servers,
@@ -173,7 +221,7 @@ local function pack()
 		return
 	end
 	local now = Util.now()
-	local crews, keep = CrewPacker.pack(CrewPacker.clean(items, now), now)
+	local crews, keep = CrewPacker.pack(CrewPacker.clean(items, now, readCancelled()), now)
 	for _, crew in crews do
 		local ok, err = pcall(announce, crew)
 		if not ok then
@@ -196,6 +244,7 @@ end
 function Matchmaker.start(failed: (players: { Player }, reason: string) -> ())
 	onFailed = failed
 	queue = MemoryStoreService:GetQueue(Config.Matchmaking.QueueName, Config.Matchmaking.InvisibleSeconds)
+	cancelledMap = MemoryStoreService:GetSortedMap(Config.Matchmaking.CancelledMapName)
 
 	local ok, err = pcall(function()
 		MessagingService:SubscribeAsync(Config.Matchmaking.Topic, function(packet)

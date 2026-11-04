@@ -17,6 +17,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local CrewPacker = require(ReplicatedStorage.Shared.CrewPacker)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Util = require(ReplicatedStorage.Shared.Util)
 local Matchmaker = require(script.Parent.Matchmaker)
@@ -200,10 +201,8 @@ end
 
 local function tick()
 	local t = Util.now()
-	local overdue = Matchmaker.overdue(t)
-	local max = Config.Lobby.CrewMax
-	for i = 1, #overdue, max do
-		departLocally(table.move(overdue, i, i + max - 1, 1, {}))
+	for _, crew in CrewPacker.fit(Matchmaker.overdue(t), Config.Lobby.CrewMax) do
+		departLocally(crew)
 	end
 	for _, crew in table.clone(crews) do
 		if crew.launching then

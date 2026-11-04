@@ -82,3 +82,33 @@ test("stale, duplicate and malformed tickets are dropped", function()
 	expect(#cleaned).toBe(1)
 	expect(cleaned[1].id).toBe(ok.id)
 end)
+
+test("a rider who hopped off never holds a seat", function()
+	local now = 1000
+	local solo = ticket("Public", 1, now)
+	local party = ticket("Party", 3, now)
+	local cancelled = { [solo.members[1]] = solo.id, [party.members[2]] = party.id }
+	local cleaned = CrewPacker.clean({ solo, party }, now, cancelled)
+	expect(#cleaned).toBe(1)
+	expect(cleaned[1].id).toBe(party.id)
+	expect(#cleaned[1].members).toBe(2)
+	expect(#cleaned[1].servers).toBe(2)
+	expect(cleaned[1].members[2]).toBe(party.members[3])
+	expect(#party.members).toBe(3) -- the queued ticket itself is not changed
+end)
+
+test("an old cancellation does not touch the rider's new ticket", function()
+	local now = 1000
+	local again = ticket("Public", 1, now)
+	local cleaned = CrewPacker.clean({ again }, now, { [again.members[1]] = "an-older-ticket" })
+	expect(#cleaned).toBe(1)
+end)
+
+test("local fallback keeps groups together", function()
+	local crews =
+		CrewPacker.fit({ { "a" }, { "p1", "p2", "p3", "p4" }, { "b" }, { "q1", "q2", "q3" }, { "c" } }, MAX)
+	expect(#crews).toBe(2)
+	expect(#crews[1]).toBe(6) -- a + party of 4 + b
+	expect(crews[2][1]).toBe("q1") -- the party of 3 is not split
+	expect(#crews[2]).toBe(4)
+end)

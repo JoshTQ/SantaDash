@@ -62,6 +62,7 @@ Config.Places = {
 Config.Matchmaking = {
 	QueueName = "SleighHeist_PublicCrews_v1",
 	Topic = "SleighHeist_CrewReady_v1",
+	CancelledMapName = "SleighHeist_HoppedOff_v1", -- riders who got off after queueing
 	PackEverySeconds = 2, -- how often each lobby server tries to form crews
 	ReadBatch = 50, -- tickets read per pack (MemoryStore max is 100)
 	InvisibleSeconds = 30, -- a read batch is hidden from other servers while one server packs it

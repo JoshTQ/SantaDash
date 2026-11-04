@@ -34,7 +34,10 @@ local function waitFor(ticket: Ticket): number
 end
 
 -- Valid, unexpired tickets only (queue data may be stale or malformed).
-function CrewPacker.clean(raw: { any }, now: number): { Ticket }
+-- cancelled maps a UserId to the ticket they hopped off from: they are
+-- taken out of that ticket (a ticket left empty is dropped), so riders who
+-- got off never hold a seat in a crew.
+function CrewPacker.clean(raw: { any }, now: number, cancelled: { [number]: string }?): { Ticket }
 	local out, seen = {}, {}
 	for _, t in raw do
 		if type(t) ~= "table" or type(t.id) ~= "string" or seen[t.id] then
@@ -54,6 +57,19 @@ function CrewPacker.clean(raw: { any }, now: number): { Ticket }
 			continue
 		end
 		seen[t.id] = true
+		if cancelled then
+			local members, servers = {}, {}
+			for i, userId in t.members do
+				if cancelled[userId] ~= t.id then
+					table.insert(members, userId)
+					table.insert(servers, t.servers[i])
+				end
+			end
+			if #members == 0 then
+				continue
+			end
+			t = { id = t.id, kind = t.kind, members = members, servers = servers, since = t.since }
+		end
 		table.insert(out, t)
 	end
 	table.sort(out, function(a, b)
@@ -111,6 +127,29 @@ function CrewPacker.pack(tickets: { Ticket }, now: number): ({ Crew }, { Ticket 
 		return a.since < b.since
 	end)
 	return leaving, keep
+end
+
+-- Packs groups into crews of at most max without splitting a group,
+-- first fit in order (local fallback when the shared queue is down).
+function CrewPacker.fit<T>(groups: { { T } }, max: number): { { T } }
+	local crews: { { T } } = {}
+	for _, group in groups do
+		local home: { T }? = nil
+		for _, crew in crews do
+			if #crew + #group <= max then
+				home = crew
+				break
+			end
+		end
+		if not home then
+			home = {}
+			table.insert(crews, home :: { T })
+		end
+		for _, member in group do
+			table.insert(home :: { T }, member)
+		end
+	end
+	return crews
 end
 
 return CrewPacker
