@@ -125,23 +125,49 @@ Workspace; players with no TeleportData then join as a test crew.
 
 ## Tests
 
-| Layer | What | How |
-| --- | --- | --- |
-| Unit | Pure rules: House Card rolls, stop plans, values, banking, results, Krampus decisions (arrival, targeting, bells, breath, wiggle), elf bot decisions (design mix, present picks), lobby-to-run handoff (validation, admission, departure), crew packing, station timetable, map registry and rotation, map event rolls and timing, Config invariants | `lune run tests/runner` |
-| Integration | MapBuilder and LobbyMap build real Instances (Lune's Roblox library) from real plans: counts, prompts, sleigh on the ground at the Sleigh Stop, no overlapping houses, approved house kit / Lair / vault door (with stand-in models), Krampus and elf rigs, sleigh seats, vault presents, map palette/layout/features/stop origins, every map in the rotation, lobby bays and spawn | same command |
-| Regression | `tests/regression/DesignCalls.spec.luau`: every call Josh has signed off (Krampus from Stop 3, 15 wiggle taps, Sleigh Stop safe zone, missed-final-sleigh half sack, elf bot mix and 80% solo loot, ...). Add a test here for each new call and each bug fix | same command |
-| Static | Format, lint, place build | `stylua --check src tests`, `selene src`, `rojo build` |
-| In-engine | `tests/engine`, Jest Roblox in a real Roblox server: approved sleigh, cocoa machine and set dressing placement, remotes, server clock, and a whole empty-crew run (build, flight, end, clean-up) | CI `engine` job (Open Cloud); see below |
-| Manual | Feel, multi-player (bells, rescues, riders), cross-server teleport | Studio playtest |
+`lune run tests/runner` runs every spec (about 5 seconds); add `--coverage`
+for the report. Filter by file name: `lune run tests/runner Loot`.
 
-CI (`.github/workflows/ci.yml`) runs all of the above on every pull request.
-Filter tests by file name: `lune run tests/runner Loot`.
+| Layer | Folder | What |
+| --- | --- | --- |
+| Unit | `tests/unit` | Pure rules: House Card rolls, stop plans, values, banking, results, Krampus and elf bot decisions, the lobby-to-run handoff, crew packing, station timetable, maps, map event rolls and timing, Assets lookups, Config invariants |
+| Integration | `tests/integration` | MapBuilder, LobbyMap and the house kit build real Instances (Lune's Roblox library): counts, prompts, the Sleigh Stop, no overlapping houses, approved house / Lair / vault door / presents |
+| Smoke | `tests/smoke` | Whole runs in a **headless world**: solo and crew runs, elf bots, buys, chimneys, doors, Krampus (snatch, wiggle, bells, hiding, gasps), every approved model, the HUD, edge cases and failures, and **matchmaking** (Quick Join, full sleighs, leaving, requeue, a busy server; the run place handoff, arrival timeout, strangers, back-to-back runs) |
+| Regression | `tests/regression/DesignCalls.spec.luau` | Every call Josh has signed off, as unit checks and in whole runs. Add a test here for each new call and each bug fix |
+| Static | | `stylua --check src tests`, `selene src`, `rojo build` |
+| In-engine | `tests/engine` | Jest Roblox in a real Roblox server: approved sleigh, cocoa machine and set dressing placement, remotes, server clock, and a whole empty-crew run. CI `engine` job (Open Cloud); see below |
+| Manual | | Feel, real physics, multi-player networking: Studio playtest |
+
+CI (`.github/workflows/ci.yml`) runs all of it on every pull request.
 
 Specs use a Jest-compatible subset (`describe`, `it`/`test`, `beforeEach`,
-`afterEach`, `expect(x).toBe / toEqual / toContain / toThrow / never...`) so
-they can move to Jest Roblox unchanged. Services that aren't `src/` folders
-(`ServerStorage`, ...) are real empty Instances; fill them through the
-`services` helper (`services.ServerStorage`), and they're emptied per file.
+`afterEach`, `expect(x).toBe / toEqual / toContain / toThrow / never...`).
+Services that aren't `src/` folders (`ServerStorage`, ...) are real empty
+Instances; fill them through the `services` helper.
+
+### Headless worlds
+
+`tests/headless/Engine.luau` is a small model of the Roblox engine, so code
+that needs the live engine runs in Lune too. `local world = headless()` gives
+a world with its own Instances, players and module cache, with `src/` mounted
+the way Rojo would (`world.load("ServerScriptService.Server.Run")`,
+`world.runScript("ServerScriptService.Server.Main")`).
+
+- **Virtual time:** `task.wait`, `os.clock`, `GetServerTimeNow` and Heartbeat run
+  on a clock that only moves inside `world.run(fn)`; a 6-minute run takes a
+  fraction of a second. In specs, wait with `world.wait(seconds)`.
+- **Players:** `engine:addPlayer(name, { userId, joinData })`,
+  `engine:teleport(player, position)`, `engine.trigger(prompt, player)`,
+  `engine:hudMessages(player, kind)` (everything the server sent to the HUD).
+- **Physics stand-ins:** Humanoid:MoveTo walks at WalkSpeed, welds follow,
+  Touched fires when a character enters a part, pathfinding walks straight
+  (`engine.pathfindingFails = true` tests the fallback).
+- **Client:** `engine:setLocalPlayer(p)` and `world.runScript(...Hud)` run the
+  HUD against the real server; `engine:guiShows(text)`, `engine:guiButton(text)`.
+- `math.random` is seeded per world, so runs repeat exactly.
+
+It is a model, not the engine: it can't catch real physics, rendering or
+networking bugs, so Studio playtests still matter.
 
 ### Coverage
 
@@ -156,15 +182,7 @@ and writes `coverage/index.html` (per-file table, then each file's source with
 covered lines green and missed lines red), `coverage/lcov.info` (for Codecov or
 the VS Code Coverage Gutters extension) and `coverage/summary.md`. CI posts the
 table to the job summary and uploads the report as the `coverage-report`
-artifact. Files that need the live engine are listed in
-`tests/coverage.luau` (`ENGINE_ONLY`) and kept out of the "Lune-testable"
-total, which has an advisory 80% floor (a warning, not a failure, before launch).
-
-The test runner loads modules straight from `src/` with a fake `game`/`script`/
-`require`, so keep rule code in pure modules (`Loot`, `KrampusBrain`, `ElfBrain`, `Handoff`, `CrewPacker`, `StationClock`, `Util`)
-and keep `MapBuilder` and `LobbyMap` free of events. Code that needs the live engine (`Run`,
-`Lobby`, `Station`, `Matchmaker`, `Krampus` and `ElfBot` movement, physics, pathfinding, remotes) is covered by the
-playtest checklist until E2E is set up.
+artifact. The 90% floor is advisory (a warning, not a failure, before launch).
 
 ### In-engine tests (Jest Roblox + Open Cloud)
 

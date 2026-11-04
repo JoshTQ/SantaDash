@@ -10,9 +10,8 @@
 	                        covered lines in green and missed lines in red
 	  coverage/summary.md   the same table in Markdown (CI posts it to the job summary)
 
-	Files listed in ENGINE_ONLY need the live engine (events, physics, remotes),
-	so Lune can't run them. They're still reported, but kept out of the
-	"Lune-testable" total that the coverage floor checks.
+	Every module runs here: engine code (Run, Krampus, Lobby, Hud...) runs in
+	headless worlds (tests/headless/Engine.luau), so one total covers all of src/.
 ]]
 
 local fs = require("@lune/fs")
@@ -21,21 +20,8 @@ local serde = require("@lune/serde")
 
 local Coverage = {}
 
--- Covered by the in-engine tier (tests/engine, Jest Roblox) instead.
-Coverage.ENGINE_ONLY = {
-	["src/server/Main.server.luau"] = true,
-	["src/server/Run.luau"] = true,
-	["src/server/Lobby.luau"] = true,
-	["src/server/RunHost.luau"] = true,
-	["src/server/Krampus.luau"] = true,
-	["src/server/ElfBot.luau"] = true,
-	["src/server/Mover.luau"] = true,
-	["src/shared/Remotes.luau"] = true,
-	["src/client/Hud.client.luau"] = true,
-}
-
--- Advisory floor for the Lune-testable total (warns, never fails, before launch).
-Coverage.FLOOR = 0.8
+-- Advisory floor for line coverage of src/ (warns, never fails, before launch).
+Coverage.FLOOR = 0.9
 
 local TOOL = "tools/luau-cov/target/release/luau-cov" .. (if process.os == "windows" then ".exe" else "")
 
@@ -48,7 +34,14 @@ type FileData = {
 
 local files: { [string]: FileData } = {}
 
+local sources: { [string]: string } = {}
+
+-- Instrumented once per file. Lune's process/fs calls yield, so headless
+-- worlds call this up front (outside their game threads) to fill the cache.
 local function instrumentFile(file: string): (string, FileData)
+	if sources[file] then
+		return sources[file], files[file]
+	end
 	local result = process.exec(TOOL, { file })
 	if not result.ok then
 		error("luau-cov failed on " .. file .. ":\n" .. result.stderr)
@@ -59,7 +52,13 @@ local function instrumentFile(file: string): (string, FileData)
 		entry = { lines = data.lines, functions = data.functions, lineHits = {}, fnHits = {} }
 		files[file] = entry
 	end
+	sources[file] = data.source
 	return data.source, entry
+end
+
+-- Instruments `file` now (for headless worlds; see instrumentFile).
+function Coverage.prepare(file: string)
+	instrumentFile(file)
 end
 
 function Coverage.available(): boolean
@@ -160,7 +159,6 @@ table{border-collapse:collapse;width:100%;max-width:960px}th,td{padding:6px 10px
 td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .bar{display:inline-block;width:90px;height:8px;background:var(--missbar);border-radius:4px;overflow:hidden;vertical-align:middle;margin-right:8px}
 .bar i{display:block;height:100%;background:var(--hitbar)}
-.tag{font-size:12px;color:var(--muted)}
 pre{margin:0;font:13px/1.5 ui-monospace,monospace;overflow-x:auto;tab-size:4}
 .src{border:1px solid var(--line);border-radius:6px;overflow:hidden}
 .src div{display:flex;white-space:pre}.src .h{background:var(--hit)}.src .m{background:var(--miss)}
@@ -205,7 +203,7 @@ local function sourcePage(file: string, entry: FileData): string
 	return page(file, table.concat(out))
 end
 
--- Writes the reports and returns the Lune-testable line ratio.
+-- Writes the reports and returns the line coverage ratio.
 function Coverage.report(outDir: string): number
 	addUnloaded("src")
 	if fs.isDir(outDir) then
@@ -221,18 +219,12 @@ function Coverage.report(outDir: string): number
 
 	local lcov = {}
 	local rows, mdRows = {}, {}
-	local totals = { all = { 0, 0 }, lune = { 0, 0 } }
+	local totals = { 0, 0 }
 	for _, file in names do
 		local entry = files[file]
 		local hitLines, lines, hitFns, fns = stats(entry)
-		local engine = Coverage.ENGINE_ONLY[file] == true
-
-		totals.all[1] += hitLines
-		totals.all[2] += lines
-		if not engine then
-			totals.lune[1] += hitLines
-			totals.lune[2] += lines
-		end
+		totals[1] += hitLines
+		totals[2] += lines
 
 		table.insert(lcov, "SF:" .. file)
 		for i, fn in entry.functions do
@@ -246,14 +238,12 @@ function Coverage.report(outDir: string): number
 		table.insert(lcov, string.format("LF:%d\nLH:%d\nend_of_record", lines, hitLines))
 
 		local ratio = if lines > 0 then hitLines / lines else 1
-		local tag = if engine then ' <span class="tag">engine tier</span>' else ""
 		table.insert(
 			rows,
 			string.format(
-				'<tr><td><a href="%s">%s</a>%s</td><td class="n"><span class="bar"><i style="width:%.0f%%"></i></span>%s</td><td class="n">%d / %d</td><td class="n">%s</td></tr>',
+				'<tr><td><a href="%s">%s</a></td><td class="n"><span class="bar"><i style="width:%.0f%%"></i></span>%s</td><td class="n">%d / %d</td><td class="n">%s</td></tr>',
 				htmlName(file),
 				escape(file),
-				tag,
 				100 * ratio,
 				pct(hitLines, lines),
 				hitLines,
@@ -264,9 +254,8 @@ function Coverage.report(outDir: string): number
 		table.insert(
 			mdRows,
 			string.format(
-				"| `%s`%s | %s | %d / %d | %s |",
+				"| `%s` | %s | %d / %d | %s |",
 				file,
-				if engine then " (engine)" else "",
 				pct(hitLines, lines),
 				hitLines,
 				lines,
@@ -279,13 +268,10 @@ function Coverage.report(outDir: string): number
 	fs.writeFile(outDir .. "/lcov.info", table.concat(lcov, "\n") .. "\n")
 
 	local headline = string.format(
-		"Lune-testable code: %s of lines (%d / %d). All code: %s (%d / %d).",
-		pct(totals.lune[1], totals.lune[2]),
-		totals.lune[1],
-		totals.lune[2],
-		pct(totals.all[1], totals.all[2]),
-		totals.all[1],
-		totals.all[2]
+		"Lines covered: %s (%d / %d) across src/.",
+		pct(totals[1], totals[2]),
+		totals[1],
+		totals[2]
 	)
 	fs.writeFile(
 		outDir .. "/index.html",
@@ -293,7 +279,7 @@ function Coverage.report(outDir: string): number
 			"Coverage",
 			"<h1>Test coverage</h1><p>"
 				.. escape(headline)
-				.. " Files tagged engine tier need the live engine and are tested in Studio or Open Cloud.</p>"
+				.. "</p>"
 				.. "<table><tr><th>File</th><th>Lines</th><th></th><th>Functions</th></tr>"
 				.. table.concat(rows)
 				.. "</table>"
@@ -310,7 +296,7 @@ function Coverage.report(outDir: string): number
 
 	print(headline)
 	print("Report: " .. outDir .. "/index.html")
-	return if totals.lune[2] > 0 then totals.lune[1] / totals.lune[2] else 1
+	return if totals[2] > 0 then totals[1] / totals[2] else 1
 end
 
 return Coverage

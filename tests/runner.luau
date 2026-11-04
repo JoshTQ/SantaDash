@@ -4,7 +4,8 @@
 	Loads the game's ModuleScripts straight from src/ with a fake `game`,
 	`script` and `require` that resolve Roblox instance paths to files, and
 	Lune's Roblox datatypes (Vector3, CFrame, Instance, ...). Modules that need
-	the live engine (events, physics, pathfinding) are tested in Studio instead.
+	the live engine (events, physics, pathfinding) run in a headless world:
+	`local world = headless()` (see tests/headless/Engine.luau).
 
 	  lune run tests/runner                 all specs
 	  lune run tests/runner Loot            only spec files whose name contains "Loot"
@@ -14,6 +15,7 @@
 local fs = require("@lune/fs")
 local luau = require("@lune/luau")
 local process = require("@lune/process")
+local stdio = require("@lune/stdio")
 local roblox = require("@lune/roblox")
 local task = require("@lune/task")
 
@@ -168,6 +170,26 @@ for _, name in
 do
 	builtins[name] = (roblox :: any)[name]
 end
+-- Lune has no TweenInfo; tweens in headless worlds jump to their goal.
+builtins.TweenInfo = {
+	new = function(
+		time: number?,
+		style,
+		direction,
+		repeatCount: number?,
+		reverses: boolean?,
+		delayTime: number?
+	)
+		return {
+			Time = time or 1,
+			EasingStyle = style,
+			EasingDirection = direction,
+			RepeatCount = repeatCount or 0,
+			Reverses = reverses or false,
+			DelayTime = delayTime or 0,
+		}
+	end,
+}
 
 local cache = {}
 
@@ -185,6 +207,172 @@ function loadModule(parts: { string })
 		cache[file] = chunk()
 	end
 	return cache[file]
+end
+
+----------------------------------------------------------------------------
+-- Headless worlds: the game's modules on tests/headless/Engine.luau, so code
+-- that needs the live engine (Run, Krampus, Lobby, Hud...) runs here too.
+-- Each world has its own clock, Instances, players and module cache.
+----------------------------------------------------------------------------
+
+local Engine = require("./headless/Engine")
+local Cloud = require("./headless/Cloud")
+
+-- Rojo's mapping from default.project.json: Instance path -> folder.
+local MOUNTS = {
+	{ service = "ReplicatedStorage", name = "Shared", dir = "src/shared" },
+	{ service = "ServerScriptService", name = "Server", dir = "src/server" },
+	{ service = "StarterPlayer", name = "Client", dir = "src/client", under = "StarterPlayerScripts" },
+}
+
+local sourceCache: { [string]: string } = {}
+
+local function headless(options: { seed: number? }?)
+	local engine = Engine.new()
+	local world = { engine = engine, Engine = Engine }
+	local moduleCache = {}
+
+	-- Lune's fs and process calls yield, which would suspend game threads, so
+	-- every source is read (and instrumented) before the world runs.
+	local function preload(file: string)
+		if not sourceCache[file] then
+			sourceCache[file] = fs.readFile(file)
+		end
+		if coverageOn then
+			Coverage.prepare(file)
+		end
+	end
+
+	-- Rojo's rules: init.luau makes its folder a ModuleScript, *.server.luau a
+	-- Script, *.client.luau a LocalScript, any other .luau a ModuleScript.
+	local function mount(parent, name: string, dir: string)
+		local initFile = dir .. "/init.luau"
+		local node = engine.Instance.new(if fs.isFile(initFile) then "ModuleScript" else "Folder")
+		node.Name = name
+		if fs.isFile(initFile) then
+			rawset(node, "_file", initFile)
+			preload(initFile)
+		end
+		local entries = fs.readDir(dir)
+		table.sort(entries)
+		for _, entry in entries do
+			local file = dir .. "/" .. entry
+			if fs.isDir(file) then
+				mount(node, entry, file)
+			elseif entry ~= "init.luau" then
+				local base, kind = string.match(entry, "^(.-)%.(%a+)%.luau$")
+				local className = if kind == "server"
+					then "Script"
+					elseif kind == "client" then "LocalScript"
+					else nil
+				if not className then
+					base = string.match(entry, "^(.-)%.luau$")
+					className = "ModuleScript"
+				end
+				if base then
+					local script = engine.Instance.new(className)
+					script.Name = base
+					rawset(script, "_file", file)
+					script.Parent = node
+					preload(file)
+				end
+			end
+		end
+		node.Parent = parent
+		return node
+	end
+	for _, m in MOUNTS do
+		local parent = engine:service(m.service)
+		if m.under then
+			local holder = parent:FindFirstChild(m.under) or engine.Instance.new("Folder")
+			holder.Name = m.under
+			holder.Parent = parent
+			parent = holder
+		end
+		mount(parent, m.name, m.dir)
+	end
+
+	local env0 = table.clone(builtins)
+	env0.game = engine.DataModel
+	env0.workspace = engine.workspace
+	env0.Instance = engine.Instance
+	env0.task = engine.task
+	env0.os = engine.os
+	env0.typeof = Engine.typeof
+	-- math.random (Krampus's wander) is seeded per world, so runs repeat exactly.
+	local worldRandom = Random.new(options and options.seed or 1)
+	env0.math = table.clone(math)
+	env0.math.random = function(a: number?, b: number?)
+		if a == nil then
+			return worldRandom:NextNumber()
+		elseif b == nil then
+			return worldRandom:NextInteger(1, a)
+		end
+		return worldRandom:NextInteger(a, b :: number)
+	end
+	env0.math.randomseed = function() end
+	env0.warn = function(...)
+		local parts = table.pack(...)
+		for i = 1, parts.n do
+			parts[i] = tostring(parts[i])
+		end
+		table.insert(engine.warnings, table.concat(parts, " "))
+	end
+	env0.print = function() end -- keep test output quiet
+
+	local function chunkFor(script)
+		local file = rawget(script, "_file")
+		assert(file, "not a script from src/: " .. tostring(script))
+		local env = table.clone(env0)
+		env.script = script
+		env.require = world.require
+		local source = if coverageOn then Coverage.instrument(file, env) else sourceCache[file]
+		return luau.load(source, { debugName = file, environment = env })
+	end
+
+	function world.require(script)
+		local stub = rawget(script, "_value") -- engine-provided modules (PlayerModule)
+		if stub ~= nil then
+			return stub
+		end
+		if moduleCache[script] == nil then
+			moduleCache[script] = chunkFor(script)()
+		end
+		return moduleCache[script]
+	end
+
+	-- Instance path from the DataModel, e.g. "ServerScriptService.Server.Run".
+	function world.find(dotted: string)
+		local parts = string.split(dotted, ".")
+		local node = engine:service(parts[1])
+		for i = 2, #parts do
+			node = node:FindFirstChild(parts[i])
+			assert(node, "no " .. dotted .. " in the headless world")
+		end
+		return node
+	end
+
+	function world.load(dotted: string)
+		return world.require(world.find(dotted))
+	end
+
+	-- Runs a Script or LocalScript (e.g. Main.server, Hud.client) in a game thread.
+	function world.runScript(dotted: string)
+		local chunk = chunkFor(world.find(dotted))
+		engine:spawn(chunk)
+	end
+
+	function world.run(fn, options)
+		engine:run(fn, options)
+	end
+
+	-- Inside world.run: let the game run for `seconds` of virtual time.
+	-- (The spec's own `task` is Lune's, so use this, not task.wait.)
+	function world.wait(seconds: number?)
+		return engine:wait(seconds or 0)
+	end
+
+	return world
 end
 
 ----------------------------------------------------------------------------
@@ -322,7 +510,13 @@ local function fullName(name: string): string
 	return table.concat(parts, " > ")
 end
 
+-- TEST_VERBOSE=1 prints each test as it starts, with the time (to find slow ones).
+local verbose = process.env.TEST_VERBOSE ~= nil
+
 local function test(name: string, fn: () -> ())
+	if verbose then
+		stdio.ewrite(string.format("  %.2fs %s\n", os.clock(), fullName(name)))
+	end
 	local ok, err = pcall(function()
 		runHooks("before", false)
 		local passed, testErr = pcall(fn)
@@ -379,14 +573,22 @@ local helpers = {
 			return fakeGame:GetService(name)
 		end,
 	}),
+	headless = headless,
+	cloud = function(options)
+		return Cloud.new(headless, options)
+	end,
 	newFolder = function()
 		return roblox.Instance.new("Folder")
 	end,
 }
+helpers.readSource = function(file: string): string
+	return fs.readFile(file)
+end
+helpers.listDir = fs.readDir
 
 local files = {}
-for _, dir in { "tests/unit", "tests/integration", "tests/regression" } do
-	for _, name in fs.readDir(dir) do
+for _, dir in { "tests/unit", "tests/integration", "tests/regression", "tests/smoke" } do
+	for _, name in if fs.isDir(dir) then fs.readDir(dir) else {} do
 		if string.find(name, "%.spec%.luau$") and (not filter or string.find(name, filter, 1, true)) then
 			table.insert(files, dir .. "/" .. name)
 		end
@@ -418,7 +620,7 @@ if coverageOn then
 	local ratio = Coverage.report("coverage")
 	Coverage.saveHits("coverage/hits.json") -- merged with in-engine hits by tools/ocale.luau
 	if ratio < Coverage.FLOOR then
-		print(string.format("warning: Lune-testable coverage is below the %d%% floor", Coverage.FLOOR * 100))
+		print(string.format("warning: line coverage is below the %d%% floor", Coverage.FLOOR * 100))
 	end
 end
 
