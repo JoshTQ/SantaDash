@@ -62,9 +62,16 @@ end
 
 local function onFinished(_run, survivors: { Player })
 	current = nil
-	waiting = {}
-	for i, player in survivors do
-		table.insert(waiting, player)
+	-- Crew members who loaded in after the run started have been waiting
+	-- here all along: they join the survivors for the next run.
+	local late = waiting
+	waiting = table.clone(survivors)
+	for _, player in late do
+		if player.Parent == Players and not table.find(waiting, player) then
+			table.insert(waiting, player)
+		end
+	end
+	for i, player in waiting do
 		Util.teleport(player, spawn * CFrame.new((i - 1) * 4, 0, 0))
 	end
 	expected = #waiting

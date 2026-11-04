@@ -74,6 +74,7 @@ function Run.new(
 	self.noiseScale = 1 -- map events can muffle (or boost) all street noise
 	self.eventCleanup = nil :: (() -> ())?
 	self.eventInput = nil :: ((player: Player, action: string) -> ())?
+	self.flightSeats = nil :: { [BasePart]: CFrame }? -- set while the sleigh is flying
 	self.times = { departAt = 0 }
 
 	local rng = Random.new()
@@ -221,7 +222,16 @@ function Run:_addPlayer(player: Player)
 				self.krampus:release()
 			end
 			self:_applyPerks(player)
-			Util.teleport(player, self.deck * self.route.seatOffsets[1])
+			local root = character:FindFirstChild("HumanoidRootPart")
+			if self.flightSeats and root then
+				-- Mid-flight: ride the rest of the way in a seat, not fall off.
+				local seat = self.route.seatOffsets[1]
+				self.flightSeats[root] = seat
+				root.Anchored = true
+				root.CFrame = self.deck * seat
+			else
+				Util.teleport(player, self.deck * self.route.seatOffsets[1])
+			end
 		end
 	end)
 	self.players[player] = st
@@ -819,6 +829,7 @@ function Run:_ride(riders: { Player }, seconds: number, deckAt: (t: number) -> C
 		end
 	end
 
+	self.flightSeats = seats -- respawns mid-flight are seated too
 	local started = os.clock()
 	local connection = RunService.Heartbeat:Connect(function()
 		place(deckAt(math.min(os.clock() - started, seconds)))
@@ -826,6 +837,7 @@ function Run:_ride(riders: { Player }, seconds: number, deckAt: (t: number) -> C
 	task.wait(seconds)
 	connection:Disconnect()
 	place(deckAt(seconds))
+	self.flightSeats = nil
 	if not keepSeated then
 		for root in seats do
 			root.Anchored = false
