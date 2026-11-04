@@ -164,10 +164,11 @@ for the report. Filter by file name: `lune run tests/runner Loot`.
 | Unit | `tests/unit` | Pure rules: House Card rolls, stop plans, values, banking, results, Krampus and elf bot decisions, the lobby-to-run handoff, crew packing, station timetable, maps, map event rolls and timing, Assets lookups, Config invariants |
 | Integration | `tests/integration` | MapBuilder, LobbyMap and the house kit build real Instances (Lune's Roblox library): counts, prompts, the Sleigh Stop, no overlapping houses, approved house / Lair / vault door / presents |
 | Smoke | `tests/smoke` | Whole runs in a **headless world**: solo and crew runs, elf bots, buys, chimneys, doors, Krampus (snatch, wiggle, bells, hiding, gasps), every approved model, the HUD, edge cases and failures, and **matchmaking** (Quick Join, full sleighs, leaving, requeue, a busy server; the run place handoff, arrival timeout, strangers, back-to-back runs) |
-| Regression | `tests/regression/DesignCalls.spec.luau` | Every call Josh has signed off, as unit checks and in whole runs. Add a test here for each new call and each bug fix |
+| Regression | `tests/regression` | Every call Josh has signed off (`DesignCalls`), bugs from the soak test (`Bugs`), and physics/hazard bugs (`Physics`: corgi knockback, re-grabs, roofs, walking on the lake). Add a test here for each new call and each bug fix |
 | Static | | `stylua --check src tests`, `selene src`, `rojo build` |
-| In-engine | `tests/engine` | Jest Roblox in a real Roblox server: approved sleigh, cocoa machine and set dressing placement, remotes, server clock, and a whole empty-crew run. CI `engine` job (Open Cloud); see below |
-| Manual | | Feel, real physics, multi-player networking: Studio playtest |
+| Render budget | `tests/integration/RenderBudget.spec.luau` | Parts, lights, prompts per route; everything anchored; no shadow-casting lights, neon or tiny parts; untouchable dressing; streaming pinned off |
+| In-engine (E2E) | `tests/engine` | Jest Roblox in a real Roblox server with real physics: Humanoid rigs (`Rig.luau`) for knockback, skating on Ice, root height for splashes, the floe hop; Frozen Canal Town raycast for holes and pathfound (Krampus to the sleigh, the walk between stops); a seated sleigh ride that lands; placement of approved models; a whole empty-crew run. CI `engine` job (Open Cloud); see below |
+| Manual | `docs/PLAYTEST.md` | What only real players can test: client-owned physics, the HUD and touch controls, place-to-place teleports. A 2-player Studio script and a phone check |
 
 CI (`.github/workflows/ci.yml`) runs all of it on every pull request.
 
@@ -198,7 +199,8 @@ the way Rojo would (`world.load("ServerScriptService.Server.Run")`,
 - `math.random` is seeded per world, so runs repeat exactly.
 
 It is a model, not the engine: it can't catch real physics, rendering or
-networking bugs, so Studio playtests still matter.
+networking bugs. Those go in `tests/engine` (real physics, no clients) and
+`docs/PLAYTEST.md` (real players).
 
 ### Coverage
 

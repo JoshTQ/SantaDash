@@ -2,6 +2,11 @@
   "name": "SleighHeist",
   "tree": {
     "$className": "DataModel",
+    "Workspace": {
+      "$properties": {
+        "StreamingEnabled": false
+      }
+    },
     "ReplicatedStorage": {
       "Shared": {
         "$path": "src/shared"

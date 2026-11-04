@@ -233,6 +233,8 @@ MapEvents.Blizzard = {
 			kind = "Blizzard",
 			fogEnd = cfg.FogEnd,
 			fogColor = cfg.FogColor,
+			density = cfg.AtmosphereDensity,
+			haze = cfg.AtmosphereHaze,
 		})
 
 		return function()

@@ -27,6 +27,7 @@ local Sounds = require(ReplicatedStorage.Shared.Sounds)
 local Util = require(ReplicatedStorage.Shared.Util)
 local Assets = require(script.Parent.Assets)
 local CanalRules = require(script.Parent.CanalRules)
+local Knockback = require(script.Parent.Knockback)
 local Loot = require(script.Parent.Loot)
 
 local C = Config.Canal
@@ -55,6 +56,7 @@ local STALLS = { "COCOA", "GINGERBREAD", "BAUBLES", "ROASTED NUTS", "TOYS", "CAN
 -- zone part -> floe keepouts (zone space) and its floes once broken
 local keepoutsFor: { [BasePart]: { CanalRules.Keepout } } = setmetatable({}, { __mode = "k" }) :: any
 local floesFor: { [BasePart]: { BasePart } } = setmetatable({}, { __mode = "k" }) :: any
+local floeBoxes: { [BasePart]: { CanalRules.Box } } = setmetatable({}, { __mode = "k" }) :: any
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -601,6 +603,7 @@ local function hoop(ctx, cf: CFrame)
 		ctx.newPart(ctx.model, "BoostHoop", Vector3.new(8, 8, 2), world * CFrame.new(0, 4.5, 0), GOLD)
 	trigger.Transparency = 1
 	trigger.CanCollide = false
+	trigger:SetAttribute("Trigger", true) -- keeps Touched through Parts.settle
 	table.insert(state.hoops, trigger)
 end
 
@@ -737,6 +740,7 @@ function SkateCanal.start(ctx)
 	end
 	local boostUntil: { [Player]: number } = {}
 	local splashAt: { [Player]: number } = {}
+	local splashZones: { BasePart } = {}
 	local connections = {}
 
 	-- Hoops and splash zones of this stop and the one before: a Santa who
@@ -758,22 +762,7 @@ function SkateCanal.start(ctx)
 				)
 			end
 			for _, zone in state.splashZones do
-				table.insert(
-					connections,
-					zone.Touched:Connect(function(hit)
-						if not zone:GetAttribute("Broken") then
-							return -- Santas skate on this all the time; only water splashes
-						end
-						local player = Util.playerFromHit(hit)
-						if player and run.players[player] then
-							local t = Util.now()
-							if (splashAt[player] or 0) + 1 < t then
-								splashAt[player] = t
-								CanalTown.splash(run, player, zone)
-							end
-						end
-					end)
-				)
+				table.insert(splashZones, zone)
 			end
 		end
 	end
@@ -797,6 +786,17 @@ function SkateCanal.start(ctx)
 					if humanoid.WalkSpeed ~= speed then
 						humanoid.WalkSpeed = speed
 					end
+					-- Water is polled, not Touched: a Santa who keeps walking on
+					-- broken ice never re-touches it, so Touched let them stroll
+					-- across the lake and skip the floe hop.
+					local root = humanoid.RootPart
+					if root and (splashAt[player] or 0) + 1 < t then
+						local zone = CanalTown.waterUnder(splashZones, root, Util.standHeight(humanoid, root))
+						if zone then
+							splashAt[player] = t
+							CanalTown.splash(run, player, zone)
+						end
+					end
 				end
 			end
 		end)
@@ -810,6 +810,27 @@ function SkateCanal.start(ctx)
 			run:_applyPerks(player)
 		end
 	end
+end
+
+-- The broken zone (from `zones`) whose water `root` is standing in, if any.
+function CanalTown.waterUnder(zones: { BasePart }, root: BasePart, standHeight: number): BasePart?
+	local at = root.CFrame.Position
+	for _, zone in zones do
+		if zone:GetAttribute("Broken") then
+			local boxes = floeBoxes[zone]
+			if not boxes then
+				boxes = {} -- floes are anchored: measure them once
+				for _, floe in floesFor[zone] or {} do
+					table.insert(boxes, { cframe = floe.CFrame, size = floe.Size })
+				end
+				floeBoxes[zone] = boxes
+			end
+			if CanalRules.inWater({ cframe = zone.CFrame, size = zone.Size }, boxes, at, standHeight) then
+				return zone
+			end
+		end
+	end
+	return nil
 end
 
 -- SPLOOSH: back onto the nearest floe of that zone.
@@ -1019,11 +1040,12 @@ function ChristmasMarket.start(ctx)
 		box.Parent = model
 		model.PrimaryPart = box
 		model.Parent = run.route.model
-		-- ringMultiplier 0: no Jingle for picking your own present back up.
+		-- ringMultiplier 0 and regrab: picking a present back up earns no
+		-- Jingle and doesn't count as another grab on the results screen.
 		local present = {
 			model = model,
 			prompt = prompt,
-			plan = { size = 1, value = value, ringMultiplier = 0, threats = 0 },
+			plan = { size = 1, value = value, ringMultiplier = 0, threats = 0, regrab = true },
 		}
 		prompt.Triggered:Connect(function(by)
 			run:_grab(by, present)
@@ -1060,10 +1082,11 @@ function ChristmasMarket.start(ctx)
 					SoundPlayer.at(if corgi then "CorgiGrowl" else "TinDogWhirr", dog.emitter or at)
 				end
 				if (dog.hitAt[player] or 0) + C.Dogs.CorgiCooldown < t then
-					if offset.Magnitude < C.Dogs.HitRadius then
+					if CanalRules.inReach(root.CFrame.Position, pos, C.Dogs.HitRadius) then
 						dog.hitAt[player] = t
-						local away = if offset.Magnitude > 0.1 then offset.Unit else facing
-						root.AssemblyLinearVelocity = away * C.Dogs.Knockback + Vector3.new(0, 25, 0)
+						local push = Knockback.velocity(offset, facing, C.Dogs.Knockback)
+						local away = Vector3.new(push.X, 0, push.Z).Unit
+						Knockback.apply(root, push)
 						SoundPlayer.at(if corgi then "CorgiWoof" else "TinDogBonk", dog.emitter or at)
 						if corgi then
 							local st = run.players[player]
@@ -1221,8 +1244,7 @@ function IceRink.start(ctx)
 		for player in run.players do
 			local root = Util.rootOf(player)
 			if root and run:_free(player) and (scoopedAt[player] or 0) + 2 < t then
-				local offset = (root.CFrame.Position - pos) * Vector3.new(1, 0, 1)
-				if offset.Magnitude < C.Polisher.HitRadius then
+				if CanalRules.inReach(root.CFrame.Position, pos, C.Polisher.HitRadius) then
 					scoopedAt[player] = t
 					local bank = rink.snowbanks[CanalRules.nearest(rink.snowbanks, root.CFrame.Position) or 1]
 					SoundPlayer.at("PolisherScoop", pos)

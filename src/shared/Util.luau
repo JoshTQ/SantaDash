@@ -25,13 +25,22 @@ function Util.rootOf(player: Player): BasePart?
 	return humanoid and humanoid.RootPart
 end
 
--- Moves a character without carrying over its velocity.
 -- The player whose character a touching part belongs to, if any.
 function Util.playerFromHit(hit: BasePart): Player?
 	local model = hit:FindFirstAncestorOfClass("Model")
 	return model and game:GetService("Players"):GetPlayerFromCharacter(model)
 end
 
+-- How high a character's root rides above the floor it stands on: R15 (and
+-- scaled or Rthro bodies) report it as HipHeight; R6 legs are always 2.
+function Util.standHeight(humanoid: Humanoid, root: BasePart): number
+	if humanoid.RigType == Enum.HumanoidRigType.R6 then
+		return 2 + root.Size.Y / 2
+	end
+	return humanoid.HipHeight + root.Size.Y / 2
+end
+
+-- Moves a character without carrying over its velocity.
 function Util.teleport(player: Player, target: CFrame)
 	local root = Util.rootOf(player)
 	if root then

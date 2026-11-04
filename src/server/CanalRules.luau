@@ -108,6 +108,9 @@ function CanalRules.patrolAt(points: { Vector3 }, speed: number, t: number): (Ve
 		lengths[i] = (points[i + 1] - points[i]).Magnitude
 		total += lengths[i]
 	end
+	if total < 1e-3 then
+		return points[1], Vector3.zAxis -- every point the same: stand still, no NaN
+	end
 	local d = (t * speed) % (2 * total)
 	local backwards = d > total
 	if backwards then
@@ -117,7 +120,7 @@ function CanalRules.patrolAt(points: { Vector3 }, speed: number, t: number): (Ve
 		if d <= lengths[i] or i == #points - 1 then
 			local a, b = points[i], points[i + 1]
 			local along = math.clamp(d / math.max(lengths[i], 1e-3), 0, 1)
-			local facing = (b - a).Unit
+			local facing = if lengths[i] > 1e-3 then (b - a).Unit else Vector3.zAxis
 			return a:Lerp(b, along), if backwards then -facing else facing
 		end
 		d -= lengths[i]
@@ -214,6 +217,45 @@ function CanalRules.polisherAt(centre: Vector3, radius: number, t: number): (Vec
 	local p = centre + Vector3.new(math.cos(a) * radius, 0, math.sin(a) * radius)
 	local facing = Vector3.new(-math.sin(a), 0, math.cos(a))
 	return p, facing
+end
+
+-- A ground hazard at `at` (dog, polisher) can only bump a Santa standing
+-- near its own level: not one on a roof, a bridge or up a chimney above it.
+-- Flat distance under `radius`, and the root no more than Hazards.Below under
+-- or Hazards.Above over the hazard's ground point.
+function CanalRules.inReach(root: Vector3, at: Vector3, radius: number): boolean
+	local H = Config.Canal.Hazards
+	local flat = Vector3.new(root.X - at.X, 0, root.Z - at.Z).Magnitude
+	local rise = root.Y - at.Y
+	return flat < radius and rise > -H.Below and rise < H.Above
+end
+
+export type Box = { cframe: CFrame, size: Vector3 }
+
+-- Is a Santa whose root is at `root` standing in the water of a broken ice
+-- zone (not on one of its floes, not mid-hop above it)? Polled by the server,
+-- so walking on the water can't dodge a splash the way a held Touched could.
+-- standHeight: how high their root rides over the floor (Util.standHeight).
+function CanalRules.inWater(zone: Box, floes: { Box }, root: Vector3, standHeight: number): boolean
+	local C = Config.Canal
+	local p = zone.cframe:PointToObjectSpace(root)
+	if math.abs(p.X) > zone.size.X / 2 or math.abs(p.Z) > zone.size.Z / 2 then
+		return false
+	end
+	local rise = p.Y - zone.size.Y / 2
+	if rise > standHeight + C.SplashSlack or rise < -standHeight then
+		return false -- jumping between floes, or nowhere near the water
+	end
+	for _, floe in floes do
+		local q = floe.cframe:PointToObjectSpace(root)
+		if
+			math.abs(q.X) < floe.size.X / 2 + C.FloeEdgeGrace
+			and math.abs(q.Z) < floe.size.Z / 2 + C.FloeEdgeGrace
+		then
+			return false
+		end
+	end
+	return true
 end
 
 return CanalRules
