@@ -935,6 +935,579 @@ def ResultsMiss():
 
 
 # ---------------------------------------------------------------------------
+# Round 2 (Josh's Redo marks, 4 Nov): a more human voice, fun horns, no
+# metal clang in the music. Later definitions replace the first versions.
+# ---------------------------------------------------------------------------
+
+# Male-ish formants (Hz) and bandwidths for the human voice model.
+FORMANTS = {
+    "a": ((730, 80), (1090, 90), (2440, 120), (3400, 150)),
+    "ah": ((700, 80), (1220, 90), (2600, 120), (3400, 150)),
+    "uh": ((640, 80), (1190, 90), (2390, 120), (3400, 150)),
+    "o": ((570, 70), (840, 80), (2410, 120), (3400, 150)),
+    "u": ((440, 70), (1020, 80), (2240, 120), (3400, 150)),
+    "oo": ((300, 60), (870, 80), (2240, 120), (3400, 150)),
+    "e": ((530, 70), (1840, 90), (2480, 120), (3500, 150)),
+    "i": ((270, 60), (2290, 100), (3010, 130), (3700, 150)),
+    "m": ((250, 60), (1200, 200), (2200, 250), (3300, 300)),  # closed lips, nasal
+    "w": ((300, 60), (610, 80), (2200, 150), (3300, 200)),
+    "h": ((700, 200), (1300, 250), (2500, 300), (3500, 300)),
+}
+
+
+def smooth_noise(n, rate_hz, amount):
+    """A slow random wobble (for jitter / shimmer): values around 0."""
+    k = max(2, int(n * rate_hz / SR) + 2)
+    pts = RNG.normal(0, amount, k)
+    return np.interp(np.linspace(0, k - 1, n), np.arange(k), pts)
+
+
+def glottal(f0, n, jitter=0.012, shimmer=0.08, tension=0.6):
+    """Rosenberg glottal flow derivative with jitter and shimmer: a far more
+    human buzz than a saw wave. tension 0 (lax) .. 1 (pressed)."""
+    f = f0 * (1 + smooth_noise(n, 30, jitter) + smooth_noise(n, 4, jitter * 1.5))
+    ph = np.cumsum(f) / SR
+    frac = ph % 1.0
+    op = 0.65 - 0.25 * tension  # open phase
+    rise = op * 0.7
+    flow = np.where(
+        frac < rise,
+        0.5 * (1 - np.cos(np.pi * frac / rise)),
+        np.where(frac < op, np.cos(0.5 * np.pi * (frac - rise) / (op - rise)), 0.0),
+    )
+    d = np.diff(flow, prepend=flow[0])
+    d /= np.max(np.abs(d)) or 1
+    amp = 1 + smooth_noise(n, 25, shimmer)
+    return d * amp, flow
+
+
+def formant_bank(src, vowels_at, n, shift=1.0):
+    """Parallel formant resonators following a vowel track [(t_frac, vowel)]."""
+    times = [int(tf * n) for tf, _ in vowels_at] + [n]
+    out = np.zeros(n)
+    gains = (1.0, 0.55, 0.3, 0.12)
+    for j in range(4):
+        fr = np.zeros(n)
+        bw = np.zeros(n)
+        for k, (_, v) in enumerate(vowels_at):
+            a, b = times[k], times[k + 1]
+            cur = FORMANTS[v][j]
+            nxt = FORMANTS[vowels_at[k + 1][1]][j] if k + 1 < len(vowels_at) else cur
+            # hold the vowel, then glide to the next over the last 35%
+            hold = a + int((b - a) * 0.65)
+            fr[a:hold] = cur[0]
+            fr[hold:b] = np.linspace(cur[0], nxt[0], b - hold)
+            bw[a:b] = cur[1]
+        fr *= shift
+        y = np.zeros(n)
+        y1 = y2 = 0.0
+        for i in range(n):
+            r = np.exp(-np.pi * bw[i] / SR)
+            c = 2 * r * np.cos(2 * np.pi * fr[i] / SR)
+            yy = (1 - r) * src[i] + c * y1 - r * r * y2
+            y2, y1 = y1, yy
+            y[i] = yy
+        out += y * gains[j]
+    return out
+
+
+def syllable(dur, f0_from, f0_to, vowels, breath=0.25, h_onset=0.0, shift=1.0, tension=0.6, fry=0.0, curve=None):
+    """One human-ish voiced syllable: glottal buzz + breath through formants.
+    h_onset: seconds of breathy 'h' at the start. fry: vocal-fry growl 0..1."""
+    n = int(dur * SR)
+    x = np.linspace(0, 1, n)
+    contour = curve(x) if curve else np.sin(x * np.pi) * 0.25 + x
+    f0 = f0_from + (f0_to - f0_from) * np.clip(contour, 0, 1.2)
+    buzz, flow = glottal(f0, n, tension=tension)
+    if fry:
+        sub = glottal(f0 * 0.5, n, jitter=0.04, shimmer=0.3)[0]
+        buzz = buzz + fry * sub * (0.5 + 0.5 * np.sign(np.sin(2 * np.pi * f0 * 0.5 * np.arange(n) / SR)))
+    asp = fft_filter(noise(dur), lo=400, hi=7000)[:n] * (0.4 + flow)
+    voiced = np.ones(n)
+    h = int(h_onset * SR)
+    if h:
+        voiced[:h] = np.linspace(0, 1, h) ** 2
+    src = buzz * voiced + asp * (breath + (1 - voiced) * 1.2)
+    out = formant_bank(src, vowels, n, shift)
+    return env(out, a=0.012, r=min(0.06, dur / 3))
+
+
+def human(parts, shift=1.0, room=0.12):
+    """parts: syllables and silences (arrays). A touch of room so it isn't dry."""
+    return reverb(cat(*parts), 0.5, room) if room else cat(*parts)
+
+
+@sound
+def KrampusSnatch():
+    # "Mwa-ha-ha-ha-HAAA!" A big villain laugh: breathy h's, falling pitch,
+    # uneven timing, a little growl, and a gasp of air at the end.
+    parts = [syllable(0.24, 125, 150, [(0, "m"), (0.25, "ah")], breath=0.15, shift=0.9, fry=0.25), silence(0.05)]
+    for k, (d, f) in enumerate(((0.15, 150), (0.14, 140), (0.15, 132), (0.13, 124))):
+        parts.append(syllable(d, f + 12, f - 10, [(0, "ah")], breath=0.3, h_onset=0.045, shift=0.9, fry=0.2, tension=0.7))
+        parts.append(silence(RNG.uniform(0.06, 0.09)))
+    parts.append(
+        syllable(0.55, 165, 95, [(0, "ah"), (0.7, "a")], breath=0.3, h_onset=0.05, shift=0.9, fry=0.35, tension=0.75, curve=lambda x: x**0.7)
+    )
+    inhale = fft_filter(noise(0.35), lo=900, hi=4500) * np.linspace(0.05, 0.6, int(0.35 * SR)) ** 2 * 0.5
+    parts += [silence(0.06), inhale]
+    return drive(human(parts, room=0.1) * 1.4, 1.3)
+
+
+@sound
+def ParentWake():
+    # A dad jolted awake: snort, sharp gasp, "HUH?!", then "Wha--who's there?"
+    snort = env(fft_filter(noise(0.12), lo=150, hi=900), a=0.01, r=0.04) * 0.8
+    gasp = syllable(0.2, 180, 260, [(0, "ah")], breath=1.4, h_onset=0.18, tension=0.3) * 0.7
+    huh = syllable(0.3, 150, 290, [(0, "uh")], breath=0.35, h_onset=0.06, tension=0.75, curve=lambda x: x**1.6)
+    wha = syllable(0.2, 210, 180, [(0, "w"), (0.35, "ah")], breath=0.3)
+    whos = syllable(0.17, 200, 190, [(0, "h"), (0.3, "oo")], breath=0.35, h_onset=0.06)
+    there = syllable(0.36, 190, 280, [(0, "e"), (0.6, "uh")], breath=0.3, curve=lambda x: x**1.8)
+    z = silence
+    return human([snort, z(0.05), gasp, z(0.04), huh, z(0.3), wha, z(0.1), whos, z(0.02), there], room=0.15)
+
+
+@sound
+def CorgiWoof():
+    # Two real-ish "ruff!" barks: noisy, chaotic, fast pitch drop, sharp attack.
+    def bark(f0, dur):
+        n = int(dur * SR)
+        x = np.linspace(0, 1, n)
+        f = f0 * (1.35 - 0.6 * x)
+        buzz, flow = glottal(f, n, jitter=0.06, shimmer=0.35, tension=0.85)
+        chaos = glottal(f * 0.5, n, jitter=0.1, shimmer=0.5)[0] * 0.45
+        asp = fft_filter(noise(dur), lo=600, hi=8000)[:n] * (0.6 + flow)
+        src = buzz + chaos + asp * 0.9
+        out = formant_bank(src, [(0, "a"), (0.6, "u")], n, shift=1.45)
+        e = np.minimum(1, x * 40) * np.exp(-x * 3.5)
+        return out * e
+
+    out = silence(0.6)
+    place(out, bark(430, 0.15), 0.0)
+    place(out, bark(470, 0.13), 0.21)
+    return drive(reverb(out, 0.3, 0.1) * 2.0, 1.6)
+
+
+@sound
+def Gasp():
+    # A sharp, surprised intake of breath with a little voiced "ah!" at the top.
+    n = int(0.42 * SR)
+    x = np.linspace(0, 1, n)
+    air = fft_filter(noise(0.42), lo=700, hi=6000)[:n]
+    air = formant_bank(air, [(0, "h"), (0.5, "ah")], n) * 2.5
+    e = np.minimum(1, x * 9) * np.exp(-np.maximum(0, x - 0.55) * 6)
+    voiced = syllable(0.14, 300, 380, [(0, "ah")], breath=0.9, tension=0.3) * 0.5
+    out = air * e
+    place(out, voiced, 0.22)
+    return human([out], room=0.08)
+
+
+@sound
+def BreathStrain():
+    # "Mmmmph!" Cheeks puffed, holding it in: a shaky, strained nasal hum.
+    n = int(0.8 * SR)
+    x = np.linspace(0, 1, n)
+    f0 = 210 + 40 * x + 8 * np.sin(2 * np.pi * 7 * x * 0.8)
+    buzz, flow = glottal(f0, n, jitter=0.03, shimmer=0.25, tension=0.95)
+    hum = formant_bank(buzz, [(0, "m")], n)
+    shake = 0.7 + 0.3 * np.sin(2 * np.pi * 11 * np.arange(n) / SR)
+    leak = fft_filter(noise(0.8), lo=1500, hi=5000)[:n] * 0.04 * (x > 0.7)  # air leaking out
+    return env(hum * shake + leak, a=0.06, r=0.12)
+
+
+def beep_horn(f, dur, bend=1.06):
+    """A bright, toy-car 'beep': two-tone square through a brassy filter."""
+    n = int(dur * SR)
+    x = np.linspace(0, 1, n)
+    ff = f * (1 + (bend - 1) * np.minimum(1, x * 6))
+    tone = osc(ff, shape="square") * 0.6 + osc(ff * 1.25, shape="square") * 0.45 + osc(ff * 2, shape="saw") * 0.15
+    tone = fft_filter(tone, lo=250, hi=4200)
+    return env(drive(tone * 1.5, 1.4), a=0.008, r=0.04)
+
+
+@sound
+def SleighHorn():
+    # BEEP-BEEP! Cheery and loud: the sleigh is about to go.
+    return cat(beep_horn(523, 0.2), silence(0.09), beep_horn(523, 0.34), silence(0.03))
+
+
+@sound
+def LastCall():
+    # Two quicker, higher BEEP-BEEPs with a jingle on top: hurry!
+    out = cat(beep_horn(659, 0.15, 1.08), silence(0.06), beep_horn(659, 0.26, 1.08), silence(0.05))
+    place(out, jingle_hit(0.3) * 0.35, 0.21)
+    return out
+
+
+def shaker(dur=0.12, bright=1.0):
+    """Sleigh bells as a soft shaker (filtered noise), no clangy partials."""
+    n = int(dur * SR)
+    x = np.linspace(0, 1, n)
+    s = fft_filter(noise(dur), lo=5000 * bright, hi=11000)[:n]
+    return s * np.minimum(1, x * 25) * np.exp(-x * 9) * 0.6
+
+
+def glock(freq, dur):
+    """Soft glockenspiel/celesta: harmonic, round, no metal clang."""
+    t = t_axis(dur)
+    tone = np.sin(2 * np.pi * freq * t) + 0.25 * np.sin(2 * np.pi * freq * 2 * t) * np.exp(-t * 9)
+    return tone * np.exp(-t * 3.2) * env(len(t), a=0.003, r=0.02)
+
+
+@sound
+def FlightBells():
+    # A happy flying loop: soft sleigh-bell shakes in a swinging rhythm and a
+    # cheerful glockenspiel twinkle in C major (2 s, loops).
+    d = 2.0
+    out = silence(d + 1)
+    for b in np.arange(0, d, 0.25):
+        place(out, shaker(0.14) * (1.0 if (b * 4) % 2 == 0 else 0.55), b)
+    for at, n in ((0.0, "C6"), (0.25, "E6"), (0.5, "G6"), (0.75, "E6"), (1.0, "A6"), (1.25, "G6"), (1.5, "E6"), (1.75, "D6")):
+        place(out, glock(hz(n), 0.6) * 0.35, at)
+    return loop_wrap(out, int(d * SR))
+
+
+@sound
+def Boing():
+    # Bigger, brighter and louder spring.
+    d = 0.75
+    t = t_axis(d)
+    f = 170 * (1 + 0.6 * t / d) * (1 + 0.4 * np.sin(2 * np.pi * 13 * t) * np.exp(-t * 3.5))
+    tone = osc(f, shape="sine") + 0.5 * osc(f * 2, shape="tri") + 0.25 * osc(f * 3, shape="saw")
+    return drive(env(tone, a=0.002, r=0.15) * np.exp(-t * 2.2) * 1.6, 1.5)
+
+
+@sound
+def KrampusComing():
+    # Same goofy roar, with no low thud at the end: the bell hit moves to the
+    # start and the tail fades out clean.
+    d = 1.6
+    f = cat(glide(90, 140, 0.4), glide(140, 75, 1.2))
+    roar = voice(f, [(0, "a"), (0.5, "o"), (0.9, "u")], d, rough=0.6, breath=0.4)
+    roar = drive(env(roar, a=0.08, r=0.5) * 4, 2.5)
+    out = silence(2.0)
+    place(out, mix(bell(440, 1.0, 1.0, 4), bell(466, 1.0, 1.0, 4)) * 0.3, 0)
+    place(out, jingle_hit(0.4), 0)
+    place(out, roar, 0.12)
+    out = fft_filter(out, lo=140)
+    out *= np.minimum(1, np.linspace(2.0, 0, len(out)) / 0.5)  # fade the last 0.5 s
+    return reverb(out, 0.8, 0.18)[: len(out)]
+
+
+@sound
+def TinDogWhirr():
+    # Clockwork that slows and fades instead of stopping dead.
+    d = 1.3
+    out = silence(d)
+    at, gap = 0.0, 1 / 18
+    while at < d - 0.05:
+        g = 0.6 * (1 - max(0, at - 0.7) / 0.6)
+        place(out, mix(click(0.008, 3000, g), decay(osc(2400, 0.02), 200) * 0.3 * g), at)
+        at += gap
+        if at > 0.7:
+            gap *= 1.07
+    whirr = osc(glide(300, 230, d), shape="saw") * 0.08 * np.linspace(1, 0, int(d * SR)) ** 0.7
+    return mix(out, fft_filter(whirr, hi=2000))
+
+
+@sound
+def NoiseWarn():
+    # Three quick warning beeps.
+    b = env(osc(1175, 0.09, shape="square") * 0.5 + osc(1175, 0.09) * 0.5, a=0.004, r=0.02)
+    b = fft_filter(b, hi=4000)
+    return cat(b, silence(0.07), b, silence(0.07), b, silence(0.03))
+
+
+@sound
+def Wiggle():
+    # A quick wriggle-shuffle: two cloth swishes in the sack.
+    def swish(dur, lo, hi):
+        n = int(dur * SR)
+        x = np.linspace(0, 1, n)
+        s = lowpass_sweep(fft_filter(noise(dur), lo=lo)[:n], hi * 0.4, hi)
+        return s * np.sin(np.pi * x) ** 1.5
+    out = silence(0.3)
+    place(out, swish(0.11, 900, 6000), 0)
+    place(out, swish(0.13, 700, 5000) * 0.8, 0.12)
+    return out
+
+
+@sound
+def DoorOpen():
+    # Friendly: handle click-clack, a soft swing of air, a tiny wooden tap.
+    out = silence(0.6)
+    place(out, click(0.012, 1500, 0.8), 0.0)
+    place(out, click(0.01, 2500, 0.5), 0.05)
+    sw = lowpass_sweep(noise(0.35), 300, 1800) * np.sin(np.linspace(0, np.pi, int(0.35 * SR))) * 0.35
+    place(out, sw, 0.08)
+    place(out, thump(220, 140, 0.08, 0.3) * 0.4, 0.42)
+    return out
+
+
+@sound
+def HideOut():
+    # Wardrobe pops open and you hop out: latch, swish, a light landing.
+    out = silence(0.6)
+    place(out, click(0.012, 1800, 0.8), 0.0)
+    place(out, lowpass_sweep(noise(0.25), 500, 3000) * np.sin(np.linspace(0, np.pi, int(0.25 * SR))) * 0.4, 0.04)
+    place(out, thump(160, 90, 0.15, 0.4) * 0.8, 0.32)
+    place(out, decay(fft_filter(noise(0.1), hi=1500), 30) * 0.3, 0.32)
+    return out
+
+
+KIT2 = dict(KIT)
+KIT2["shaker"] = lambda: shaker(0.1) * 0.8
+KIT2["jingle"] = KIT2["shaker"]  # no metal bells in the drum kit
+
+
+@sound
+def HurryMusic():
+    bpm, beats = 168, 32  # galloping chase in D major
+    chords = ["D", "D", "G", "A", "D", "B", "G", "A"]
+    roots = {"D": "D2", "G": "G2", "A": "A2", "B": "B1"}
+    bass = []
+    for bar, c in enumerate(chords):
+        for b in range(4):
+            bass.append((bar * 4 + b, 0.45, roots[c] if b % 2 == 0 else roots[c][:-1] + "3", 0.8))
+    mel_notes = ["F#4", "A4", "D5", "A4", "B4", "G4", "E4", "A4", "F#4", "A4", "D5", "F#5", "D5", "B4", "C#5", "E5"]
+    mel = [(k * 2, 1.6, n, 0.5) for k, n in enumerate(mel_notes)]
+    sparkle = [(k * 2 + 1, 0.5, n[:-1] + str(int(n[-1]) + 1), 0.25) for k, n in enumerate(mel_notes)]
+    pat = []
+    for b in range(beats):
+        pat.append((b, "kick" if b % 2 == 0 else "snare"))
+        pat.append((b + 0.5, "hat"))
+        pat.append((b, "shaker"))
+        pat.append((b + 0.5, "shaker"))
+    tune = music([(bass, bassoon, 0.6), (mel, brass, 0.45), (sparkle, glock, 0.5)], bpm, beats)
+    return tune + drums(pat, bpm, beats, KIT2) * 0.7
+
+
+@sound
+def LobbyMusic():
+    bpm, beats = 120, 32  # cheerful own tune in F major, soft glockenspiel lead
+    chords = [("F3", "A3", "C4"), ("Bb2", "D3", "F3"), ("C3", "E3", "G3"), ("F3", "A3", "C4")] * 2
+    pad = []
+    for bar, ch in enumerate(chords):
+        for n in ch:
+            pad.append((bar * 4, 3.8, n, 0.25))
+    bass = [(bar * 4 + b, 0.9, ch[0][:-1] + "2", 0.6) for bar, ch in enumerate(chords) for b in (0, 2)]
+    tones = ["C5", "A4", "F4", "A4", "D5", "Bb4", "F4", "Bb4", "E5", "C5", "G4", "C5", "F5", "C5", "A4", "F4"]
+    mel = []
+    for k, n in enumerate(tones):
+        mel.append((k * 2, 0.9, n, 0.55))
+        mel.append((k * 2 + 1, 0.5, n, 0.3))
+    pat = [(b, "shaker") for b in range(beats)] + [(b + 0.5, "shaker") for b in range(beats)]
+    pat += [(b, "kick") for b in range(0, beats, 2)] + [(b + 1, "snare") for b in range(0, beats, 2)]
+    tune = music(
+        [(pad, lambda f, d: env(osc(f, d, "tri"), a=0.2, r=0.5), 0.6), (bass, ks_fast, 0.7), (mel, glock, 0.6)], bpm, beats
+    )
+    return tune + drums(pat, bpm, beats, KIT2) * 0.45
+
+
+@sound
+def KrampusMusic():
+    bpm, beats = 164, 32  # faster: spooky-silly bassoon oompah in C minor
+    roots = ["C2", "G1", "Ab1", "G1"]
+    bass = []
+    for bar in range(8):
+        r = roots[bar % 4]
+        for b in range(4):
+            bass.append((bar * 4 + b, 0.4, r if b % 2 == 0 else r[:-1] + str(int(r[-1]) + 1), 0.8))
+    mel_notes = ["C4", "Eb4", "G4", "F#4", "G4", "Ab4", "G4", "Eb4", "C4", "D4", "Eb4", "B3", "C4", "G3", "C4", "C4"]
+    mel = [(k * 2, 1.5, n, 0.55) for k, n in enumerate(mel_notes)]
+    pat = [(b, "tick" if b % 2 == 0 else "tock") for b in range(beats)]
+    pat += [(b, "kick") for b in range(beats)] + [(b + 1, "snare") for b in range(0, beats, 2)]
+    pat += [(b + 0.5, "hat") for b in range(beats)]
+    tune = music([(bass, bassoon, 0.7), (mel, lambda f, d: bassoon(f * 2, d), 0.35)], bpm, beats)
+    return tune + drums(pat, bpm, beats, KIT2) * 0.6
+
+
+# ---------------------------------------------------------------------------
+# Cutscenes (PR #10 brief, 4 Nov). One version each; music fades at the end
+# so a skip can cut it anywhere. Times match src/shared/Cutscenes.luau.
+# ---------------------------------------------------------------------------
+
+
+@sound
+def CutsceneSneeze():
+    ah = syllable(0.32, 220, 330, [(0, "ah")], breath=0.5, h_onset=0.1, tension=0.4, curve=lambda x: x**1.5)
+    choo = syllable(0.16, 380, 250, [(0, "oo")], breath=1.2, h_onset=0.03, tension=0.9)
+    burst = env(fft_filter(noise(0.12), lo=1500, hi=9000), a=0.003, r=0.08)
+    return human([ah, silence(0.05), mix(burst, choo)], room=0.12)
+
+
+@sound
+def CutsceneThump():
+    return mix(thump(85, 38, 0.45, 0.25) * 1.2, decay(fft_filter(noise(0.4), hi=1200), 10) * 0.4, place(silence(0.5), jingle_hit(0.3) * 0.4, 0.02))
+
+
+@sound
+def CutsceneBells():
+    # 2.8 s: distant bells building closer, with a heartbeat under them.
+    d = 2.8
+    out = silence(d + 0.5)
+    for k, at in enumerate(np.arange(0, d - 0.1, 0.28)):
+        g = 0.25 + 0.75 * (at / d) ** 1.5
+        place(out, jingle_hit(0.3) * g, at)
+    for at in np.arange(0.2, d, 0.75):
+        place(out, KrampusHeartbeat() * 0.8, at)
+    near = np.linspace(0, 1, len(out))
+    far = fft_filter(out, hi=1800)
+    out = far * (1 - near) + out * near
+    return reverb(out, 1.2, 0.3)[: int(d * SR)]
+
+
+@sound
+def CutsceneClonk():
+    return mix(bell(392, 0.8, 1.4, 5) * 0.7, thump(140, 70, 0.2, 0.6), click(0.02, 900, 0.7))
+
+
+@sound
+def CutsceneRoar():
+    # Goofy, not scary: a big "BLEHHH!" with a wobble.
+    n = int(1.1 * SR)
+    x = np.linspace(0, 1, n)
+    f0 = 110 + 40 * np.sin(np.pi * x) + 12 * np.sin(2 * np.pi * 9 * x * 1.1)
+    buzz, flow = glottal(f0, n, jitter=0.03, shimmer=0.2, tension=0.8)
+    sub = glottal(f0 * 0.5, n, jitter=0.05)[0] * 0.4
+    asp = fft_filter(noise(1.1), lo=300, hi=6000)[:n] * (0.5 + flow) * 0.5
+    out = formant_bank(buzz + sub + asp, [(0, "e"), (0.4, "ah"), (0.85, "uh")], n, shift=0.85)
+    return reverb(drive(env(out, a=0.04, r=0.25) * 2, 1.6), 0.8, 0.2)
+
+
+@sound
+def CutsceneStrain():
+    # "Nnnnngh!" heaving the loot sack: a pressed, rising grunt.
+    n = int(0.9 * SR)
+    x = np.linspace(0, 1, n)
+    f0 = 150 + 70 * x**1.4
+    buzz, flow = glottal(f0, n, jitter=0.03, shimmer=0.3, tension=0.95)
+    out = formant_bank(buzz, [(0, "m"), (0.3, "uh")], n)
+    return env(out * (0.7 + 0.3 * np.sin(2 * np.pi * 8 * np.arange(n) / SR)), a=0.05, r=0.15)
+
+
+@sound
+def CutsceneFlump():
+    # Krampus belly-flops into the snow: a soft heavy FLUMP and a puff.
+    return mix(thump(70, 32, 0.6, 0.15) * 1.3, decay(fft_filter(noise(0.7), lo=200, hi=2500), 6) * 0.6)
+
+
+@sound
+def CutsceneStamp():
+    # "LOOT x2" stamped on screen: a punchy stamp plus a bright ding.
+    return mix(thump(180, 90, 0.18, 0.9), click(0.02, 1200, 0.8), place(silence(0.9), bell(1568, 0.8, 0.5, 4) * 0.6, 0.04))
+
+
+@sound
+def CutsceneYoink():
+    # A quick rising slide-whistle "yoink!"
+    return slide_whistle(500, 1900, 0.28)
+
+
+@sound
+def CutsceneBonk():
+    return mix(bell(880, 0.5, 1.2, 8) * 0.5, thump(260, 160, 0.12, 0.8), osc(glide(700, 500, 0.15), shape="tri") * np.exp(-t_axis(0.15) * 20) * 0.4)
+
+
+@sound
+def CutsceneHonk():
+    # The sleigh leaving without you: the BEEP-BEEP, a little further away.
+    return reverb(fft_filter(cat(beep_horn(523, 0.18), silence(0.07), beep_horn(523, 0.3)), hi=3000), 0.6, 0.3)
+
+
+@sound
+def CutsceneRaspberry():
+    # A cheeky "pfffbbbt!" from the reindeer.
+    n = int(0.7 * SR)
+    x = np.linspace(0, 1, n)
+    f0 = 95 + 25 * np.sin(2 * np.pi * 3 * x)
+    buzz = glottal(f0, n, jitter=0.12, shimmer=0.6, tension=1.0)[0]
+    flap = 0.6 + 0.4 * np.sign(np.sin(2 * np.pi * 34 * np.arange(n) / SR))
+    out = formant_bank(buzz * flap + fft_filter(noise(0.7), lo=500)[:n] * 0.3, [(0, "u")], n, shift=1.2)
+    return env(out, a=0.01, r=0.12)
+
+
+def fade_tail(sig, seconds=0.25):
+    n = int(seconds * SR)
+    sig = sig.copy()
+    sig[-n:] *= np.linspace(1, 0, n)
+    return sig
+
+
+def score(length, parts, bpm):
+    """A one-shot cue: like music() but cut to `length` seconds, faded."""
+    beats = length * bpm / 60
+    beat = 60 / bpm
+    out = silence(length + 2)
+    for notes, inst, gain in parts:
+        for start, dur, note, g in notes:
+            f = hz(note) if isinstance(note, str) else note
+            place(out, inst(f, dur * beat) * g * gain, start * beat)
+    return fade_tail(out[: int(length * SR)], 0.2)
+
+
+@sound
+def CutsceneMusicTakeoff():
+    # 5 s cheeky heist overture: pizzicato, bells, a swell at 2.4, button at 4.6.
+    bpm = 120  # 1 beat = 0.5 s; 4.6 s = beat 9.2
+    pizz = [(b * 0.5, 0.45, n, 0.8) for b, n in enumerate(["E3", "G3", "B3", "G3", "C4", "B3", "A3", "B3"])]
+    lead = [(4.8, 0.5, "B4", 0.6), (5.3, 0.5, "C5", 0.6), (5.8, 0.5, "D5", 0.7), (6.3, 0.5, "E5", 0.8), (6.8, 2, "G5", 0.7)]
+    button = [(9.2, 0.6, "E3", 1.0), (9.2, 0.6, "E4", 0.8), (9.2, 0.6, "B4", 0.6)]
+    out = score(5.0, [(pizz, ks_fast, 0.9), (lead, brass, 0.4), (button, brass, 0.6)], bpm)
+    swell = lowpass_sweep(noise(2.2), 300, 6000) * np.linspace(0, 1, int(2.2 * SR)) ** 2 * 0.25
+    place(out, swell, 2.4)
+    for at in np.arange(0, 4.5, 0.25):
+        place(out, shaker(0.1) * 0.5, at)
+    place(out, jingle_hit(0.4) * 0.6, 4.6)
+    return out
+
+
+@sound
+def CutsceneMusicKrampus():
+    # 4 s comic-spooky: tuba/bassoon creep in C minor, brass stab at 2.8.
+    bpm = 120
+    creep = [(0, 0.9, "C2", 0.8), (1, 0.9, "D2", 0.8), (2, 0.9, "Eb2", 0.8), (3, 0.9, "F#2", 0.8), (4, 1.0, "G2", 0.9)]
+    tick = [(b * 0.5, 0.1, "G4", 0.25) for b in range(11)]
+    stab = [(5.6, 1.6, n, 0.7) for n in ("C3", "Eb3", "Gb3", "C4")]
+    return score(4.0, [(creep, bassoon, 0.9), (tick, marimba, 0.6), (stab, brass, 0.55)], bpm)
+
+
+@sound
+def CutsceneMusicGetaway():
+    # 4 s triumphant caper: strain build, fanfare at 1.3, big hit at 2.8.
+    bpm = 120
+    build = [(0, 2.6, "G2", 0.7), (0, 2.6, "D3", 0.5)]
+    fan = [(2.6, 0.3, "C4", 0.6), (2.9, 0.3, "E4", 0.6), (3.2, 0.3, "G4", 0.6), (3.5, 1.6, "C5", 0.7)]
+    hit = [(5.6, 1.6, n, 0.7) for n in ("C3", "G3", "C4", "E4", "G4")]
+    out = score(4.0, [(build, bassoon, 0.6), (fan, brass, 0.5), (hit, brass, 0.6)], bpm)
+    place(out, lowpass_sweep(noise(1.2), 200, 4000) * np.linspace(0, 1, int(1.2 * SR)) ** 2 * 0.2, 0.1)
+    place(out, jingle_hit(0.4) * 0.6, 2.8)
+    place(out, thump(110, 50, 0.3, 0.3) * 0.7, 2.8)
+    return out
+
+
+@sound
+def CutsceneMusicSnatched():
+    # 2 s slide-whistle sting, up then plunging down, with a timpani tap.
+    out = silence(2.0)
+    place(out, slide_whistle(400, 1500, 0.35) * 0.8, 0.05)
+    place(out, slide_whistle(1500, 300, 0.7) * 0.8, 0.45)
+    place(out, thump(90, 60, 0.4, 0.2) * 0.7, 1.2)
+    return fade_tail(out, 0.2)
+
+
+@sound
+def CutsceneMusicLeftBehind():
+    # 2 s quick sad-trombone "wah wah wah waaah".
+    parts = []
+    for n, d in (("D4", 0.28), ("C#4", 0.28), ("C4", 0.28), ("B3", 0.95)):
+        t = t_axis(d)
+        vib = 0.03 * np.sin(2 * np.pi * 6 * t) * np.clip((t - 0.25) / 0.2, 0, 1) if d > 0.5 else 0 * t
+        tone = osc(hz(n) * (1 + vib), shape="saw")
+        parts += [env(lowpass_sweep(tone, np.geomspace(350, 1800, len(t)), None), a=0.02, r=0.1), silence(0.04)]
+    return fade_tail(cat(*parts)[: int(2.0 * SR)], 0.2)
+
+
+# ---------------------------------------------------------------------------
 # Render
 # ---------------------------------------------------------------------------
 

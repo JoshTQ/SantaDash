@@ -40,8 +40,8 @@ Sounds.Defs = {
 	--------------------------------------------------------------------
 	-- Tier 1: the sleigh is leaving
 	--------------------------------------------------------------------
-	SleighHorn = { id = 0, find = "cartoon horn honk", group = "Ui", volume = 0.7 },
-	LastCall = { id = 0, find = "double horn honk", group = "Ui", volume = 0.7 },
+	SleighHorn = { id = 0, find = "cartoon car horn beep beep", group = "Ui", volume = 0.9 },
+	LastCall = { id = 0, find = "fast double horn beep", group = "Ui", volume = 0.95 },
 	CountdownTick = { id = 0, find = "sleigh bell single jingle", group = "Ui", volume = 0.45 },
 	SleighTakeoff = { id = 0, find = "sleigh bells whoosh", group = "Sfx", volume = 0.55 },
 	SleighLand = { id = 0, find = "soft snow thump", group = "Sfx", volume = 0.5 },
@@ -96,11 +96,11 @@ Sounds.Defs = {
 		id = 0,
 		find = "cartoon boing",
 		group = "Sfx",
-		volume = 0.6,
+		volume = 0.85,
 		pitch = { 0.95, 1.1 },
 		range = { 10, 80 },
 	},
-	Wiggle = { id = 0, find = "rubber squeak", group = "Ui", volume = 0.35, pitch = { 0.9, 1.3 } },
+	Wiggle = { id = 0, find = "cloth shuffle rustle", group = "Ui", volume = 0.35, pitch = { 0.9, 1.3 } },
 	KrampusTease = { id = 0, find = "distant sleigh bells", group = "Ui", volume = 0.35 },
 	KrampusStomp = {
 		id = 0,
@@ -168,7 +168,7 @@ Sounds.Defs = {
 		range = { 10, 90 },
 	},
 	LightsOn = { id = 0, find = "light switch click uh oh", group = "Ui", volume = 0.5 },
-	NoiseWarn = { id = 0, find = "squeaky toy squeak", group = "Ui", volume = 0.4 },
+	NoiseWarn = { id = 0, find = "three warning beeps", group = "Ui", volume = 0.45 },
 	NoiseFull = { id = 0, find = "cartoon alarm siren short", group = "Ui", volume = 0.5 },
 
 	--------------------------------------------------------------------
@@ -268,6 +268,26 @@ Sounds.Defs = {
 	LobbyMusic = { id = 0, find = "cheerful christmas loop", group = "Music", volume = 0.35, looped = true },
 	ResultsWin = { id = 0, find = "fanfare short cartoon", group = "Ui", volume = 0.55 },
 	ResultsMiss = { id = 0, find = "sad trombone", group = "Ui", volume = 0.5 },
+	--------------------------------------------------------------------
+	-- Cutscenes (PR #10): played by Cutscenes.luau at fixed times, 2D
+	--------------------------------------------------------------------
+	CutsceneSneeze = { id = 0, find = "cartoon sneeze", group = "Ui", volume = 0.7 },
+	CutsceneThump = { id = 0, find = "heavy landing thump", group = "Ui", volume = 0.7 },
+	CutsceneBells = { id = 0, find = "distant bells approaching heartbeat", group = "Ui", volume = 0.7 },
+	CutsceneClonk = { id = 0, find = "horns hit metal gate clonk", group = "Ui", volume = 0.75 },
+	CutsceneRoar = { id = 0, find = "goofy monster roar", group = "Ui", volume = 0.75 },
+	CutsceneStrain = { id = 0, find = "cartoon strain grunt", group = "Ui", volume = 0.6 },
+	CutsceneFlump = { id = 0, find = "belly flop into snow", group = "Ui", volume = 0.75 },
+	CutsceneStamp = { id = 0, find = "rubber stamp ding", group = "Ui", volume = 0.7 },
+	CutsceneYoink = { id = 0, find = "slide whistle up", group = "Ui", volume = 0.6 },
+	CutsceneBonk = { id = 0, find = "cartoon bonk", group = "Ui", volume = 0.65 },
+	CutsceneHonk = { id = 0, find = "car horn beep beep distant", group = "Ui", volume = 0.7 },
+	CutsceneRaspberry = { id = 0, find = "raspberry blow", group = "Ui", volume = 0.6 },
+	CutsceneMusicTakeoff = { id = 0, find = "heist overture pizzicato bells", group = "Music", volume = 0.55 },
+	CutsceneMusicKrampus = { id = 0, find = "comic spooky tuba creep", group = "Music", volume = 0.55 },
+	CutsceneMusicGetaway = { id = 0, find = "triumphant caper fanfare", group = "Music", volume = 0.55 },
+	CutsceneMusicSnatched = { id = 0, find = "slide whistle sting", group = "Music", volume = 0.55 },
+	CutsceneMusicLeftBehind = { id = 0, find = "sad trombone short", group = "Music", volume = 0.55 },
 } :: { [string]: Def }
 
 Sounds.Groups = { "Sfx", "Music", "Ambience", "Ui" }
