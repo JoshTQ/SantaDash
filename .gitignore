@@ -8,3 +8,5 @@ __pycache__/
 out/
 /coverage
 /tools/luau-cov/target
+/DevPackages
+/Packages

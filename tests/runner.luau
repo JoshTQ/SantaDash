@@ -416,6 +416,7 @@ end
 
 if coverageOn then
 	local ratio = Coverage.report("coverage")
+	Coverage.saveHits("coverage/hits.json") -- merged with in-engine hits by tools/ocale.luau
 	if ratio < Coverage.FLOOR then
 		print(string.format("warning: Lune-testable coverage is below the %d%% floor", Coverage.FLOOR * 100))
 	end

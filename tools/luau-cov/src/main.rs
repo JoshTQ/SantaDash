@@ -1,7 +1,7 @@
 //! luau-cov: adds coverage probes to one Luau file so the Lune test runner
 //! can measure line and function coverage.
 //!
-//! Usage: `luau-cov <file.luau>`. Prints JSON to stdout:
+//! Usage: `luau-cov [--prelude <code>] <file.luau>`. Prints JSON to stdout:
 //! `{ "source": "...", "lines": [..], "functions": [{ "name", "line" }] }`.
 //!
 //! Probes are inserted on the same line as the code they count, so line
@@ -9,7 +9,9 @@
 //! - `__cl(<line>);` before every executable statement
 //! - `__cf(<index>);` before the first statement of every function body
 //!
-//! The runner defines `__cl` and `__cf` in each module's environment.
+//! The Lune runner defines `__cl` and `__cf` in each module's environment.
+//! For in-engine builds, `--prelude` puts code in front of line 1 (on the same
+//! line) that defines them as locals; `{file}` in it becomes the file path.
 
 use full_moon::ast::{Block, FunctionBody, LocalFunction, Stmt};
 use full_moon::node::Node;
@@ -100,9 +102,20 @@ impl Visitor for Probes {
 }
 
 fn main() {
-    let path = std::env::args()
-        .nth(1)
-        .expect("usage: luau-cov <file.luau>");
+    let usage = "usage: luau-cov [--prelude <code>] <file.luau>";
+    let mut args = std::env::args().skip(1);
+    let mut prelude = String::new();
+    let mut path = None;
+    while let Some(arg) = args.next() {
+        if arg == "--prelude" {
+            prelude = args.next().expect(usage);
+        } else {
+            path = Some(arg);
+        }
+    }
+    let path = path.expect(usage);
+    let prelude = prelude.replace("{file}", &path);
+    assert!(!prelude.contains('\n'), "the prelude must be one line");
     let source = std::fs::read_to_string(&path).expect("can't read file");
     let ast = match full_moon::parse(&source) {
         Ok(ast) => ast,
@@ -123,6 +136,7 @@ fn main() {
     for (at, text) in &probes.inserts {
         out.insert_str(*at, text);
     }
+    out.insert_str(0, &prelude);
 
     let functions: Vec<_> = probes
         .functions

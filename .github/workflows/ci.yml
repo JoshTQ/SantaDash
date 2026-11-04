@@ -53,3 +53,68 @@ jobs:
 
       - name: Build the place (Rojo)
         run: rojo build -o SleighHeist.rbxl
+
+  engine:
+    # In-engine tier: Jest Roblox specs (tests/engine) in a real Roblox server
+    # through Open Cloud Luau Execution. Advisory until after the 15 Nov
+    # launch: a failure here shows on the run but never blocks a merge.
+    # Needs repo variables ROBLOX_UNIVERSE_ID and ROBLOX_TEST_PLACE_ID (the
+    # EngineTests place; ROBLOX_PLACE_ID also works) and the secret
+    # ROBLOX_API_KEY; without them it only checks
+    # that the test place builds.
+    needs: check
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rokit and the pinned tools
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -sSf https://raw.githubusercontent.com/rojo-rbx/rokit/main/scripts/install.sh | bash
+          echo "$HOME/.rokit/bin" >> "$GITHUB_PATH"
+          "$HOME/.rokit/bin/rokit" install --no-trust-check
+
+      - name: Cache the coverage instrumenter
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            tools/luau-cov/target
+          key: luau-cov-${{ runner.os }}-${{ hashFiles('tools/luau-cov/Cargo.lock', 'tools/luau-cov/src/**') }}
+
+      - name: Build the coverage instrumenter
+        run: cargo build --release --locked --manifest-path tools/luau-cov/Cargo.toml
+
+      - name: Install Jest Roblox (Wally)
+        run: wally install
+
+      - name: Lune tests with coverage (for the merged report)
+        run: lune run tests/runner --coverage
+
+      - name: Build the instrumented test place
+        run: |
+          lune run tools/prepare-engine --coverage
+          rojo build test.project.json -o build/engine-tests.rbxl
+
+      - name: Run the engine specs in Open Cloud
+        if: vars.ROBLOX_UNIVERSE_ID != '' && (vars.ROBLOX_TEST_PLACE_ID != '' || vars.ROBLOX_PLACE_ID != '')
+        env:
+          ROBLOX_API_KEY: ${{ secrets.ROBLOX_API_KEY }}
+          ROBLOX_UNIVERSE_ID: ${{ vars.ROBLOX_UNIVERSE_ID }}
+          ROBLOX_PLACE_ID: ${{ vars.ROBLOX_TEST_PLACE_ID || vars.ROBLOX_PLACE_ID }}
+        run: lune run tools/ocale build/engine-tests.rbxl --coverage
+
+      - name: Post the combined coverage table to the job summary
+        if: always()
+        run: test -f coverage/summary.md && cat coverage/summary.md >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Upload the combined coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-with-engine
+          path: coverage/
+          if-no-files-found: ignore

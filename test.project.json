@@ -1,0 +1,28 @@
+{
+  "name": "SleighHeistEngineTests",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Shared": {
+        "$path": "build/engine-src/shared"
+      },
+      "DevPackages": {
+        "$path": "DevPackages"
+      },
+      "EngineTests": {
+        "$path": "tests/engine"
+      },
+      "RunTests": {
+        "$path": "tests/engine-support/RunTests.luau"
+      },
+      "CoverageProbes": {
+        "$path": "tests/engine-support/CoverageProbes.luau"
+      }
+    },
+    "ServerStorage": {
+      "Server": {
+        "$path": "build/engine-src/server"
+      }
+    }
+  }
+}
