@@ -11,6 +11,7 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
+  pull_request: # verify + dry-run build only; never publishes
   workflow_dispatch:
     inputs:
       target:
@@ -63,6 +64,7 @@ jobs:
     # the test place is configured; until then (or before that PR is merged)
     # the steps are skipped and the deploy carries on.
     needs: verify
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -106,7 +108,7 @@ jobs:
     needs: [verify, engine]
     # DEPLOY_ENABLED is a repo variable you set to true once the experiences
     # exist (docs/DEPLOY.md step 5), so main stays green until then.
-    if: vars.DEPLOY_ENABLED == 'true'
+    if: vars.DEPLOY_ENABLED == 'true' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: staging
