@@ -58,8 +58,9 @@ jobs:
     # In-engine tier: Jest Roblox specs (tests/engine) in a real Roblox server
     # through Open Cloud Luau Execution. Advisory until after the 15 Nov
     # launch: a failure here shows on the run but never blocks a merge.
-    # Needs repo variables ROBLOX_UNIVERSE_ID and ROBLOX_PLACE_ID (a private
-    # test place) and the secret ROBLOX_API_KEY; without them it only checks
+    # Needs repo variables ROBLOX_UNIVERSE_ID and ROBLOX_TEST_PLACE_ID (the
+    # EngineTests place; ROBLOX_PLACE_ID also works) and the secret
+    # ROBLOX_API_KEY; without them it only checks
     # that the test place builds.
     needs: check
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
@@ -99,11 +100,11 @@ jobs:
           rojo build test.project.json -o build/engine-tests.rbxl
 
       - name: Run the engine specs in Open Cloud
-        if: vars.ROBLOX_UNIVERSE_ID != '' && vars.ROBLOX_PLACE_ID != ''
+        if: vars.ROBLOX_UNIVERSE_ID != '' && (vars.ROBLOX_TEST_PLACE_ID != '' || vars.ROBLOX_PLACE_ID != '')
         env:
           ROBLOX_API_KEY: ${{ secrets.ROBLOX_API_KEY }}
           ROBLOX_UNIVERSE_ID: ${{ vars.ROBLOX_UNIVERSE_ID }}
-          ROBLOX_PLACE_ID: ${{ vars.ROBLOX_PLACE_ID }}
+          ROBLOX_PLACE_ID: ${{ vars.ROBLOX_TEST_PLACE_ID || vars.ROBLOX_PLACE_ID }}
         run: lune run tools/ocale build/engine-tests.rbxl --coverage
 
       - name: Post the combined coverage table to the job summary

@@ -151,7 +151,8 @@ after launch.
    for that experience with `universe-places:write` and
    `luau-execution-sessions:write`.
 3. In the GitHub repo settings, add the secret `ROBLOX_API_KEY`, and the
-   variables `ROBLOX_UNIVERSE_ID` and `ROBLOX_PLACE_ID`.
+   variables `ROBLOX_UNIVERSE_ID` and `ROBLOX_TEST_PLACE_ID` (the EngineTests
+   place; the deploy setup in docs/DEPLOY.md uses the same names).
 
 Until then, the job only checks that the test place builds. To run the engine
 specs by hand, build the test place, open it in Studio, and run
