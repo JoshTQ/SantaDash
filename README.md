@@ -292,3 +292,11 @@ tools/luau-cov                coverage instrumenter (Rust)
 tools/prepare-engine.luau     builds src for the test place
 tools/ocale.luau              runs the engine specs in Open Cloud
 ```
+
+## Deploy
+
+CI publishes the game to Roblox (Lobby and Run places, staging then live)
+through Open Cloud: `.github/workflows/deploy.yml`, set up once with
+[docs/DEPLOY.md](docs/DEPLOY.md). Because a deploy replaces the whole place,
+approved models must be committed as `.rbxm` files in `assets/models/`, not
+only dropped into `ServerStorage.Assets` in Studio.
