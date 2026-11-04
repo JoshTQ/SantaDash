@@ -1328,11 +1328,27 @@ def KrampusMusic():
 
 
 @sound
-def CutsceneSneeze():
-    ah = syllable(0.32, 220, 330, [(0, "ah")], breath=0.5, h_onset=0.1, tension=0.4, curve=lambda x: x**1.5)
-    choo = syllable(0.16, 380, 250, [(0, "oo")], breath=1.2, h_onset=0.03, tension=0.9)
-    burst = env(fft_filter(noise(0.12), lo=1500, hi=9000), a=0.003, r=0.08)
-    return human([ah, silence(0.05), mix(burst, choo)], room=0.12)
+def CutsceneGiddyup():
+    # Takeoff scene, 0.2 s: reins snap, "Giddy-UP!", reindeer set off at a
+    # gallop on snow with sleigh bells (1.4 s, before lift-off at 1.5 s).
+    out = silence(1.5)
+    snap = mix(decay(fft_filter(noise(0.03), lo=1800), 160) * 1.2, click(0.008, 4000, 0.8))
+    place(out, snap, 0.0)
+    gi = syllable(0.11, 210, 230, [(0, "i")], breath=0.3, tension=0.6)
+    ddy = syllable(0.1, 220, 200, [(0, "i")], breath=0.3)
+    up = syllable(0.26, 250, 330, [(0, "uh")], breath=0.35, tension=0.8, curve=lambda x: x**0.6)
+    voice_line = human([gi, ddy, silence(0.02), up], room=0.1)
+    place(out, voice_line, 0.08)
+    # Hooves on snow: soft muffled thuds in a gallop, speeding up.
+    at, gap = 0.45, 0.16
+    while at < 1.45:
+        for off in (0, 0.05):
+            hoof = mix(thump(120, 70, 0.08, 0.2), decay(fft_filter(noise(0.06), lo=300, hi=2500), 40) * 0.35) * 0.6
+            place(out, hoof, at + off)
+        place(out, shaker(0.12) * 0.7, at)
+        at += gap
+        gap = max(0.11, gap * 0.95)
+    return out
 
 
 @sound
@@ -1447,14 +1463,14 @@ def score(length, parts, bpm):
 
 @sound
 def CutsceneMusicTakeoff():
-    # 5 s cheeky heist overture: pizzicato, bells, a swell at 2.4, button at 4.6.
+    # 5 s cheeky heist overture: pizzicato, bells, a swell at lift-off (1.5), button at 4.6.
     bpm = 120  # 1 beat = 0.5 s; 4.6 s = beat 9.2
     pizz = [(b * 0.5, 0.45, n, 0.8) for b, n in enumerate(["E3", "G3", "B3", "G3", "C4", "B3", "A3", "B3"])]
     lead = [(4.8, 0.5, "B4", 0.6), (5.3, 0.5, "C5", 0.6), (5.8, 0.5, "D5", 0.7), (6.3, 0.5, "E5", 0.8), (6.8, 2, "G5", 0.7)]
     button = [(9.2, 0.6, "E3", 1.0), (9.2, 0.6, "E4", 0.8), (9.2, 0.6, "B4", 0.6)]
     out = score(5.0, [(pizz, ks_fast, 0.9), (lead, brass, 0.4), (button, brass, 0.6)], bpm)
     swell = lowpass_sweep(noise(2.2), 300, 6000) * np.linspace(0, 1, int(2.2 * SR)) ** 2 * 0.25
-    place(out, swell, 2.4)
+    place(out, swell, 1.5)  # swells on the lift-off
     for at in np.arange(0, 4.5, 0.25):
         place(out, shaker(0.1) * 0.5, at)
     place(out, jingle_hit(0.4) * 0.6, 4.6)

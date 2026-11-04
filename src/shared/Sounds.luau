@@ -271,7 +271,7 @@ Sounds.Defs = {
 	--------------------------------------------------------------------
 	-- Cutscenes (PR #10): played by Cutscenes.luau at fixed times, 2D
 	--------------------------------------------------------------------
-	CutsceneSneeze = { id = 0, find = "cartoon sneeze", group = "Ui", volume = 0.7 },
+	CutsceneGiddyup = { id = 0, find = "reins snap giddy up hooves", group = "Ui", volume = 0.75 },
 	CutsceneThump = { id = 0, find = "heavy landing thump", group = "Ui", volume = 0.7 },
 	CutsceneBells = { id = 0, find = "distant bells approaching heartbeat", group = "Ui", volume = 0.7 },
 	CutsceneClonk = { id = 0, find = "horns hit metal gate clonk", group = "Ui", volume = 0.75 },
