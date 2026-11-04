@@ -1563,6 +1563,62 @@ def CutsceneMusicLeftBehind():
 
 
 # ---------------------------------------------------------------------------
+# Round 3 (4 Nov): Josh still heard a robot in ParentWake and CorgiWoof.
+# Words are what give synthesis away, so the dad goes wordless (snort,
+# gasp, a startled "hm?!" hum, covers and bed springs) and the bark is
+# mostly breath and noise with a ragged pitch, like a real small dog.
+# ---------------------------------------------------------------------------
+
+
+@sound
+def ParentWake():
+    out = silence(2.0)
+    # The snore catches: a snort that stops dead.
+    snore = syllable(0.35, 75, 85, [(0, "o")], breath=0.9, fry=0.8, tension=0.2) * 0.6
+    place(out, snore * np.linspace(1, 1.4, len(snore)), 0.0)
+    snort = env(fft_filter(noise(0.1), lo=150, hi=1100), a=0.005, r=0.03) * 1.2
+    place(out, snort, 0.33)
+    # Jolt: bed springs and covers.
+    springs = Boing()[: int(0.45 * SR)] * np.exp(-t_axis(0.45) * 6) * 0.35
+    place(out, springs, 0.45)
+    covers = lowpass_sweep(fft_filter(noise(0.35), lo=500)[: int(0.35 * SR)], 1500, 5000)
+    place(out, covers * np.sin(np.linspace(0, np.pi, len(covers))) ** 2 * 0.35, 0.47)
+    # A sharp surprised breath in, then a closed-mouth "Hm?!" rising, and a
+    # second, more suspicious "Hmm?" a beat later.
+    place(out, Gasp() * 0.8, 0.5)
+    hm1 = syllable(0.22, 170, 290, [(0, "m")], breath=0.2, tension=0.7, curve=lambda x: x**1.3)
+    hm2 = syllable(0.4, 150, 210, [(0, "m")], breath=0.25, tension=0.5, curve=lambda x: x**2)
+    place(out, hm1 * 1.4, 1.0)
+    place(out, hm2 * 1.3, 1.42)
+    return reverb(out, 0.4, 0.1)[: len(out)]
+
+
+@sound
+def CorgiWoof():
+    def bark(f0, dur, gain=1.0):
+        n = int(dur * SR)
+        x = np.linspace(0, 1, n)
+        # Pitch jumps up then falls, with big random wobble: barks are ragged.
+        f = f0 * (1 + 0.5 * np.minimum(1, x * 8) - 0.7 * x) * (1 + smooth_noise(n, 60, 0.12))
+        buzz, flow = glottal(f, n, jitter=0.15, shimmer=0.6, tension=0.9)
+        sub = glottal(f * 0.5, n, jitter=0.2, shimmer=0.7)[0]
+        breath = fft_filter(noise(dur), lo=500, hi=9000)[:n]
+        src = buzz * 0.7 + sub * 0.35 + breath * (1.0 + flow)
+        # Small-dog mouth: 'a' formants scaled up; the mouth closes ('u') at the end.
+        voiced = formant_bank(src, [(0, "ah"), (0.55, "u")], n, shift=1.65)
+        e = np.minimum(1, x * 60) * np.exp(-x * 4.5)
+        e *= 1 + 0.35 * np.sin(2 * np.pi * 28 * np.arange(n) / SR) * (x < 0.25)  # the 'r' in "rrarf"
+        return drive(voiced * e * gain * 3, 2.2)
+
+    out = silence(0.75)
+    place(out, bark(520, 0.16), 0.0)
+    place(out, bark(560, 0.14, 0.9), 0.24)
+    tail = fft_filter(noise(0.12), lo=1500, hi=6000)[: int(0.12 * SR)] * np.exp(-t_axis(0.12) * 25)[: int(0.12 * SR)] * 0.15
+    place(out, tail, 0.4)  # a little pant after
+    return reverb(out, 0.25, 0.08)[: len(out)]
+
+
+# ---------------------------------------------------------------------------
 # Render
 # ---------------------------------------------------------------------------
 
