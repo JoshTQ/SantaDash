@@ -65,6 +65,7 @@ function Run.new(
 	self.krampus = nil
 	self.ended = false
 	self.featureCleanups = {} :: { () -> () }
+	self.flightSeats = nil :: { [BasePart]: CFrame }? -- set while the sleigh is flying
 	self.times = { departAt = 0 }
 
 	local rng = Random.new()
@@ -185,7 +186,16 @@ function Run:_addPlayer(player: Player)
 				self.krampus:release()
 			end
 			self:_applyPerks(player)
-			Util.teleport(player, self.deck * self.route.seatOffsets[1])
+			local root = character:FindFirstChild("HumanoidRootPart")
+			if self.flightSeats and root then
+				-- Mid-flight: ride the rest of the way in a seat, not fall off.
+				local seat = self.route.seatOffsets[1]
+				self.flightSeats[root] = seat
+				root.Anchored = true
+				root.CFrame = self.deck * seat
+			else
+				Util.teleport(player, self.deck * self.route.seatOffsets[1])
+			end
 		end
 	end)
 	self.players[player] = st
@@ -632,6 +642,7 @@ function Run:_fly(fromDeck: CFrame, toDeck: CFrame, riders: { Player })
 		end
 	end
 
+	self.flightSeats = seats -- respawns mid-flight are seated too
 	local started = os.clock()
 	local connection = RunService.Heartbeat:Connect(function()
 		local a = math.clamp((os.clock() - started) / Config.Run.FlightSeconds, 0, 1)
@@ -640,6 +651,7 @@ function Run:_fly(fromDeck: CFrame, toDeck: CFrame, riders: { Player })
 	task.wait(Config.Run.FlightSeconds)
 	connection:Disconnect()
 	place(toDeck)
+	self.flightSeats = nil
 	for root in seats do
 		root.Anchored = false
 	end
