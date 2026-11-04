@@ -190,5 +190,7 @@ handoff (`Shared/Handoff.luau`) backwards compatible, or restart.
 The sound upload script from the audio PR (`tools/audio/upload.py`) is run by
 hand for now: it writes asset ids into `src/shared/Sounds.luau`, which then
 needs committing, and Roblox moderates each upload and caps uploads per month
-(higher once the owner account is ID-verified). Upload the sounds as the same
-owner as the experience (step 1), or the game can't play them.
+(higher once the owner account is ID-verified). Upload as the same owner as
+the experience (step 1): set `ROBLOX_USER_ID` for a game on your account, or
+`ROBLOX_GROUP_ID` with a group API key (Assets Read and Write) for a
+group-owned game. Otherwise the game can't play the sounds.
