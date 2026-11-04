@@ -114,6 +114,7 @@ Servers.
 src/shared/Config.luau        every tuning number
 src/shared/Remotes.luau       RemoteEvents (Hud, LeaveCrew, Input)
 src/shared/Cutscenes.luau     the five short cutscenes: timing, camera keys, text pops, gags
+src/shared/SleighFlight.luau  sleigh flight path: ground run, climb, banked cruise, glide, touch-down
 src/shared/Util.luau          clock, character helpers, weighted pick
 src/server/Main.server.luau   entry point
 src/server/Lobby.luau         Quick Join queue, run slots, requeue (single-server mode)

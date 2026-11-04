@@ -17,7 +17,7 @@ Config.Run = {
 	LightsOnAt = 45, -- 0:00-0:45 sneak phase, then lights come on and Heat rises
 	HornAt = 90, -- horn blasts at 1:30: 30 s to get back on
 	FlightSeconds = 5, -- sleigh hop between roofs (take-off is 0:00-0:05)
-	FlightArcHeight = 60,
+	FlightArcHeight = 60, -- cruise height; SleighFlight does the ground run, climb and glide
 	ResultsSeconds = 10,
 	RequeueSeconds = 5, -- "Next run in 5..." auto-requeue
 }

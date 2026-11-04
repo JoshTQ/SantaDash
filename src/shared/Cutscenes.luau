@@ -58,23 +58,26 @@ local SCENES: { [string]: Scene } = {
 		id = "Takeoff",
 		seconds = 5,
 		audience = "all",
+		-- Rides along with a normal sleigh take-off (SleighFlight): low behind
+		-- the team for the ground run, alongside for the lift-off, high behind
+		-- for the town and the route, then the other side for the touch-down.
 		keys = {
-			{ at = 0, eye = at("follow", 0, 7, 22), look = at("follow", 0, 2, 0) },
-			{ at = 1.2, eye = at("follow", 0, 16, 38), look = at("follow", 0, 0, -20), fov = 75 },
-			{ at = 2.4, eye = at("anchor", 0, 150, 70), look = at("anchor", 0, 0, 0), fov = 60 },
-			{ at = 3.8, eye = at("follow", 26, 14, 26), look = at("follow", 0, 0, 0) },
-			{ at = 5, eye = at("follow", 18, 7, 18), look = at("follow", 0, 1, 0) },
+			{ at = 0, eye = at("follow", 6, 5, 20), look = at("follow", 0, 3, -10) },
+			{ at = 1.3, eye = at("follow", 22, 6, 6), look = at("follow", 0, 4, -6), fov = 65 },
+			{ at = 2.6, eye = at("follow", 10, 30, 55), look = at("follow", 0, -10, -60), fov = 60 },
+			{ at = 3.8, eye = at("follow", -24, 10, -4), look = at("follow", 0, 2, -8) },
+			{ at = 5, eye = at("follow", -16, 6, 14), look = at("follow", 0, 2, 0) },
 		},
 		pops = {
-			{ at = 0.3, hold = 0.9, text = "ACHOO!", color = "snow" },
-			{ at = 2.4, hold = 1.3, text = "{map}", color = "gold", size = 0.8 },
+			{ at = 0.2, hold = 1, text = "GIDDY-UP!", color = "snow" },
+			{ at = 2.6, hold = 1.2, text = "{map}", color = "gold", size = 0.8 },
 			{ at = 4.6, hold = 0.4, text = "THUMP!", color = "snow" },
 		},
 		cues = {
 			{ at = 0, kind = "sfx", key = "CutsceneMusicTakeoff" },
-			{ at = 0.3, kind = "sfx", key = "CutsceneSneeze" },
-			{ at = 2.2, kind = "marks", hold = 2 },
-			{ at = 4.6, kind = "shake", power = 0.8, hold = 0.35 },
+			{ at = 0.2, kind = "sfx", key = "CutsceneGiddyup" },
+			{ at = 2.4, kind = "marks", hold = 1.3 }, -- gone before the camera drops low
+			{ at = 4.6, kind = "shake", power = 0.6, hold = 0.3 },
 			{ at = 4.6, kind = "sfx", key = "CutsceneThump" },
 		},
 	},

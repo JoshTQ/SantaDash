@@ -15,6 +15,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Cutscenes = require(ReplicatedStorage.Shared.Cutscenes)
 local Maps = require(ReplicatedStorage.Shared.Maps)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local SleighFlight = require(ReplicatedStorage.Shared.SleighFlight)
 local Util = require(ReplicatedStorage.Shared.Util)
 local Assets = require(script.Parent.Assets)
 local ElfBot = require(script.Parent.ElfBot)
@@ -652,8 +653,7 @@ function Run:_fly(fromDeck: CFrame, toDeck: CFrame, riders: { Player })
 	self.phase = "Flight"
 	self:_sendStop()
 	self:_ride(riders, Config.Run.FlightSeconds, function(t)
-		local a = t / Config.Run.FlightSeconds
-		return fromDeck:Lerp(toDeck, a) + Vector3.yAxis * math.sin(a * math.pi) * Config.Run.FlightArcHeight
+		return SleighFlight.deckAt(fromDeck, toDeck, t, Config.Run.FlightSeconds, Config.Run.FlightArcHeight)
 	end)
 end
 
