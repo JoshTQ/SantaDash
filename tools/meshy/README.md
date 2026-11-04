@@ -1,39 +1,75 @@
-# Meshy run sheet: Scruffy Grumpy Santa (approved 30 Oct 2026)
+# Meshy → Roblox, automated
 
-Design is unchanged from the approved gallery entry. The gallery prompt was 613 chars mixing shape and colour; Meshy builds shape in **Preview** and paints in **Refine**, so it's split into a shape prompt and a texture prompt (full text in `generate_santa.py`, `ASSETS`).
+After a one-time setup, an approved model goes from prompt to the live game with
+one click from you: **merging its PR**.
 
-## What changed vs the gallery prompt (wording only)
-| # | Change | Why |
-|---|---|---|
-| 1 | Colours/materials moved to the Refine texture prompt | Preview is untextured; colour words there are wasted or distort shape |
-| 2 | Added "hands separate from the belly, legs slightly apart, single character, no base, no props" | Auto-rig fails if arms fuse to the pot belly or legs merge |
-| 3 | Dropped "front view, plain background" | 2D image-gen phrasing; no effect in 3D |
-| 4 | Patches told to be muted red/brown, "must not look like presents" | Matches the approval note |
-| 5 | Backpack sack generated separately, attached as an accessory | Rig stays clean; sack can swell/scale in game |
-
-## Settings
-| Step | Setting |
-|---|---|
-| Preview | Model: latest (Meshy 7.1) · Pose: **A-pose** · Remesh: off · Moderation: on |
-| Refine | Texture prompt from script · PBR: on · Texture: 2K |
-| Remesh | Triangle · **10,000 tris** Santa, **4,000** sack (Roblox caps 20K per MeshPart) |
-| Rig (Santa only) | Humanoid auto-rig · height 1.5 m · face must point +Z |
-
-## Option A: API (needs a Meshy API key, paid plan)
 ```
-export MESHY_API_KEY=msy_...
-python3 tools/meshy/generate_santa.py --preview-only   # cheap shape check first
-python3 tools/meshy/generate_santa.py                  # full run, Santa + sack
+art/meshy/<Name>.json  (approved prompts)
+   │  push to main, or Actions > Meshy model > Run workflow
+   ▼
+Meshy: preview (shape) → refine (colour texture, no PBR) → remesh → auto-rig
+   ▼
+Open Cloud: upload texture (Image) + FBX (Model) → Roblox imports MeshParts
+   ▼
+download the import → tools/meshy/to_rbxm.luau → assets/models/<Name>.rbxm
+   (TextureID set, SurfaceAppearance/PackageLink stripped, deploy dry-run passes)
+   ▼
+PR "Approve model: <Name>" with thumbnails and model.glb → you merge → deploy ships it
 ```
-Outputs land in `out/santa/` and `out/sack/`: thumbnails, `*_game.glb/.fbx`, `santa_rigged.fbx`, walk/run anims.
 
-## Option B: by hand in the Meshy web app
-1. Text to 3D → paste the Santa **shape** prompt → Model "latest", Pose "A-pose" → generate. Pick the preview where arms clear the belly and the face is grumpy.
-2. Texture/Refine → paste the **texture** prompt → PBR on → 2K.
-3. Remesh → Triangle → 10,000.
-4. Animate → Auto-rig (humanoid) → add Idle, Walk, Sneak/crouch walk, Grab/pick up, Cheer presets.
-5. Export FBX (rigged) for Roblox, or use "Send to Roblox".
-6. Repeat 1–3 for the sack (no pose, 4,000 tris, no rig).
+Merging is the final art approval (the strict rule: 3D preview → approval →
+gallery and game). Claude builds the rotatable preview from `model.glb` in the
+PR and adds the model to the gallery once it's merged.
 
-## After generation
-Send the thumbnails back. I build the rotatable preview from the GLB for approval; only then it replaces the stand-in in the models gallery and goes in game.
+## One-time setup (about 10 minutes)
+
+| # | Where | What |
+| --- | --- | --- |
+| 1 | meshy.ai > Settings > API | A Meshy plan with API access (Pro or higher) and an API key |
+| 2 | Repo > Settings > Secrets and variables > Actions > Secrets | `MESHY_API_KEY` = that key |
+| 3 | Creator Dashboard > Open Cloud > API Keys | On the existing `ROBLOX_API_KEY` key, add the **Assets** API system with **Read and Write** (docs/DEPLOY.md step 3) |
+| 4 | Repo > Settings > Secrets and variables > Actions > Variables | `ROBLOX_USER_ID` (your user id) if the game is on your account, or `ROBLOX_GROUP_ID` if a group owns it. Same owner as the experience, or the game can't load the meshes |
+| 5 | Repo > Settings > Actions > General | Tick **Allow GitHub Actions to create and approve pull requests** |
+
+## Day to day
+
+| I want to | Do |
+| --- | --- |
+| Make a newly approved model | Claude adds `art/meshy/<Name>.json` in a PR; merging it starts the run |
+| Re-roll a model I didn't like | Close its PR, Actions > Meshy model > Run workflow with the name |
+| Cheap shape check first | Run workflow with **Shape preview only** (no Roblox upload, no PR) |
+| Get the raw FBX/animations | The run's artifacts (`meshy-<Name>-<run>`) |
+
+## Specs
+
+One JSON file per model in `art/meshy/`. The name is the file name and the
+model's name in `ServerStorage.Assets`:
+
+| Field | Meaning |
+| --- | --- |
+| `shape_prompt` | Meshy preview prompt (shape only, ≤ 800 chars) |
+| `texture_prompt` | Meshy refine prompt (colours and materials, ≤ 800 chars) |
+| `pose_mode` | `a-pose` for characters, `""` for props |
+| `polycount` | Remesh target in triangles (Roblox caps a MeshPart at 20K) |
+| `rig` / `height_meters` | Humanoid auto-rig (characters only) |
+
+`Santa.json` and `SantaSack.json` are the approved 30 Oct 2026 prompts, split
+into shape and texture; the design is unchanged. The sack is a separate
+accessory so Santa's rig stays clean.
+
+## Known gaps and risks (first real run is the test)
+
+These couldn't be checked without the keys, so watch the first run's log:
+
+| Risk | What happens | Fallback |
+| --- | --- | --- |
+| Open Cloud's import of a **rigged** FBX may drop the bones | `summary.json` shows `bones: 0` | Fine for props. For Santa, see "Playable Santa" below |
+| The asset-delivery download format differs from what `upload.py` expects | The upload step fails with the response in the log | Claude adjusts `download()` |
+| Roblox moderation holds the upload | The step waits up to 15 min, then fails | Re-run later |
+| Imported scale is off (FBX units) | `summary.json` `sizeStuds` | Scale in the spec/in `to_rbxm.luau` |
+
+**Playable Santa:** players are Roblox Humanoids. Turning a Meshy skeleton into
+a character that walks and plays Idle/Sneak/Grab/Cheer animations is a separate
+task (StarterCharacter + converting Meshy's animations to Roblox animation
+assets, which Open Cloud accepts as `.rbxm`). This pipeline gets the model into
+the game; that one makes it the player.

@@ -1,0 +1,9 @@
+{
+  "name": "SantaSack",
+  "approved": "30 Oct 2026",
+  "rig": false,
+  "pose_mode": "",
+  "polycount": 4000,
+  "shape_prompt": "Stylized 3D game accessory, chunky vinyl-toy style, smooth sculpted rounded forms. A burlap sack worn as a backpack: rounded and full with smooth sides, two shoulder straps with small rings, wide opening at the top gathered with thick rope, sewn-on patches, one small hole. Three wrapped presents with ribbons sticking up out of the top opening only. Single object, no character, no base.",
+  "texture_prompt": "Bright saturated colours, smooth soft vinyl-toy finish. Warm tan burlap with subtle weave, darker muted brown sewn-on patches, worn brown leather shoulder straps with small brass rings, thick beige rope. Presents: one blue with white ribbon, one yellow, one purple with yellow ribbon. No text, no logos."
+}

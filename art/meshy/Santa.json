@@ -1,0 +1,10 @@
+{
+  "name": "Santa",
+  "approved": "30 Oct 2026",
+  "rig": true,
+  "pose_mode": "a-pose",
+  "polycount": 10000,
+  "shape_prompt": "Stylized 3D game character, chunky vinyl-toy style, smooth sculpted rounded forms, soft simple shapes, quirky proportions. A scruffy, grumpy Santa Claus: short and round with a big pot belly, slightly hunched. Big head, furrowed bushy eyebrows, frowning grumpy face, round nose, messy uneven beard. Suit with a few sewn-on fabric patches with visible stitching, thick fur trim, belt with a crooked buckle. Floppy hat tilted sideways with a droopy tip and a fluffy pompom. Worn boots and mittens. Full body, standing, A-pose, arms slightly out from the body, hands separate from the belly, legs slightly apart, single character, no base, no props.",
+  "texture_prompt": "Bright saturated colours, smooth soft vinyl-toy finish, clean hand-painted look. Faded red suit with a few darker muted red and brown fabric patches with visible stitching (patches must not look like presents). Off-white fur trim, slightly grubby. Black belt with a crooked gold buckle. Rosy round nose and rosy cheeks, grey-white messy beard and bushy grey eyebrows. Floppy red hat with off-white fur band and white pompom. Worn brown boots and brown mittens. No text, no logos.",
+  "height_meters": 1.5
+}

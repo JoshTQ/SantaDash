@@ -1,0 +1,151 @@
+name: Meshy model
+
+# Generates an approved model in Meshy, imports it into Roblox through Open
+# Cloud and opens a pull request with assets/models/<Name>.rbxm plus preview
+# images. Merging that PR is the final art approval: the next deploy ships it.
+# Setup: tools/meshy/README.md.
+#
+#   push to main changing art/meshy/<Name>.json -> runs for each changed spec
+#   Actions > Meshy model > Run workflow         -> runs for the name you type
+
+on:
+  push:
+    branches: [main]
+    paths: ["art/meshy/*.json"]
+  workflow_dispatch:
+    inputs:
+      model:
+        description: Spec name in art/meshy/ (e.g. Santa, SantaSack)
+        required: true
+        default: Santa
+      preview_only:
+        description: Shape preview only (cheap check; no Roblox upload, no PR)
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  pick:
+    runs-on: ubuntu-latest
+    outputs:
+      models: ${{ steps.pick.outputs.models }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: pick
+        env:
+          INPUT: ${{ inputs.model }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ -n "$INPUT" ]; then
+            names="$INPUT"
+          else
+            names=$(git diff --name-only --diff-filter=AM "$BEFORE" "$GITHUB_SHA" -- 'art/meshy/*.json' | xargs -rn1 basename | sed 's/\.json$//')
+          fi
+          for n in $names; do
+            [[ "$n" =~ ^[A-Za-z0-9]+$ && -f "art/meshy/$n.json" ]] || { echo "::error::No spec art/meshy/$n.json"; exit 1; }
+          done
+          echo "models=$(printf '%s\n' $names | jq -Rsc 'split("\n") | map(select(length > 0))')" >> "$GITHUB_OUTPUT"
+
+  model:
+    needs: pick
+    if: needs.pick.outputs.models != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        name: ${{ fromJson(needs.pick.outputs.models) }}
+    concurrency:
+      group: meshy-${{ matrix.name }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate in Meshy
+        env:
+          MESHY_API_KEY: ${{ secrets.MESHY_API_KEY }}
+        run: python3 tools/meshy/generate.py "${{ matrix.name }}" ${{ inputs.preview_only && '--preview-only' || '' }}
+
+      - name: Keep the raw Meshy files (FBX, GLB, animations)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: meshy-${{ matrix.name }}-${{ github.run_id }}
+          path: build/meshy/${{ matrix.name }}
+          if-no-files-found: ignore
+
+      - name: Upload to Roblox and download the import
+        if: ${{ !inputs.preview_only }}
+        env:
+          ROBLOX_API_KEY: ${{ secrets.ROBLOX_API_KEY }}
+          ROBLOX_USER_ID: ${{ vars.ROBLOX_USER_ID }}
+          ROBLOX_GROUP_ID: ${{ vars.ROBLOX_GROUP_ID }}
+        run: python3 tools/meshy/upload.py "${{ matrix.name }}"
+
+      - name: Install Rokit and the pinned tools
+        if: ${{ !inputs.preview_only }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -sSf https://raw.githubusercontent.com/rojo-rbx/rokit/main/scripts/install.sh | bash
+          echo "$HOME/.rokit/bin" >> "$GITHUB_PATH"
+          "$HOME/.rokit/bin/rokit" install --no-trust-check
+
+      - name: Build assets/models/${{ matrix.name }}.rbxm
+        if: ${{ !inputs.preview_only }}
+        run: lune run tools/meshy/to_rbxm "${{ matrix.name }}"
+
+      - name: Check the deploy still builds with it
+        if: ${{ !inputs.preview_only }}
+        run: lune run tools/deploy staging --dry-run
+
+      - name: Stage the files for review
+        if: ${{ !inputs.preview_only }}
+        id: stage
+        env:
+          NAME: ${{ matrix.name }}
+        run: |
+          src="build/meshy/$NAME"; dst="art/meshy/$NAME"
+          mkdir -p "$dst"
+          cp "$src"/preview.png "$src"/refined.png "$src"/meshy.json "$src"/roblox.json "$src"/summary.json "$dst"/
+          if [ -f "$src/rigged.glb" ]; then cp "$src/rigged.glb" "$dst/model.glb"; else cp "$src/game.glb" "$dst/model.glb"; fi
+          blob="https://github.com/$GITHUB_REPOSITORY/blob/meshy/$NAME/$dst"
+          {
+            echo "body<<EOF_BODY"
+            echo "Generated in Meshy from \`art/meshy/$NAME.json\` (run [#$GITHUB_RUN_NUMBER]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)) and imported into Roblox through Open Cloud."
+            echo
+            echo "**Merging this PR approves the final model.** The next deploy puts it in \`ServerStorage.Assets.$NAME\`. Close it to reject; re-run the workflow to try again."
+            echo
+            echo "| Shape | Textured |"
+            echo "| --- | --- |"
+            echo "| ![preview]($blob/preview.png?raw=true) | ![refined]($blob/refined.png?raw=true) |"
+            echo
+            echo "Rotatable model: \`$dst/model.glb\` (open in any glTF viewer)."
+            echo
+            echo '```json'
+            cat "$src/summary.json"
+            echo
+            echo '```'
+            echo "Meshy credits used: $(jq .total_credits "$src/meshy.json"). Raw FBX, GLB and animations are in the run's artifacts."
+            echo "EOF_BODY"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open the approval PR
+        if: ${{ !inputs.preview_only }}
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: meshy/${{ matrix.name }}
+          base: ${{ github.ref_name }}
+          add-paths: |
+            assets/models/${{ matrix.name }}.rbxm
+            art/meshy/${{ matrix.name }}/**
+          commit-message: "Add Meshy model ${{ matrix.name }} (run ${{ github.run_number }})"
+          title: "Approve model: ${{ matrix.name }}"
+          body: ${{ steps.stage.outputs.body }}
+          assignees: ${{ github.repository_owner }}
+          delete-branch: true
