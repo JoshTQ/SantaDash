@@ -14,6 +14,7 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local SoundPlayer = require(ReplicatedStorage.Shared.SoundPlayer)
 local Util = require(ReplicatedStorage.Shared.Util)
 local KrampusBrain = require(script.Parent.KrampusBrain)
 local MapBuilder = require(script.Parent.MapBuilder)
@@ -73,6 +74,9 @@ function Krampus.new(run, stop)
 	self.stunnedUntil = t + K.WarningSeconds -- stands still while the warning shows
 	self.lastBellAt = -math.huge
 	self.alive = true
+	-- His bells give him away: a 3D loop on his body that everyone nearby hears.
+	-- It goes when his model is destroyed.
+	SoundPlayer.loop("KrampusBells", self.body.root)
 
 	self.connections = {
 		self.body.bellPrompt.Triggered:Connect(function(player)
@@ -165,6 +169,7 @@ function Krampus:_think(dt: number)
 		end
 	elseif run.lastNoisePos then
 		self:_moveTo(run.lastNoisePos) -- sniffs toward the latest noise
+		SoundPlayer.at("KrampusSniff", root)
 	else
 		self:_moveTo(self:_wanderGoal())
 	end
@@ -219,6 +224,8 @@ function Krampus:_ringBells(player: Player)
 	self.stunnedUntil = t + K.StunSeconds
 	-- He spins round to find the bells.
 	self.body.root.CFrame *= CFrame.Angles(0, math.pi, 0)
+	SoundPlayer.at("BellBonk", self.body.root)
+	SoundPlayer.at("KrampusDizzy", self.body.root)
 	local captive = self.captive
 	if captive then
 		self:release()

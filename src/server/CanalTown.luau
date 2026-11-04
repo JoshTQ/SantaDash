@@ -22,6 +22,8 @@ local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Maps = require(ReplicatedStorage.Shared.Maps)
+local SoundPlayer = require(ReplicatedStorage.Shared.SoundPlayer)
+local Sounds = require(ReplicatedStorage.Shared.Sounds)
 local Util = require(ReplicatedStorage.Shared.Util)
 local Assets = require(script.Parent.Assets)
 local CanalRules = require(script.Parent.CanalRules)
@@ -750,6 +752,7 @@ function SkateCanal.start(ctx)
 						local player = Util.playerFromHit(hit)
 						if player and run:_free(player) then
 							boostUntil[player] = Util.now() + C.HoopBoostSeconds
+							SoundPlayer.at("HoopBoost", trigger)
 						end
 					end)
 				)
@@ -823,6 +826,7 @@ function CanalTown.splash(run, player: Player, zone: BasePart)
 	local best = CanalRules.nearest(points, root.CFrame.Position)
 	if best then
 		Util.teleport(player, CFrame.new(points[best] + Vector3.new(0, 4, 0)))
+		SoundPlayer.at("Splash", root.CFrame.Position)
 		run:_banner(player, "SPLOOSH! Brrr... hop floe to floe!", 2)
 	end
 end
@@ -988,6 +992,8 @@ function ChristmasMarket.start(ctx)
 			spec = spec,
 			model = model,
 			lift = size.Y / 2 + 0.4,
+			-- Growls and barks come from here.
+			emitter = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true),
 			clock = spec.offset,
 			pausedUntil = 0,
 			hitAt = {},
@@ -1045,15 +1051,21 @@ function ChristmasMarket.start(ctx)
 			if dog.pausedUntil > t then
 				continue
 			end
+			local corgi = dog.spec.kind == "DogCorgi"
 			for _, santa in santas do
 				local player, root = santa.player, santa.root
+				local offset = (root.CFrame.Position - pos) * Vector3.new(1, 0, 1)
+				-- The warning before the bump: a corgi growls, a tin dog whirrs.
+				if Sounds.dogWarns(offset.Magnitude, C.Dogs.HitRadius, C.Dogs.WarnRadius) then
+					SoundPlayer.at(if corgi then "CorgiGrowl" else "TinDogWhirr", dog.emitter or at)
+				end
 				if (dog.hitAt[player] or 0) + C.Dogs.CorgiCooldown < t then
-					local offset = (root.CFrame.Position - pos) * Vector3.new(1, 0, 1)
 					if offset.Magnitude < C.Dogs.HitRadius then
 						dog.hitAt[player] = t
 						local away = if offset.Magnitude > 0.1 then offset.Unit else facing
 						root.AssemblyLinearVelocity = away * C.Dogs.Knockback + Vector3.new(0, 25, 0)
-						if dog.spec.kind == "DogCorgi" then
+						SoundPlayer.at(if corgi then "CorgiWoof" else "TinDogBonk", dog.emitter or at)
+						if corgi then
 							local st = run.players[player]
 							local value = Loot.dropOne(st)
 							if value then
@@ -1198,6 +1210,7 @@ function IceRink.start(ctx)
 	local rink = stop.canal.rink
 	local polisher = standInPolisher()
 	polisher.Parent = run.route.model
+	SoundPlayer.loop("PolisherHum", polisher.PrimaryPart :: BasePart)
 	local t0 = Util.now()
 	local scoopedAt: { [Player]: number } = {}
 	local connection = RunService.Heartbeat:Connect(function()
@@ -1212,6 +1225,7 @@ function IceRink.start(ctx)
 				if offset.Magnitude < C.Polisher.HitRadius then
 					scoopedAt[player] = t
 					local bank = rink.snowbanks[CanalRules.nearest(rink.snowbanks, root.CFrame.Position) or 1]
+					SoundPlayer.at("PolisherScoop", pos)
 					Util.teleport(player, CFrame.new(bank + Vector3.new(0, 4, 0)))
 					run:_banner(player, "WHOOSH! The ice polisher scooped you into a snowbank!", 2.5)
 				end
@@ -1938,6 +1952,8 @@ function FloeLake.start(ctx)
 	end
 	local thread = task.delay(C.StompDelay, function()
 		run:_banner(nil, "KRAMPUS STOMPS! The lake cracks into floes. Hop across or take the bell bridge!", 4)
+		SoundPlayer.at("KrampusStomp", stop.canal.lake)
+		SoundPlayer.at("IceCrack", stop.canal.lake)
 		CanalTown.breakZone(stop.canal.lake)
 	end)
 	return function()

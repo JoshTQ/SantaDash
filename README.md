@@ -83,6 +83,37 @@ Krampus and the sleigh. `Maps/SnowyStreet.luau` is the reference shape.
 - **Dressing:** an approved Model in `ServerStorage.Maps.<dressing>` with
   `StopDressing` (cloned at every stop) and `RouteDressing` (once). Art only.
 
+## Sounds
+
+Every sound has a key in `src/shared/Sounds.luau` (51 keys, ranked in three
+tiers). To give a key real audio, either:
+
+- drop a `Sound` named after the key into `ReplicatedStorage.SoundAssets` in
+  Studio (its SoundId, Volume and PlaybackSpeed are kept; the 3D range comes
+  from the catalogue), or
+- set its `id` in `Sounds.luau` to a Roblox audio asset id.
+
+**Ready-made audio:** `assets/audio/<Key>.ogg` has an original cartoon sound
+for every key, made from code by `tools/audio/synth.py` (re-run it to
+regenerate). Upload them one of two ways:
+
+- `ROBLOX_API_KEY=... ROBLOX_USER_ID=... python3 tools/audio/upload.py` (or `ROBLOX_GROUP_ID=...` if a group owns the experience; upload as the experience owner)
+  uploads each file with Open Cloud (key needs Assets read/write) and writes
+  the new ids into `Sounds.luau`. Re-running skips keys that have an id.
+- Or in Studio: Asset Manager > Bulk Import the .ogg files, insert each one,
+  and drop the Sounds into `ReplicatedStorage.SoundAssets` (names already match).
+
+Roblox moderates audio uploads and caps how many you can upload a month, so
+do Tier 1 first.
+
+Keys with neither are silent (Studio prints one warning each with what to
+search for), so the game runs before every sound is picked. Use the Creator
+Store's Audio tab filtered to the **Roblox** creator so the audio is free and
+licensed. World sounds (snoring parents, dogs, Krampus's bells, presents,
+doors) are 3D and played by the server; music, the sleigh countdown, the
+Krampus heartbeat and UI sounds are 2D on each client (`Audio.client.luau`).
+Mix levels are in `Config.Audio` (kept under 1 for phone speakers).
+
 ## Lobby and run places (cross-server matchmaking)
 
 The same build runs in two places. The **lobby place** queues crews and
@@ -224,6 +255,8 @@ specs by hand, build the test place, open it in Studio, and run
 src/shared/Config.luau        every tuning number
 src/shared/Remotes.luau       RemoteEvents (Hud, LeaveCrew, Input)
 src/shared/Util.luau          clock, character helpers, weighted pick
+src/shared/Sounds.luau        sound catalogue and pure cue rules (leave warning, noise, heartbeat)
+src/shared/SoundPlayer.luau   plays catalogue sounds (3D on server, 2D on client)
 src/server/Main.server.luau   entry point
 src/server/Lobby.luau         what happens when a station sleigh leaves; same-server runs (fallback)
 src/server/LobbyMap.luau      Sleigh Station lobby: workshop, show-off yard, present path, bays
@@ -248,6 +281,7 @@ src/server/MapBuilder.luau    greybox houses, streets, sleigh, Krampus and elf s
 src/server/Parts.luau         shared anchored-part helper for the builders
 src/server/Loot.luau          pure House Card rolls, stop plans, loot and results
 src/client/Hud.client.luau    timer, Jingle, sack, noise, bells, breath, wiggle, queue, results
+src/client/Audio.client.luau  music, sleigh countdown, Krampus heartbeat, loot and UI sounds
 tests/runner.luau             Lune test runner (tests/coverage.luau: coverage reports)
 tests/unit, tests/integration, tests/regression   Lune specs
 tests/engine                  Jest Roblox specs (in-engine tier)
