@@ -19,6 +19,11 @@
         "$path": "tests/engine-support/CoverageProbes.luau"
       }
     },
+    "ServerScriptService": {
+      "$properties": {
+        "LoadStringEnabled": true
+      }
+    },
     "ServerStorage": {
       "Server": {
         "$path": "build/engine-src/server"
