@@ -1489,16 +1489,55 @@ def CutsceneMusicKrampus():
 
 @sound
 def CutsceneMusicGetaway():
-    # 4 s triumphant caper: strain build, fanfare at 1.3, big hit at 2.8.
-    bpm = 120
-    build = [(0, 2.6, "G2", 0.7), (0, 2.6, "D3", 0.5)]
-    fan = [(2.6, 0.3, "C4", 0.6), (2.9, 0.3, "E4", 0.6), (3.2, 0.3, "G4", 0.6), (3.5, 1.6, "C5", 0.7)]
-    hit = [(5.6, 1.6, n, 0.7) for n in ("C3", "G3", "C4", "E4", "G4")]
-    out = score(4.0, [(build, bassoon, 0.6), (fan, brass, 0.5), (hit, brass, 0.6)], bpm)
-    place(out, lowpass_sweep(noise(1.2), 200, 4000) * np.linspace(0, 1, int(1.2 * SR)) ** 2 * 0.2, 0.1)
-    place(out, jingle_hit(0.4) * 0.6, 2.8)
-    place(out, thump(110, 50, 0.3, 0.3) * 0.7, 2.8)
+    # 5 s triumphant caper: strained build to 2.2, lift at 2.3, big hit at
+    # 3.3, finish at 5.0 (Getaway re-timed 4 Nov).
+    bpm = 120  # 1 beat = 0.5 s
+    build = [(0, 4.3, "G2", 0.7), (0, 4.3, "D3", 0.5), (2.0, 2.3, "Ab3", 0.3)]
+    lift = [(4.6, 0.3, "C4", 0.6), (4.9, 0.3, "E4", 0.6), (5.2, 0.3, "G4", 0.6), (5.5, 1.0, "C5", 0.7)]
+    hit = [(6.6, 1.4, n, 0.7) for n in ("C3", "G3", "C4", "E4", "G4")]
+    tail = [(8.0, 0.5, "A4", 0.5), (8.5, 0.5, "B4", 0.5), (9.0, 1.0, "C5", 0.6), (9.0, 1.0, "E4", 0.5), (9.0, 1.0, "G4", 0.5)]
+    out = score(5.0, [(build, bassoon, 0.6), (lift, brass, 0.5), (hit, brass, 0.6), (tail, brass, 0.5)], bpm)
+    place(out, lowpass_sweep(noise(2.0), 200, 4000) * np.linspace(0, 1, int(2.0 * SR)) ** 2 * 0.2, 0.2)
+    place(out, jingle_hit(0.4) * 0.5, 2.3)
+    place(out, jingle_hit(0.4) * 0.6, 3.3)
+    place(out, thump(110, 50, 0.3, 0.3) * 0.7, 3.3)
+    for at in np.arange(2.3, 4.4, 0.25):
+        place(out, shaker(0.1) * 0.45, at)
     return out
+
+
+@sound
+def CutsceneFireworks():
+    # Getaway scene, starts at 2.6 s: bursts at +0, 0.4, 0.7, 1.1 and 1.5 s
+    # (2.6, 3.0, 3.3, 3.7, 4.1 in the scene). Whistles rise into the later
+    # bursts; crackles sparkle after each. About 2 s.
+    out = silence(2.2)
+
+    def whistle(dur):
+        n = int(dur * SR)
+        x = np.linspace(0, 1, n)
+        f = 900 + 1700 * x
+        return (osc(f) * 0.5 + fft_filter(noise(dur), lo=2000, hi=7000)[:n] * 0.15) * x**1.5 * 0.5
+
+    def burst():
+        boom = mix(thump(90, 45, 0.35, 0.5), decay(fft_filter(noise(0.4), hi=3000), 9) * 0.8)
+        return boom
+
+    def crackle(dur):
+        c = silence(dur)
+        at = 0.0
+        while at < dur - 0.02:
+            place(c, decay(fft_filter(noise(0.01), lo=3000), 400) * RNG.uniform(0.1, 0.4), at)
+            at += RNG.exponential(0.018)
+        return c * np.linspace(1, 0, len(c))
+
+    for k, t in enumerate((0.0, 0.4, 0.7, 1.1, 1.5)):
+        if k:
+            w = min(0.3, t - 0.05)
+            place(out, whistle(w), t - w)
+        place(out, burst() * (0.8 + 0.05 * k), t)
+        place(out, crackle(0.5) * 0.8, t + 0.08)
+    return fade_tail(out, 0.15)
 
 
 @sound

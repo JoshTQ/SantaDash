@@ -278,6 +278,7 @@ Sounds.Defs = {
 	CutsceneRoar = { id = 0, find = "goofy monster roar", group = "Ui", volume = 0.75 },
 	CutsceneStrain = { id = 0, find = "cartoon strain grunt", group = "Ui", volume = 0.6 },
 	CutsceneFlump = { id = 0, find = "belly flop into snow", group = "Ui", volume = 0.75 },
+	CutsceneFireworks = { id = 0, find = "fireworks whistle burst crackle", group = "Ui", volume = 0.7 },
 	CutsceneStamp = { id = 0, find = "rubber stamp ding", group = "Ui", volume = 0.7 },
 	CutsceneYoink = { id = 0, find = "slide whistle up", group = "Ui", volume = 0.6 },
 	CutsceneBonk = { id = 0, find = "cartoon bonk", group = "Ui", volume = 0.65 },
