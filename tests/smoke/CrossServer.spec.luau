@@ -332,6 +332,33 @@ describe("Cross-server matchmaking: Public sleighs", function()
 		end)
 	end)
 
+	it("frees a hopped-off rider's seat, so the crew doesn't wait for them", function()
+		local c = newCloud()
+		local a, b = c:lobby(), c:lobby()
+		c:run(function()
+			local ann, hop = c:join(a, "Ann"), c:join(a, "Hop")
+			local bo = c:join(b, "Bo")
+			waitForBoarding(c, a, "Public", 11)
+			board(c, a, "Public", { ann, hop })
+			board(c, b, "Public", { bo })
+			c:wait(1) -- Hop's ticket is in the queue
+			humanoidOf(hop).Jump = true
+			c:waitUntil(function()
+				return inRunServer(c, { "Ann", "Bo" }) ~= nil
+			end, 30, "Ann and Bo's crew")
+			local data = topicMessages(c)[1].data.data
+			expect(#data.members).toBe(2) -- Hop's seat was given back
+			expect(data.members).never.toContain(hop.UserId)
+			expect(serverOf(c, "Hop")).toBe(a)
+			-- Everyone the run server expects is here, so it starts straight away.
+			local arrived = c.now
+			c:waitUntil(function()
+				return stops(c, "Ann") > 0
+			end, 10, "the run to start")
+			expect(c.now - arrived).toBeLessThan(5)
+		end)
+	end)
+
 	it("skips riders who left the game while queued", function()
 		local c = newCloud()
 		local a, b = c:lobby(), c:lobby()
