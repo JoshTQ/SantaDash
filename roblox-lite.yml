@@ -1,0 +1,34 @@
+# Minimal Roblox globals for selene when the full `roblox` std can't be generated
+# (it downloads the API dump). With network access, prefer `std = "roblox"`.
+base: luau
+globals:
+  game:
+    any: true
+  workspace:
+    any: true
+  script:
+    any: true
+  Instance:
+    any: true
+  Vector3:
+    any: true
+  CFrame:
+    any: true
+  Color3:
+    any: true
+  UDim:
+    any: true
+  UDim2:
+    any: true
+  Vector2:
+    any: true
+  Enum:
+    any: true
+  Random:
+    any: true
+  task:
+    any: true
+  RBXScriptConnection:
+    any: true
+  warn:
+    any: true
