@@ -166,7 +166,7 @@ end)
 
 test("the getaway sleigh strains low, then climbs and flies forward", function()
 	expect(Cutscenes.getawaySleigh(1).Position.Y).toBeLessThan(2)
-	local final = Cutscenes.getawaySleigh(4).Position
+	local final = Cutscenes.getawaySleigh(5).Position
 	expect(final.Y).toBeGreaterThan(60)
 	expect(final.Z).toBeLessThan(-100) -- models face -Z
 end)
@@ -221,10 +221,48 @@ test("every scene starts its own music at 0 and every sound key is a Cutscene ke
 		end
 		expect(music).toBe(1)
 	end
-	-- The 17 keys the sounds thread made (12 effects + 5 music cues).
+	-- The 18 keys the sounds thread makes (13 effects + 5 music cues).
 	local count = 0
 	for _ in seen do
 		count += 1
 	end
-	expect(count).toBe(17)
+	expect(count).toBe(18)
+end)
+
+test("a cut holds the previous shot, then jumps", function()
+	local scene = Cutscenes.get("LeftBehind")
+	local before = Cutscenes.camera(scene, 0.755, FRAMES)
+	local held = Cutscenes.resolve(scene.keys[2].eye, FRAMES)
+	expect((before - held).Magnitude).toBeLessThan(1e-4)
+	local after = Cutscenes.camera(scene, 0.76, FRAMES)
+	expect((after - Cutscenes.resolve(scene.keys[3].eye, FRAMES)).Magnitude).toBeLessThan(1e-4)
+end)
+
+test("Getaway fireworks burst in the sky, after Krampus flops, while the sleigh climbs", function()
+	local scene = Cutscenes.get("Getaway")
+	local bursts = 0
+	for _, cue in scene.cues do
+		if cue.kind == "fireworks" then
+			bursts += 1
+			expect(cue.offset.Y).toBeGreaterThan(30)
+			expect(cue.at).toBeGreaterThan(2.2)
+			expect(Cutscenes.getawaySleigh(cue.at).Position.Y).toBeGreaterThan(0.5)
+		end
+	end
+	expect(bursts >= 4).toBeTruthy()
+end)
+
+test("the getaway sleigh stays on the snow until Krampus has flopped", function()
+	for t = 0, 2.25, 0.05 do
+		expect(Cutscenes.getawaySleigh(t).Position.Y).toBeLessThan(0.31)
+	end
+	expect(Cutscenes.krampusFlop(2.3, CFrame.new(0, 5, 60), Vector3.zero).Position.Y).toBeNear(5, 1e-4)
+	-- nose up, but never steeper than 18 degrees, and no jump at lift-off
+	local last = Cutscenes.getawaySleigh(2.25)
+	for t = 2.3, 5, 0.02 do
+		local deck = Cutscenes.getawaySleigh(t)
+		expect(deck.LookVector.Y).toBeLessThan(math.sin(math.rad(18)) + 1e-6)
+		expect((deck.Position - last.Position).Magnitude).toBeLessThan(4)
+		last = deck
+	end
 end)

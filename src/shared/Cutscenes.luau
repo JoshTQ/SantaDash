@@ -15,7 +15,8 @@
 		          space: "anchor" (a CFrame the server sends), "follow" (a model's
 		          pivot, e.g. the sleigh or Krampus) or "self" (the local Santa)
 		pops      big comic text { at, hold, text, color, size? }
-		cues      one-off client gags { at, kind = "sfx" | "shake" | "hatsOff" | "drop" | "marks", ... }
+		cues      one-off client gags { at, kind = "sfx" | "shake" | "hatsOff" | "drop" | "marks"
+		          | "fireworks" | "snowPuff", ... }
 		          Every scene starts its own music cue (CutsceneMusic*) at 0. Audio
 		          is made by the sounds thread (PR #9 catalogue, "Cutscenes").
 		tint      optional screen wash { color, pulse }
@@ -25,9 +26,19 @@ local Cutscenes = {}
 
 export type Space = "anchor" | "follow" | "self"
 export type Point = { space: Space, offset: Vector3 }
-export type Key = { at: number, eye: Point, look: Point, fov: number? }
+-- cut: a hard cut. The camera holds the previous key until `at`, then jumps here.
+export type Key = { at: number, eye: Point, look: Point, fov: number?, cut: boolean? }
 export type Pop = { at: number, hold: number, text: string, color: string, size: number? }
-export type Cue = { at: number, kind: string, key: string?, power: number?, hold: number? }
+-- offset/color: where (anchor space) and what colour a "fireworks" burst is.
+export type Cue = {
+	at: number,
+	kind: string,
+	key: string?,
+	power: number?,
+	hold: number?,
+	offset: Vector3?,
+	color: string?,
+}
 export type Scene = {
 	id: string,
 	seconds: number,
@@ -117,25 +128,37 @@ local SCENES: { [string]: Scene } = {
 	-- Escaping the finale on the last sleigh.
 	Getaway = {
 		id = "Getaway",
-		seconds = 4,
+		seconds = 5,
 		audience = "all",
+		-- Josh, 4 Nov: more work, fireworks. The overloaded sleigh scrapes along
+		-- the snow, Krampus leaps and belly-flops, then it heaves up into the
+		-- sky as fireworks go off over the Lair.
 		keys = {
-			{ at = 0, eye = at("follow", 14, 6, 16), look = at("follow", 0, 3, 0) },
-			{ at = 1.3, eye = at("anchor", 30, 9, 22), look = at("anchor", 0, 4, 0), fov = 70 },
-			{ at = 2.6, eye = at("anchor", 0, 6, 42), look = at("follow", 0, 0, 0), fov = 60 },
-			{ at = 4, eye = at("anchor", 0, 4, 46), look = at("follow", 0, 0, 0), fov = 55 },
+			{ at = 0, eye = at("follow", 16, 4, 10), look = at("follow", 0, 3, -4) },
+			{ at = 1.3, eye = at("follow", 18, 5, 4), look = at("follow", 0, 3, -6), fov = 65 },
+			{ at = 1.35, cut = true, eye = at("anchor", 30, 9, 22), look = at("anchor", 0, 4, 0), fov = 70 },
+			{ at = 2.4, eye = at("anchor", 26, 8, 26), look = at("anchor", 0, 4, 0), fov = 70 },
+			{ at = 2.45, cut = true, eye = at("anchor", 0, 3, 40), look = at("follow", 0, 0, 0), fov = 60 },
+			{ at = 5, eye = at("anchor", 0, 3, 44), look = at("follow", 0, 0, 0), fov = 50 },
 		},
 		pops = {
 			{ at = 0.2, hold = 0.9, text = "hnnngh!", color = "snow", size = 0.7 },
-			{ at = 2.05, hold = 0.55, text = "FLUMP!", color = "snow" },
-			{ at = 2.8, hold = 1.2, text = "LOOT x2", color = "gold", size = 1.2 },
+			{ at = 2.2, hold = 0.5, text = "FLUMP!", color = "snow" },
+			{ at = 3.3, hold = 1.6, text = "LOOT x2", color = "gold", size = 1.2 },
 		},
 		cues = {
 			{ at = 0, kind = "sfx", key = "CutsceneMusicGetaway" },
 			{ at = 0.2, kind = "sfx", key = "CutsceneStrain" },
-			{ at = 2.05, kind = "shake", power = 1, hold = 0.4 },
-			{ at = 2.05, kind = "sfx", key = "CutsceneFlump" },
-			{ at = 2.8, kind = "sfx", key = "CutsceneStamp" },
+			{ at = 0.3, kind = "shake", power = 0.2, hold = 1 },
+			{ at = 2.2, kind = "shake", power = 1, hold = 0.4 },
+			{ at = 2.2, kind = "sfx", key = "CutsceneFlump" },
+			{ at = 2.6, kind = "sfx", key = "CutsceneFireworks" },
+			{ at = 2.6, kind = "fireworks", offset = Vector3.new(-26, 36, -50), color = "gold" },
+			{ at = 3.0, kind = "fireworks", offset = Vector3.new(22, 44, -65), color = "red" },
+			{ at = 3.3, kind = "sfx", key = "CutsceneStamp" },
+			{ at = 3.3, kind = "fireworks", offset = Vector3.new(0, 52, -80), color = "mint" },
+			{ at = 3.7, kind = "fireworks", offset = Vector3.new(-30, 48, -75), color = "snow" },
+			{ at = 4.1, kind = "fireworks", offset = Vector3.new(28, 40, -55), color = "gold" },
 		},
 	},
 
@@ -169,23 +192,37 @@ local SCENES: { [string]: Scene } = {
 		id = "LeftBehind",
 		seconds = 2,
 		audience = "self",
+		-- Josh, 4 Nov: more work. Three quick shots: you shrinking from the back
+		-- of the departing sleigh, the lead reindeer's raspberry, then your face
+		-- as the sleigh's snow spray and a dropped present land on you.
 		keys = {
-			{ at = 0, eye = at("self", 2, 4, 10), look = at("follow", 0, 2, 0) },
-			{ at = 1.2, eye = at("self", 2, 4, 10), look = at("follow", 0, 2, 0) },
-			{ at = 1.4, eye = at("self", 0, 5, 12), look = at("self", 0, 2, 0) },
-			{ at = 2, eye = at("self", 0, 5, 12), look = at("self", 0, 2, 0) },
+			{ at = 0, eye = at("follow", 0, 7, 16), look = at("self", 0, 3, 0) },
+			{ at = 0.75, eye = at("follow", 0, 8, 18), look = at("self", 0, 3, 0) },
+			{
+				at = 0.76,
+				cut = true,
+				eye = at("follow", 6, 6, -24),
+				look = at("follow", 0, 5, -12),
+				fov = 55,
+			},
+			{ at = 1.25, eye = at("follow", 5, 6, -22), look = at("follow", 0, 5, -12), fov = 55 },
+			{ at = 1.26, cut = true, eye = at("self", 0, 4.5, -9), look = at("self", 0, 3, 0), fov = 65 },
+			{ at = 2, eye = at("self", 0, 4.5, -10), look = at("self", 0, 3, 0), fov = 65 },
 		},
 		pops = {
-			{ at = 0, hold = 0.7, text = "HONK HONK", color = "gold" },
-			{ at = 0.8, hold = 0.5, text = "PFFFBT!", color = "snow" },
-			{ at = 1.6, hold = 0.4, text = "Follow the path!", color = "mint", size = 0.7 },
+			{ at = 0.05, hold = 0.65, text = "HONK HONK", color = "gold" },
+			{ at = 0.8, hold = 0.45, text = "PFFFBT!", color = "snow" },
+			{ at = 1.45, hold = 0.25, text = "BONK!", color = "snow" },
+			{ at = 1.7, hold = 0.3, text = "Follow the path!", color = "mint", size = 0.7 },
 		},
 		cues = {
 			{ at = 0, kind = "sfx", key = "CutsceneMusicLeftBehind" },
-			{ at = 0, kind = "sfx", key = "CutsceneHonk" },
+			{ at = 0.05, kind = "sfx", key = "CutsceneHonk" },
 			{ at = 0.8, kind = "sfx", key = "CutsceneRaspberry" },
-			{ at = 1.2, kind = "drop" },
-			{ at = 1.6, kind = "sfx", key = "CutsceneBonk" },
+			{ at = 1.05, kind = "drop" },
+			{ at = 1.26, kind = "snowPuff" },
+			{ at = 1.45, kind = "sfx", key = "CutsceneBonk" },
+			{ at = 1.45, kind = "shake", power = 0.4, hold = 0.2 },
 		},
 	},
 }
@@ -211,6 +248,9 @@ function Cutscenes.keyPair(scene: Scene, t: number): (Key, Key, number)
 	for i = 1, #keys - 1 do
 		local a, b = keys[i], keys[i + 1]
 		if t < b.at then
+			if b.cut then
+				return a, a, 0 -- hold until the cut
+			end
 			local span = b.at - a.at
 			return a, b, if span > 0 then Cutscenes.ease((t - a.at) / span) else 1
 		end
@@ -286,6 +326,12 @@ function Cutscenes.problem(scene: Scene, maxSeconds: number): string?
 		if cue.at < 0 or cue.at > scene.seconds then
 			return scene.id .. " has a " .. cue.kind .. " cue outside the scene"
 		end
+		if cue.color and not Cutscenes.Colors[cue.color] then
+			return scene.id .. " has a " .. cue.kind .. " cue with unknown colour " .. cue.color
+		end
+		if cue.kind == "fireworks" and not cue.offset then
+			return scene.id .. " has a fireworks cue with nowhere to burst"
+		end
 	end
 	return nil
 end
@@ -314,21 +360,30 @@ function Cutscenes.krampusIntro(t: number): CFrame
 	return CFrame.Angles(math.rad(8) * math.sin(a * math.pi), 0, 0) -- leans into the roar
 end
 
--- The overloaded sleigh: strains and wobbles for 1.3 s, then shoots off up
--- and forward. Returns the deck relative to where it landed.
-local STRAIN = 1.3
+-- The overloaded sleigh scrapes along the snow until Krampus has flopped,
+-- then heaves up and away, nose up. Returns the deck relative to where it
+-- landed (models face -Z).
+local LIFT = 2.3
+local MAX_CLIMB_PITCH = math.rad(18)
 function Cutscenes.getawaySleigh(t: number): CFrame
-	if t < STRAIN then
-		local wobble = math.sin(t * 30) * 0.06
-		return CFrame.new(0, 1.2 * t / STRAIN, 0) * CFrame.Angles(0, 0, wobble)
+	if t < LIFT then
+		local a = t / LIFT
+		local hop = math.abs(math.sin(t * 9)) * 0.3 -- runners juddering under the weight
+		return CFrame.new(0, hop, -10 * a * a) * CFrame.Angles(0, 0, math.sin(t * 30) * 0.05)
 	end
-	local a = math.clamp((t - STRAIN) / 2.7, 0, 1)
-	return CFrame.new(0, 1.2 + 80 * a ^ 1.5, -160 * a) * CFrame.Angles(math.rad(12) * a, 0, 0)
+	local a = math.clamp((t - LIFT) / 2.7, 0, 1)
+	local y, z = 75 * a ^ 1.7, -10 - 150 * a ^ 1.4
+	local pitch = 0
+	if a > 0 then
+		local dy, dz = 127.5 * a ^ 0.7, 210 * a ^ 0.4 + 20 / 2.7 -- per unit a, includes the creep speed
+		pitch = math.min(math.atan2(dy, dz), MAX_CLIMB_PITCH)
+	end
+	return CFrame.new(0, y, z) * CFrame.Angles(pitch, 0, 0)
 end
 
 -- Krampus leaps for the runners and belly-flops into the snow just short of
 -- the deck. Returns his pivot at time t, from `start` towards `deck`.
-local LEAP_FROM, LEAP_UNTIL, FLOP_UNTIL = 1.3, 2.05, 2.6
+local LEAP_FROM, LEAP_UNTIL, FLOP_UNTIL = 1.4, 2.2, 2.7
 function Cutscenes.krampusFlop(t: number, start: CFrame, deck: Vector3): CFrame
 	local flat = Vector3.new(deck.X, start.Position.Y, deck.Z)
 	local toward = flat - start.Position

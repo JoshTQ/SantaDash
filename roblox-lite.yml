@@ -28,6 +28,14 @@ globals:
     any: true
   TweenInfo:
     any: true
+  NumberRange:
+    any: true
+  NumberSequenceKeypoint:
+    any: true
+  NumberSequence:
+    any: true
+  ColorSequence:
+    any: true
   task:
     any: true
   RBXScriptConnection:

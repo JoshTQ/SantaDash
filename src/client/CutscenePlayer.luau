@@ -176,6 +176,71 @@ local function dropPresent(state)
 	end)
 end
 
+-- A one-shot particle burst at a world position (fireworks, snow spray).
+local function burst(state, position: Vector3, color: Color3, options: { [string]: any })
+	local holder = Instance.new("Part")
+	holder.Transparency = 1
+	holder.Anchored = true
+	holder.CanCollide = false
+	holder.CanQuery = false
+	holder.Size = Vector3.one
+	holder.Position = position
+	holder.Parent = workspace
+	table.insert(state.props, holder)
+
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Enabled = false
+	emitter.Color = ColorSequence.new(color)
+	emitter.LightEmission = options.glow or 0
+	emitter.Speed = options.speed
+	emitter.SpreadAngle = Vector2.new(180, 180)
+	emitter.Lifetime = options.lifetime
+	emitter.Drag = options.drag or 1.5
+	emitter.Acceleration = Vector3.new(0, options.gravity or -12, 0)
+	emitter.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, options.size),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	emitter.Parent = holder
+	emitter:Emit(options.count)
+
+	if options.glow then
+		local flash = Instance.new("PointLight")
+		flash.Color = color
+		flash.Range = 60
+		flash.Brightness = 6
+		flash.Parent = holder
+		TweenService:Create(flash, TweenInfo.new(0.8), { Brightness = 0 }):Play()
+	end
+end
+
+-- Getaway: a firework bursts in the sky above the Lair.
+local function firework(state, at: Vector3, colorName: string?)
+	local color = Cutscenes.Colors[colorName or "gold"] or Cutscenes.Colors.gold
+	burst(state, at, color, {
+		speed = NumberRange.new(30, 45),
+		lifetime = NumberRange.new(0.9, 1.4),
+		size = 1.2,
+		count = 140,
+		glow = 1,
+		drag = 2.5,
+	})
+end
+
+-- Left Behind: the departing sleigh sprays this Santa with snow.
+local function snowPuff(state)
+	local root = Util.rootOf(player)
+	if root then
+		burst(state, root.Position + Vector3.new(0, 2, 0), Cutscenes.Colors.snow, {
+			speed = NumberRange.new(8, 18),
+			lifetime = NumberRange.new(0.5, 0.9),
+			size = 1.6,
+			count = 70,
+			gravity = -30,
+		})
+	end
+end
+
 -- Numbered glowing markers over each Sleigh Stop during the Takeoff swoop.
 local function showMarks(state, marks: { Vector3 }?, hold: number)
 	for i, position in marks or {} do
@@ -296,6 +361,10 @@ function CutscenePlayer.play(data)
 				hatsOff(state, eye)
 			elseif cue.kind == "drop" then
 				dropPresent(state)
+			elseif cue.kind == "fireworks" and cue.offset then
+				firework(state, data.anchor:PointToWorldSpace(cue.offset), cue.color)
+			elseif cue.kind == "snowPuff" then
+				snowPuff(state)
 			elseif cue.kind == "marks" then
 				showMarks(state, data.marks, cue.hold or 2)
 			end
