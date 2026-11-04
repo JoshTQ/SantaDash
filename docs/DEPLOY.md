@@ -61,84 +61,49 @@ For each experience:
    **Run**. For Staging, add a third place called **EngineTests**.
 3. Home > Game Settings > Security: turn on **Enable Studio Access to API
    Services** (for MemoryStore in Studio playtests).
-4. Write down the ids. In the Creator Dashboard, open the experience: the
-   **universe id** is in the URL (`/dashboard/creations/experiences/<universe id>/overview`).
-   Places > each place > the **place id** is in its URL and in the "..." menu
-   (Copy Place ID).
+4. Write down the ids (see "Which id is which" below).
 
-Fill in this table as you go:
+#### Which id is which
 
-| | Universe id | Lobby place id | Run place id | EngineTests place id |
-| --- | --- | --- | --- | --- |
-| Staging | | | | |
-| Live | | | | n/a |
+"Experience" and "universe" are the same thing on Roblox: one experience id,
+plus one place id per place.
 
-### 3. Create the Open Cloud API key
-
-Creator Dashboard > **Open Cloud > API Keys** > **Create API Key** (for a
-group-owned game, switch to the group at the top left first).
-
-- **Name**: `github-actions-santadash`
-- **Access permissions**, add these API systems, each restricted to *both*
-  experiences:
-
-  | API system | Operations | Used for |
-  | --- | --- | --- |
-  | `universe-places` | Write | Publishing the places |
-  | `luau-execution-sessions` | Write (and Read if offered) | Smoke test and engine tests |
-  | `universe` | Write | Optional: restarting servers after a deploy |
-  | `asset` | Read, Write | Uploading models (Meshy workflow) and sounds |
-
-- **Security**: leave **Restrict IP addresses off** (GitHub's runners have no
-  fixed IP; a restricted key fails with 401/403).
-- **Expiration**: set one (for example 90 days) and a calendar reminder.
-  Unused keys expire on their own after 60 days.
-
-Copy the key once it's shown; Roblox won't show it again.
-
-Want production to need a separate key? Create a second key restricted to the
-live experience only, and add it as the `ROBLOX_API_KEY` secret on the
-`production` environment (step 5); it overrides the repo-wide one there.
-
-### 4. Repo secret and variables (Settings > Secrets and variables > Actions)
-
-| Kind | Name | Value |
-| --- | --- | --- |
-| Secret | `ROBLOX_API_KEY` | the key from step 3 |
-| Variable | `ROBLOX_UNIVERSE_ID` | Staging universe id (for the engine tests) |
-| Variable | `ROBLOX_PLACE_ID` | Staging **EngineTests** place id |
-| Variable | `DEPLOY_ENABLED` | `true` (only once step 5 is done; until then deploys are skipped and main stays green) |
-| Variable | `PRODUCTION_ENABLED` | `true` only once the live experience is set up; until then nothing deploys past Staging |
-
-`ROBLOX_UNIVERSE_ID` and `ROBLOX_PLACE_ID` are the same variables the CI
-workflow's engine job uses, so setting them also turns on the in-engine tests
-on every pull request.
-
-### 5. GitHub environments
-
-Staging only for now: create **staging** and leave out **production** and
-`PRODUCTION_ENABLED`. Every deploy then stops after Staging. When the live
-experience exists, add the production environment below and set the repo
-variable `PRODUCTION_ENABLED` to `true`.
-
-### 5a. The two environments (Settings > Environments > New environment)
-
-**staging**, with these environment variables:
-
-| Variable | Value |
+| Id | Where to find it |
 | --- | --- |
-| `UNIVERSE_ID` | Staging universe id |
-| `LOBBY_PLACE_ID` | Staging Lobby place id |
-| `RUN_PLACE_ID` | Staging Run place id |
+| **Universe id** (= experience id) | create.roblox.com > Creations > click the experience. The number in the URL: `.../experiences/`**`1234567890`**`/overview` |
+| **Place id** (one per place) | Same page > **Places** in the left menu > click a place. The number in that URL. Or in Studio: Asset Manager > Places > right-click the place > Copy ID |
 
-**production**, with the same three variables for the live experience, and:
+### 4. GitHub secret and variables
 
+At **Settings > Secrets and variables > Actions** (repo level, no
+environments needed for Staging):
+
+| Tab | Name | Value |
+| --- | --- | --- |
+| Secrets | `ROBLOX_API_KEY` | the key from step 3 |
+| Variables | `ROBLOX_UNIVERSE_ID` | Staging universe id |
+| Variables | `ROBLOX_LOBBY_PLACE_ID` | Staging **Lobby** place id |
+| Variables | `ROBLOX_RUN_PLACE_ID` | Staging **Run** place id |
+| Variables | `ROBLOX_TEST_PLACE_ID` | Staging **EngineTests** place id |
+| Variables | `DEPLOY_ENABLED` | `true` |
+
+That's all Staging needs. Deploys stop at Staging until `PRODUCTION_ENABLED`
+is set (step 5).
+
+### 5. Later: the live experience
+
+When the live experience exists, add an environment at **Settings >
+Environments > New environment** called **production** with:
+
+- Environment variables `ROBLOX_UNIVERSE_ID`, `ROBLOX_LOBBY_PLACE_ID` and
+  `ROBLOX_RUN_PLACE_ID` set to the **live** ids. They override the repo
+  (Staging) values for the production deploy only.
 - **Required reviewers**: add yourself. Every live deploy then waits for you
   to press Approve in the Actions run.
 - **Deployment branches and tags**: "Selected branches and tags", add `main`
   and the tag pattern `v*`, so nothing else can reach the live game.
 
-Then set `DEPLOY_ENABLED` to `true` (step 4).
+Then add the repo variable `PRODUCTION_ENABLED` = `true`.
 
 ### 6. First deploy
 
@@ -190,8 +155,8 @@ handoff (`Shared/Handoff.luau`) backwards compatible, or restart.
 | `403` on `luau-execution-session-tasks` | Add `luau-execution-sessions` Write to the key for that experience |
 | "contains instances Open Cloud can't publish" | Re-export that model without SurfaceAppearance/unions (colour texture only), or publish that once from Studio |
 | "Smoke test: N module(s) failed to load" | A module errors when required in a real server; the log lists which and why |
-| "place ids don't match" | The environment's `LOBBY_PLACE_ID` / `RUN_PLACE_ID` are swapped or from another experience |
-| "must be set to a numeric id" | An environment variable is missing on that GitHub environment |
+| "place ids don't match" | `ROBLOX_LOBBY_PLACE_ID` / `ROBLOX_RUN_PLACE_ID` are swapped or from another experience |
+| "must be set to a numeric id" | A variable from step 4 (or the production environment) is missing |
 
 ## Audio
 

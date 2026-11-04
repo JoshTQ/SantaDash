@@ -74,7 +74,7 @@ jobs:
 
       - name: Check the test place is configured
         env:
-          HAS_VARS: ${{ vars.ROBLOX_UNIVERSE_ID != '' && vars.ROBLOX_PLACE_ID != '' }}
+          HAS_VARS: ${{ vars.ROBLOX_UNIVERSE_ID != '' && (vars.ROBLOX_TEST_PLACE_ID || vars.ROBLOX_PLACE_ID) != '' }}
         run: |
           if [ "$HAS_VARS" = "true" ] && [ -f tools/ocale.luau ]; then
             echo "CONFIGURED=true" >> "$GITHUB_ENV"
@@ -84,7 +84,7 @@ jobs:
 
       - name: Say why the engine tests are skipped
         if: env.CONFIGURED != 'true'
-        run: echo "::notice::Engine tests skipped (needs tools/ocale.luau plus vars ROBLOX_UNIVERSE_ID and ROBLOX_PLACE_ID; docs/DEPLOY.md step 4)"
+        run: echo "::notice::Engine tests skipped (needs tools/ocale.luau plus vars ROBLOX_UNIVERSE_ID and ROBLOX_TEST_PLACE_ID; docs/DEPLOY.md)"
 
       - name: Install Rokit and the pinned tools
         if: env.CONFIGURED == 'true'
@@ -100,7 +100,7 @@ jobs:
         env:
           ROBLOX_API_KEY: ${{ secrets.ROBLOX_API_KEY }}
           ROBLOX_UNIVERSE_ID: ${{ vars.ROBLOX_UNIVERSE_ID }}
-          ROBLOX_PLACE_ID: ${{ vars.ROBLOX_PLACE_ID }}
+          ROBLOX_PLACE_ID: ${{ vars.ROBLOX_TEST_PLACE_ID || vars.ROBLOX_PLACE_ID }}
         run: |
           wally install
           lune run tools/prepare-engine
@@ -132,9 +132,11 @@ jobs:
       - name: Smoke test and publish to the Staging experience
         env:
           ROBLOX_API_KEY: ${{ secrets.ROBLOX_API_KEY }}
-          UNIVERSE_ID: ${{ vars.UNIVERSE_ID }}
-          LOBBY_PLACE_ID: ${{ vars.LOBBY_PLACE_ID }}
-          RUN_PLACE_ID: ${{ vars.RUN_PLACE_ID }}
+          # Repo variables point at Staging. The production environment
+          # overrides the same three names with the live experience's ids.
+          UNIVERSE_ID: ${{ vars.ROBLOX_UNIVERSE_ID }}
+          LOBBY_PLACE_ID: ${{ vars.ROBLOX_LOBBY_PLACE_ID }}
+          RUN_PLACE_ID: ${{ vars.ROBLOX_RUN_PLACE_ID }}
         # Staging always restarts its servers so testers land on the new build.
         run: lune run tools/deploy staging --restart ${{ inputs.skip_smoke && '--no-smoke' || '' }}
 
@@ -168,9 +170,11 @@ jobs:
       - name: Smoke test and publish to the live experience
         env:
           ROBLOX_API_KEY: ${{ secrets.ROBLOX_API_KEY }}
-          UNIVERSE_ID: ${{ vars.UNIVERSE_ID }}
-          LOBBY_PLACE_ID: ${{ vars.LOBBY_PLACE_ID }}
-          RUN_PLACE_ID: ${{ vars.RUN_PLACE_ID }}
+          # Repo variables point at Staging. The production environment
+          # overrides the same three names with the live experience's ids.
+          UNIVERSE_ID: ${{ vars.ROBLOX_UNIVERSE_ID }}
+          LOBBY_PLACE_ID: ${{ vars.ROBLOX_LOBBY_PLACE_ID }}
+          RUN_PLACE_ID: ${{ vars.ROBLOX_RUN_PLACE_ID }}
         run: >-
           lune run tools/deploy production
           ${{ inputs.restart_servers && '--restart' || '' }}
