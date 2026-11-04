@@ -17,7 +17,13 @@ jobs:
         run: |
           curl -sSf https://raw.githubusercontent.com/rojo-rbx/rokit/main/scripts/install.sh | bash
           echo "$HOME/.rokit/bin" >> "$GITHUB_PATH"
-          "$HOME/.rokit/bin/rokit" install --no-trust-check
+          # Authenticated, and retried: parallel jobs can hit GitHub's API rate limit.
+          "$HOME/.rokit/bin/rokit" authenticate github --token "$GITHUB_TOKEN" || true
+          for attempt in 1 2 3; do
+            "$HOME/.rokit/bin/rokit" install --no-trust-check && break
+            [ "$attempt" = 3 ] && exit 1
+            sleep $((attempt * 10))
+          done
 
       - name: Format (StyLua)
         run: stylua --check src tests
@@ -75,7 +81,13 @@ jobs:
         run: |
           curl -sSf https://raw.githubusercontent.com/rojo-rbx/rokit/main/scripts/install.sh | bash
           echo "$HOME/.rokit/bin" >> "$GITHUB_PATH"
-          "$HOME/.rokit/bin/rokit" install --no-trust-check
+          # Authenticated, and retried: parallel jobs can hit GitHub's API rate limit.
+          "$HOME/.rokit/bin/rokit" authenticate github --token "$GITHUB_TOKEN" || true
+          for attempt in 1 2 3; do
+            "$HOME/.rokit/bin/rokit" install --no-trust-check && break
+            [ "$attempt" = 3 ] && exit 1
+            sleep $((attempt * 10))
+          done
 
       - name: Cache the coverage instrumenter
         uses: actions/cache@v4
