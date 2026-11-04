@@ -89,6 +89,19 @@ tiers). To give a key real audio, either:
   from the catalogue), or
 - set its `id` in `Sounds.luau` to a Roblox audio asset id.
 
+**Ready-made audio:** `assets/audio/<Key>.ogg` has an original cartoon sound
+for every key, made from code by `tools/audio/synth.py` (re-run it to
+regenerate). Upload them one of two ways:
+
+- `ROBLOX_API_KEY=... ROBLOX_USER_ID=... python3 tools/audio/upload.py`
+  uploads each file with Open Cloud (key needs Assets read/write) and writes
+  the new ids into `Sounds.luau`. Re-running skips keys that have an id.
+- Or in Studio: Asset Manager > Bulk Import the .ogg files, insert each one,
+  and drop the Sounds into `ReplicatedStorage.SoundAssets` (names already match).
+
+Roblox moderates audio uploads and caps how many you can upload a month, so
+do Tier 1 first.
+
 Keys with neither are silent (Studio prints one warning each with what to
 search for), so the game runs before every sound is picked. Use the Creator
 Store's Audio tab filtered to the **Roblox** creator so the audio is free and
