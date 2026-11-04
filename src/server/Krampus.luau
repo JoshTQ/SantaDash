@@ -14,6 +14,7 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local Cutscenes = require(ReplicatedStorage.Shared.Cutscenes)
 local SoundPlayer = require(ReplicatedStorage.Shared.SoundPlayer)
 local Util = require(ReplicatedStorage.Shared.Util)
 local KrampusBrain = require(script.Parent.KrampusBrain)
@@ -53,7 +54,8 @@ local function buildBody(parent: Instance, spawn: CFrame): MapBuilder.KrampusBod
 	return MapBuilder.buildKrampus(parent, spawn)
 end
 
-function Krampus.new(run, stop)
+-- holdSeconds: how long he stands still on arrival (warning or intro cutscene).
+function Krampus.new(run, stop, holdSeconds: number?)
 	local self = setmetatable({}, Krampus)
 	self.run = run
 	self.stop = stop
@@ -71,7 +73,7 @@ function Krampus.new(run, stop)
 	self.wiggles = 0
 	self.ignore = {} :: { [Player]: number }
 	local t = Util.now()
-	self.stunnedUntil = t + K.WarningSeconds -- stands still while the warning shows
+	self.stunnedUntil = t + (holdSeconds or K.WarningSeconds) -- stands still while the warning shows
 	self.lastBellAt = -math.huge
 	self.alive = true
 	-- His bells give him away: a 3D loop on his body that everyone nearby hears.
@@ -100,6 +102,52 @@ function Krampus.new(run, stop)
 		end
 	end)
 	return self
+end
+
+----------------------------------------------------------------------------
+-- Cutscene choreography (the camera side lives in CutscenePlayer)
+----------------------------------------------------------------------------
+
+-- Drives his pivot from a pure path (Cutscenes.krampusIntro / krampusFlop)
+-- for `seconds`, anchored so the Humanoid can't fight it.
+function Krampus:_puppet(seconds: number, pivotAt: (t: number) -> CFrame, keepAnchored: boolean?)
+	local root = self.body.root
+	root.Anchored = true
+	local started = os.clock()
+	local connection
+	connection = RunService.Heartbeat:Connect(function()
+		if not self.alive then
+			connection:Disconnect()
+			return
+		end
+		local t = os.clock() - started
+		self.body.model:PivotTo(pivotAt(math.min(t, seconds)))
+		if t >= seconds then
+			connection:Disconnect()
+			if not keepAnchored then
+				root.Anchored = false
+			end
+		end
+	end)
+end
+
+-- KrampusArrives: tiptoe in from behind his spawn, clonk, roar.
+function Krampus:playIntro(seconds: number)
+	local spawn = self.stop.krampusSpawn
+	self:_puppet(seconds, function(t)
+		return spawn * Cutscenes.krampusIntro(t)
+	end)
+end
+
+-- Getaway: he gives up the hunt, leaps for the sleigh and belly-flops.
+function Krampus:playFlop(seconds: number, deck: Vector3)
+	self:release()
+	self.stunnedUntil = math.huge
+	self.mover:stop()
+	local start = self.body.model:GetPivot()
+	self:_puppet(seconds, function(t)
+		return Cutscenes.krampusFlop(t, start, deck)
+	end, true)
 end
 
 function Krampus:destroy()

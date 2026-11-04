@@ -17,7 +17,7 @@ Config.Run = {
 	LightsOnAt = 45, -- 0:00-0:45 sneak phase, then lights come on and Heat rises
 	HornAt = 90, -- horn blasts at 1:30: 30 s to get back on
 	FlightSeconds = 5, -- sleigh hop between roofs (take-off is 0:00-0:05)
-	FlightArcHeight = 60,
+	FlightArcHeight = 60, -- cruise height; SleighFlight does the ground run, climb and glide
 	ResultsSeconds = 10,
 	RequeueSeconds = 5, -- "Next run in 5..." auto-requeue
 }
@@ -190,7 +190,9 @@ Config.Krampus = {
 	TeaseFrom = 1,
 	TeaseAt = 30, -- seconds into a stop
 	ArriveAt = 45, -- seconds into an automatic stop (with the lights)
-	WarningSeconds = 3, -- "KRAMPUS IS COMING" before he appears
+	-- He stands still this long when he arrives: the KrampusArrives cutscene
+	-- (4 s) plus Config.Cutscenes.KrampusGrace. Without cutscenes, a 3 s warning.
+	WarningSeconds = 3,
 	WalkSpeed = 14, -- slower than a Santa (16), so running works
 	CarrySpeed = 10,
 	SenseRange = 70, -- sees and sniffs players this close, unless hidden
@@ -252,6 +254,14 @@ Config.MapEvents = {
 			SplatMarkSeconds = 2, -- the blue splat decal where a snowball lands
 		},
 	},
+}
+
+-- Short slapstick cutscenes (src/shared/Cutscenes.luau). Josh, 2 Nov 2026:
+-- all five, one version each that plays every time; any player can skip.
+Config.Cutscenes = {
+	Enabled = true,
+	MaxSeconds = 5, -- no scene runs longer than this
+	KrampusGrace = 2, -- seconds Krampus still waits after his intro ends
 }
 
 -- Elf bots fill in for missing friends in solo runs (game-design.md "Solo").

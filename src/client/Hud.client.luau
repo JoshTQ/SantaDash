@@ -2,7 +2,7 @@
 	Greybox HUD: stop timer and phase, Jingle, sack, noise meter, banners,
 	sleigh queue, Krampus bells, hiding (breath), snatched (wiggle) and the
 	results screen, and random map events (event chip, Blizzard fog and snow,
-	snowballs, splats). Plain frames, no art.
+	snowballs, splats). Plain frames, no art. Cutscenes play in CutscenePlayer.
 ]]
 
 local ContextActionService = game:GetService("ContextActionService")
@@ -13,6 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Util = require(ReplicatedStorage.Shared.Util)
+local CutscenePlayer = require(script.Parent:WaitForChild("CutscenePlayer"))
 
 local player = Players.LocalPlayer
 local hud = Remotes.get("Hud")
@@ -449,7 +450,12 @@ function handlers.Splat(data)
 	splatLabel.Text = "SPLAT! (" .. data.by .. ")"
 end
 
+function handlers.Cutscene(data)
+	CutscenePlayer.play(data)
+end
+
 function handlers.RunEnd()
+	CutscenePlayer.stop()
 	handlers.MapEvent({})
 	handlers.Weather({})
 	handlers.Snowballs({ count = 0 })

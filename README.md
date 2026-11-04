@@ -254,6 +254,8 @@ specs by hand, build the test place, open it in Studio, and run
 ```
 src/shared/Config.luau        every tuning number
 src/shared/Remotes.luau       RemoteEvents (Hud, LeaveCrew, Input)
+src/shared/Cutscenes.luau     the five short cutscenes: timing, camera keys, text pops, gags
+src/shared/SleighFlight.luau  sleigh flight path: ground run, climb, banked cruise, glide, touch-down
 src/shared/Util.luau          clock, character helpers, weighted pick
 src/shared/Sounds.luau        sound catalogue and pure cue rules (leave warning, noise, heartbeat)
 src/shared/SoundPlayer.luau   plays catalogue sounds (3D on server, 2D on client)
@@ -282,6 +284,7 @@ src/server/Parts.luau         shared anchored-part helper for the builders
 src/server/Loot.luau          pure House Card rolls, stop plans, loot and results
 src/client/Hud.client.luau    timer, Jingle, sack, noise, bells, breath, wiggle, queue, results
 src/client/Audio.client.luau  music, sleigh countdown, Krampus heartbeat, loot and UI sounds
+src/client/CutscenePlayer.luau plays a cutscene locally: letterbox, camera, pops, Skip
 tests/runner.luau             Lune test runner (tests/coverage.luau: coverage reports)
 tests/unit, tests/integration, tests/regression   Lune specs
 tests/engine                  Jest Roblox specs (in-engine tier)

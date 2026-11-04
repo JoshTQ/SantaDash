@@ -3,7 +3,7 @@
 
 	Hud (server -> client): fire(kind: string, data: table). Kinds:
 		Queue, QueueClear, Stop, Banner, Noise, Player, Results, RunEnd,
-		Krampus, KrampusTease, Hide, Captive, MapEvent, Weather, Snowballs, Splat
+		Krampus, KrampusTease, Hide, Captive, MapEvent, Weather, Snowballs, Splat, Cutscene
 	LeaveCrew (client -> server): leave the queue or the current run.
 	Input (client -> server): "Tap" (breath / wiggle), "Unhide" or "Throw" (snowball).
 ]]

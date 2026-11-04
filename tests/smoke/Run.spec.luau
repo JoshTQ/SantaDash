@@ -295,6 +295,11 @@ describe("Krampus in his Lair", function()
 			engine.trigger(spot.prompt, santa)
 			expect(run.players[santa].hidden).toBe(spot)
 			run:onInput(santa, "Tap")
+			-- Let his KrampusArrives intro finish first: it drives his pivot.
+			local intro = world.load("ReplicatedStorage.Shared.Cutscenes").get("KrampusArrives")
+			if world.load("ReplicatedStorage.Shared.Config").Cutscenes.Enabled and intro then
+				world.wait(intro.seconds + 0.25)
+			end
 			-- Park Krampus next to the wardrobe.
 			local krampus = run.krampus
 			krampus.stunnedUntil = math.huge
