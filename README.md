@@ -167,7 +167,8 @@ for the report. Filter by file name: `lune run tests/runner Loot`.
 | Regression | `tests/regression` | Every call Josh has signed off (`DesignCalls`), bugs from the soak test (`Bugs`), and physics/hazard bugs (`Physics`: corgi knockback, re-grabs, roofs, walking on the lake). Add a test here for each new call and each bug fix |
 | Static | | `stylua --check src tests`, `selene src`, `rojo build` |
 | Render budget | `tests/integration/RenderBudget.spec.luau` | Parts, lights, prompts per route; everything anchored; no shadow-casting lights, neon or tiny parts; untouchable dressing; streaming pinned off |
-| In-engine (E2E) | `tests/engine` | Jest Roblox in a real Roblox server with real physics: Humanoid rigs (`Rig.luau`) for knockback, skating on Ice, root height for splashes, the floe hop; Frozen Canal Town raycast for holes and pathfound (Krampus to the sleigh, the walk between stops); a seated sleigh ride that lands; placement of approved models; a whole empty-crew run. CI `engine` job (Open Cloud); see below |
+| In-engine (E2E) | `tests/engine` | Jest Roblox in a real Roblox server: Frozen Canal Town raycast for holes and pathfound (Krampus to the sleigh, the walk between stops), the phone budget, a seated sleigh ride, placement of approved models, a whole empty-crew run. CI `engine` job (Open Cloud); see below. **Open Cloud servers don't simulate physics** (no Stepped, nothing falls), so physics specs live in `tests/studio` |
+| Studio physics | `tests/studio` | Humanoid rigs (`tests/engine/Rig.luau`) under real physics: knockback moves a body, skating on Ice, root height for splashes, the floe hop, standing on the landed sleigh. Run in Studio Play mode (`docs/PLAYTEST.md` step 0) |
 | Manual | `docs/PLAYTEST.md` | What only real players can test: client-owned physics, the HUD and touch controls, place-to-place teleports. A 2-player Studio script and a phone check |
 
 CI (`.github/workflows/ci.yml`) runs all of it on every pull request.

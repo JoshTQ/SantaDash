@@ -11,6 +11,17 @@ Cloud servers have **no clients**, so these still need a person:
 About 20 minutes. Do it on Staging after any change to physics, controls,
 the HUD or the map, and once on a phone before launch.
 
+## 0. Studio physics specs (2 min)
+
+Open Cloud test servers don't simulate physics, so the physics specs
+(`tests/studio`) run in Studio:
+
+1. `wally install && lune run tools/prepare-engine && rojo build test.project.json -o build/engine-tests.rbxl`
+   (or open the EngineTests place, which CI saves on every run).
+2. Open it in Studio, press **Run** (F8, server only: physics on, no character).
+3. Command bar: `print(require(game.ReplicatedStorage.RunTests)("StudioTests"))`
+4. Expect `"success":true`. Paste the Output into the thread if not.
+
 ## 1. Studio, 2 players (15 min)
 
 Studio > Test > Clients and Servers > **2 players**, Run place

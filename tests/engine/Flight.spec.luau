@@ -1,7 +1,8 @@
 --[[
 	The sleigh ride in a real server: a rider is carried in their seat along
-	the whole flight, lands aboard, and stays standing on the sleigh with
-	real gravity once they're let go.
+	the whole flight and is let go aboard the landed sleigh. (Open Cloud
+	servers don't simulate physics, so standing on it afterwards under gravity
+	is checked in tests/studio.)
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -18,7 +19,7 @@ local Run = require(ServerStorage.Server.Run)
 local Rig = require(script.Parent.Rig)
 
 describe("sleigh flight", function()
-	it("carries a rider seat-to-seat and they land standing aboard", function()
+	it("carries a rider seat-to-seat and lets them go aboard", function()
 		Remotes.init()
 		local run = Run.new(8, {}, function() end)
 		local from = run.route.startDeck
@@ -47,12 +48,6 @@ describe("sleigh flight", function()
 		expect(run.deck).toEqual(to)
 		expect(santa.root.Anchored).toBe(false)
 		expect(MapBuilder.isAboard(to, santa.root.Position)).toBe(true)
-
-		-- Real gravity now: they stay on the sleigh, not through it.
-		task.wait(1.5)
-		expect(MapBuilder.isAboard(to, santa.root.Position)).toBe(true)
-		expect(santa.root.Position.Y).toBeGreaterThan(to.Position.Y - 1)
-		expect(santa.root.CFrame.UpVector.Y).toBeGreaterThan(0.7)
 
 		run:_finish()
 	end, 90000)

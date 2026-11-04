@@ -17,6 +17,9 @@
       "EngineTests": {
         "$path": "tests/engine"
       },
+      "StudioTests": {
+        "$path": "tests/studio"
+      },
       "RunTests": {
         "$path": "tests/engine-support/RunTests.luau"
       },

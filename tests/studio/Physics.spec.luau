@@ -3,6 +3,11 @@
 	that moves a body, FloorMaterial for skating, how high a Humanoid's root
 	really rides (the splash and hazard-reach maths depend on it), and the
 	floe hop with real collisions.
+
+	STUDIO ONLY. Open Cloud test servers don't simulate physics (checked
+	4 Nov 2026: RunService:IsRunning() is false, Stepped never fires, an
+	unanchored part never falls, and StepPhysics/Run need Plugin capability),
+	so these run in Studio Play mode. See docs/PLAYTEST.md.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,7 +22,7 @@ local Util = require(ReplicatedStorage.Shared.Util)
 local CanalRules = require(ServerStorage.Server.CanalRules)
 local CanalTown = require(ServerStorage.Server.CanalTown)
 local Knockback = require(ServerStorage.Server.Knockback)
-local Rig = require(script.Parent.Rig)
+local Rig = require(ReplicatedStorage.EngineTests.Rig)
 
 local made: { Instance } = {}
 local function pad(size: Vector3?, material: Enum.Material?): (Folder, Vector3)
