@@ -134,3 +134,11 @@ src/client/Hud.client.luau    timer, Jingle, sack, noise, bells, breath, wiggle,
 tests/runner.luau             Lune test runner
 tests/unit, tests/integration specs
 ```
+
+## Deploy
+
+CI publishes the game to Roblox (Lobby and Run places, staging then live)
+through Open Cloud: `.github/workflows/deploy.yml`, set up once with
+[docs/DEPLOY.md](docs/DEPLOY.md). Because a deploy replaces the whole place,
+approved models must be committed as `.rbxm` files in `assets/models/`, not
+only dropped into `ServerStorage.Assets` in Studio.

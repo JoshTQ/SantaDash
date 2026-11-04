@@ -1,0 +1,28 @@
+{
+  "name": "SleighHeist",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Shared": {
+        "$path": "build/deploy-src/shared"
+      }
+    },
+    "ServerScriptService": {
+      "Server": {
+        "$path": "build/deploy-src/server"
+      }
+    },
+    "ServerStorage": {
+      "Assets": {
+        "$path": "assets/models"
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "Client": {
+          "$path": "build/deploy-src/client"
+        }
+      }
+    }
+  }
+}
