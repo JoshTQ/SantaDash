@@ -160,7 +160,15 @@ local DEFAULTS = {
 		return { Disabled = false }
 	end,
 	Humanoid = function()
-		return { WalkSpeed = 16, JumpPower = 50, Health = 100, MaxHealth = 100 }
+		return {
+			WalkSpeed = 16,
+			JumpPower = 50,
+			Health = 100,
+			MaxHealth = 100,
+			HipHeight = 2,
+			RigType = Enum.HumanoidRigType.R15,
+			FloorMaterial = Enum.Material.Air,
+		}
 	end,
 	ProximityPrompt = function()
 		return {

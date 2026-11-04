@@ -9,8 +9,10 @@ local ContextActionService = game:GetService("ContextActionService")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local HudLayout = require(ReplicatedStorage.Shared.HudLayout)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Util = require(ReplicatedStorage.Shared.Util)
 local CutscenePlayer = require(script.Parent:WaitForChild("CutscenePlayer"))
@@ -30,6 +32,23 @@ local gui = Instance.new("ScreenGui")
 gui.Name = "SleighHeistHud"
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
+
+-- Phones: scale the HUD to the screen, keep out of the thumbstick and jump
+-- button corners (HudLayout).
+local uiScale = Instance.new("UIScale")
+uiScale.Parent = gui
+local touch = UserInputService.TouchEnabled == true
+local spots = HudLayout.spots(touch)
+local lastViewport: Vector2? = nil
+local function fitToScreen()
+	local camera = workspace.CurrentCamera
+	local viewport = camera and camera.ViewportSize
+	if viewport ~= lastViewport then
+		lastViewport = viewport
+		uiScale.Scale = HudLayout.scale(viewport)
+	end
+end
+fitToScreen()
 
 local function label(parent: Instance, size: UDim2, position: UDim2, textSize: number?): TextLabel
 	local l = Instance.new("TextLabel")
@@ -166,8 +185,9 @@ local queueLabel = label(queuePanel, UDim2.new(1, 0, 0, 50), UDim2.fromOffset(0,
 queueLabel.TextWrapped = true
 button(queuePanel, "Leave crew", UDim2.fromOffset(160, 34), UDim2.new(0.5, -80, 0, 58), leave)
 
--- Bottom left: quit the run back to the hub.
-local quitButton = button(gui, "Back to hub", UDim2.fromOffset(130, 30), UDim2.new(0, 12, 1, -42), leave)
+-- Top left, under the stats: quit the run back to the hub (never in the
+-- bottom-left, where a phone's thumbstick is).
+local quitButton = button(gui, "Back to hub", UDim2.fromOffset(130, 30), spots.quit, leave)
 quitButton.Visible = false
 
 -- Under the stop timer: the running map event and its countdown.
@@ -175,8 +195,9 @@ local eventPanel = panel(UDim2.fromOffset(240, 34), UDim2.new(0.5, 0, 0, 98), Ve
 eventPanel.BackgroundColor3 = Color3.fromRGB(60, 110, 170)
 local eventLabel = label(eventPanel, UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), 22)
 
--- Bottom right: snowballs and the throw button (F / R2 / tap).
-local snowPanel = panel(UDim2.fromOffset(170, 96), UDim2.new(1, -12, 1, -110), Vector2.new(1, 0))
+-- Bottom right (above the jump button on phones): snowballs and the throw
+-- button (F / R2 / tap).
+local snowPanel = panel(UDim2.fromOffset(170, 96), spots.snow, Vector2.new(1, 0))
 local snowLabel = label(snowPanel, UDim2.new(1, 0, 0, 30), UDim2.fromOffset(0, 4), 22)
 button(snowPanel, "THROW (F)", UDim2.new(1, -20, 0, 50), UDim2.fromOffset(10, 38), function()
 	input:FireServer("Throw")
@@ -214,6 +235,7 @@ local tapMode = false -- hiding or snatched
 local eventEndsAt: number? = nil
 local eventName = ""
 local savedFog: { any }? = nil -- Lighting fog before a weather event
+local savedAtmosphere: { [string]: any }? = nil -- and the Atmosphere's look
 local snowfall: BasePart? = nil -- follows the camera while it snows
 local splatUntil = 0
 
@@ -391,12 +413,28 @@ end
 -- Local-only weather, so other crews' runs in the same server are untouched.
 function handlers.Weather(data)
 	if data.kind == "Blizzard" then
+		-- Roblox ignores Lighting fog while an Atmosphere exists (the night
+		-- sky has one), so thicken that; plain fog covers places without it.
+		local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
 		if not savedFog then
 			savedFog = { Lighting.FogStart, Lighting.FogEnd, Lighting.FogColor }
+			if atmosphere then
+				savedAtmosphere = {
+					atmosphere = atmosphere,
+					Density = atmosphere.Density,
+					Haze = atmosphere.Haze,
+					Color = atmosphere.Color,
+				}
+			end
 		end
 		Lighting.FogStart = 0
 		Lighting.FogEnd = data.fogEnd
 		Lighting.FogColor = data.fogColor
+		if atmosphere then
+			atmosphere.Density = data.density or atmosphere.Density
+			atmosphere.Haze = data.haze or atmosphere.Haze
+			atmosphere.Color = data.fogColor
+		end
 		if not snowfall then
 			local part = Instance.new("Part")
 			part.Name = "Snowfall"
@@ -406,7 +444,8 @@ function handlers.Weather(data)
 			part.Transparency = 1
 			part.Size = Vector3.new(120, 1, 120)
 			local emitter = Instance.new("ParticleEmitter")
-			emitter.Rate = 600
+			-- Phones fill-rate limit on particles: a lighter flurry there.
+			emitter.Rate = if touch then Config.MapEvents.Events.Blizzard.SnowRatePhone else 600
 			emitter.Lifetime = NumberRange.new(3, 4)
 			emitter.Speed = NumberRange.new(18, 26)
 			emitter.EmissionDirection = Enum.NormalId.Bottom
@@ -422,6 +461,13 @@ function handlers.Weather(data)
 		if savedFog then
 			Lighting.FogStart, Lighting.FogEnd, Lighting.FogColor = table.unpack(savedFog)
 			savedFog = nil
+		end
+		if savedAtmosphere then
+			local atmosphere = savedAtmosphere.atmosphere
+			atmosphere.Density = savedAtmosphere.Density
+			atmosphere.Haze = savedAtmosphere.Haze
+			atmosphere.Color = savedAtmosphere.Color
+			savedAtmosphere = nil
 		end
 		if snowfall then
 			snowfall:Destroy()
@@ -477,6 +523,7 @@ end)
 -- HUD refreshes every 0.1 s instead of every frame.
 while true do
 	task.wait(0.1)
+	fitToScreen() -- phones rotate and resize
 	if stopState and stopState.stop > 0 and stopState.phase ~= "Flight" then
 		setText(timerLabel, Util.clock(secondsLeft(stopState.departAt)))
 	end

@@ -76,6 +76,14 @@ Config.Player = {
 	WalkSpeed = 16,
 }
 
+-- Hazard bumps (security dogs): a LinearVelocity push for a moment, so it
+-- works on client-owned Santas (server/Knockback.luau).
+Config.Knockback = {
+	Lift = 18, -- studs/s upward: a little hop off the ground
+	Seconds = 0.2, -- how long the push holds before physics takes over
+	MaxForce = 100000, -- beats Humanoid ground friction, not the map
+}
+
 -- Distance rings around the sleigh: further = better loot, longer run back.
 -- Distance is studs down the street from the landing house (16 studs/s walk).
 Config.Rings = {
@@ -235,6 +243,11 @@ Config.MapEvents = {
 			NoiseMultiplier = 0.6, -- all street noise while it snows
 			FogEnd = 180, -- studs; keep >= 150 so the sleigh / Lair beams stay readable
 			FogColor = Color3.fromRGB(225, 232, 245),
+			-- Lighting has an Atmosphere (Main.server), and Roblox ignores FogEnd
+			-- while one exists, so the blizzard thickens the Atmosphere instead.
+			AtmosphereDensity = 0.55,
+			AtmosphereHaze = 3,
+			SnowRatePhone = 200, -- snowflake particles/s on touch screens (600 elsewhere)
 			-- Snow piles in stop space (+Z down the street): the approved Sparkle
 			-- Drift (Assets "SnowPile"), or a white block if it isn't imported yet.
 			Piles = {
@@ -372,7 +385,15 @@ Config.Canal = {
 		WarnRadius = 14, -- a dog growls (corgi) or whirrs (tin) at Santas this close
 	},
 	Polisher = { AngularSpeed = 0.35, HitRadius = 5 }, -- Ice Rink Square, Stop 2
-	StompDelay = 8,
+	-- Dogs and the polisher only bump Santas near their own level (studs of
+	-- root height under / over the hazard's ground point), not on roofs above.
+	Hazards = { Below = 2, Above = 7 },
+	-- A root no more than this over its standing height above the water (and
+	-- not over a floe) means SPLOOSH; higher is a hop. Floes sit FloeTop -
+	-- IceTop (0.65) proud, so a Santa on a floe never counts.
+	SplashSlack = 0.4,
+	FloeEdgeGrace = 0.75, -- root this far past a floe's edge still has a foot on it
+	StompDelay = 8, -- Lair: seconds after landing before Krampus stomps the lake into floes
 	-- Forest and snowy hills around the town (Josh, 2 Nov: "not just totally flat").
 	Woodland = {
 		Band = 260, -- studs of forest either side of each street (stops are 700 apart)
@@ -392,7 +413,7 @@ Config.Canal = {
 		Color3.fromRGB(90, 230, 120),
 		Color3.fromRGB(90, 160, 255),
 		Color3.fromRGB(255, 120, 210),
-	}, -- Lair: seconds after landing before Krampus stomps the lake into floes
+	},
 }
 
 -- Sound mix (Sounds.luau has the catalogue). Phone speakers clip easily, so

@@ -8,9 +8,12 @@
 local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-return function(): string
+-- suite: "EngineTests" (default, what CI runs) or "StudioTests" (needs
+-- physics, so run it from the command bar while Studio is in Play/Run mode).
+return function(suite: string?): string
 	local Jest = require(ReplicatedStorage.DevPackages.Jest)
-	local root = ReplicatedStorage.EngineTests
+	local root = ReplicatedStorage:FindFirstChild(suite or "EngineTests")
+	assert(root, "no test suite named " .. tostring(suite))
 
 	local status, result = Jest.runCLI(root, { verbose = true, ci = true }, { root }):awaitStatus()
 

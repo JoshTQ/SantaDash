@@ -2,6 +2,11 @@
   "name": "SleighHeistEngineTests",
   "tree": {
     "$className": "DataModel",
+    "Workspace": {
+      "$properties": {
+        "StreamingEnabled": false
+      }
+    },
     "ReplicatedStorage": {
       "Shared": {
         "$path": "build/engine-src/shared"
@@ -11,6 +16,9 @@
       },
       "EngineTests": {
         "$path": "tests/engine"
+      },
+      "StudioTests": {
+        "$path": "tests/studio"
       },
       "RunTests": {
         "$path": "tests/engine-support/RunTests.luau"

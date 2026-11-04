@@ -750,6 +750,7 @@ function MapBuilder.buildRoute(
 		route.sleigh = MapBuilder.buildSleigh(model, route.startDeck)
 	end
 	presentKit = { variants = {} }
+	Parts.settle(model)
 	model.Parent = parent
 	return route
 end

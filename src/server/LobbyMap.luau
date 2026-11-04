@@ -801,6 +801,7 @@ function LobbyMap.build(parent: Instance): Hub
 	buildShowOff(model)
 	buildPath(model)
 	local bays = buildStation(model, floorH)
+	Parts.settle(model)
 	model.Parent = parent
 	return {
 		model = model,

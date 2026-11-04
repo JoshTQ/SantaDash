@@ -17,7 +17,9 @@ local RunHost = require(script.Parent.RunHost)
 Remotes.init()
 
 -- Christmas Eve night, always (Josh, 2 Nov): a bright moon so kids can see,
--- stars, and bloom so the Christmas lights glow.
+-- stars, and bloom so the Christmas lights glow. Lighting.Technology is
+-- Future (Josh, 4 Nov), set in the project files: scripts can't change it,
+-- and Roblox drops to simpler lighting by itself on low graphics quality.
 Lighting.ClockTime = 0
 Lighting.Brightness = 1.2
 Lighting.OutdoorAmbient = Color3.fromRGB(95, 110, 150)

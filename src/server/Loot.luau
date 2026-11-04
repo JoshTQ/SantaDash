@@ -15,6 +15,7 @@ export type PresentPlan = {
 	ringMultiplier: number,
 	threats: number,
 	naughtyList: boolean?,
+	regrab: boolean?, -- a present a security dog knocked out of a sack: not a new grab
 }
 
 export type HousePlan = {
@@ -218,7 +219,9 @@ function Loot.grab(state: PlayerState, present: PresentPlan): boolean
 	end
 	state.sackCount += 1
 	state.sackValue += present.value
-	state.grabs += 1
+	if not present.regrab then
+		state.grabs += 1
+	end
 	state.jingle += Loot.jingleForGrab(present.ringMultiplier)
 	return true
 end
