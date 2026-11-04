@@ -4,7 +4,7 @@
 
 	- MemoryStoreService queues, shared by every server: AddAsync with a TTL,
 	  ReadAsync hides the items it returns for the queue's invisibility
-	  timeout, RemoveAsync(readId) deletes them.
+	  timeout, RemoveAsync(readId) deletes them. Sorted maps too.
 	- MessagingService: PublishAsync reaches every subscribed server (the
 	  sender too) after a short delay, as in Roblox.
 	- TeleportService: ReserveServer hands out access codes; TeleportAsync
@@ -64,6 +64,7 @@ function Cloud.new(headless, options: Options?)
 	self.lobbies = {}
 	self.runServers = {} -- [accessCode] = world
 	self.queues = {} -- [name] = { items, reads }
+	self.maps = {} -- [name] = { [key] = { value, expiresAt } }
 	self.subscribers = {} -- [topic] = { { world, callback } }
 	self.published = {} -- { { topic, data, from } }
 	self.reservations = {} -- { { code, by } }
@@ -190,6 +191,54 @@ function Cloud:_install(world, kind: string)
 		handle.GetSizeAsync = function()
 			fault("memoryStore")
 			return #cloud:queued(name)
+		end
+		return handle
+	end
+
+	-- Sorted maps: SetAsync with a TTL, GetAsync, RemoveAsync, GetRangeAsync (by key).
+	memory.GetSortedMap = function(_, name: string)
+		cloud.maps[name] = cloud.maps[name] or {}
+		local map = cloud.maps[name]
+		local handle = engine.Instance.new("MemoryStoreSortedMap")
+		handle.Name = name
+		handle.SetAsync = function(_, key: string, value, expiration: number)
+			fault("memoryStore")
+			map[key] = { value = copy(value), expiresAt = cloud.now + expiration }
+			return true
+		end
+		handle.GetAsync = function(_, key: string)
+			fault("memoryStore")
+			local entry = map[key]
+			if entry and entry.expiresAt > cloud.now then
+				return copy(entry.value)
+			end
+			return nil
+		end
+		handle.RemoveAsync = function(_, key: string)
+			fault("memoryStore")
+			map[key] = nil
+		end
+		handle.GetRangeAsync = function(_, direction, count: number)
+			fault("memoryStore")
+			local keys = {}
+			for key, entry in map do
+				if entry.expiresAt > cloud.now then
+					table.insert(keys, key)
+				end
+			end
+			table.sort(keys)
+			if direction == Enum.SortDirection.Descending then
+				local reversed = {}
+				for i = #keys, 1, -1 do
+					table.insert(reversed, keys[i])
+				end
+				keys = reversed
+			end
+			local out = {}
+			for i = 1, math.min(count, #keys) do
+				table.insert(out, { key = keys[i], value = copy(map[keys[i]].value) })
+			end
+			return out
 		end
 		return handle
 	end
