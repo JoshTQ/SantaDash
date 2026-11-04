@@ -148,3 +148,13 @@ test("streaming is pinned off in every place build (server-sent model refs need 
 		expect(ws["$properties"].StreamingEnabled).toBe(false)
 	end
 end)
+
+test(
+	"Future lighting in every place build (Josh, 4 Nov 2026; Roblox scales it down on low-end phones)",
+	function()
+		for _, file in { "default.project.json", "deploy.project.json" } do
+			local project = serde.decode("json", fs.readFile(file))
+			expect(project.tree.Lighting["$properties"].Technology).toBe("Future")
+		end
+	end
+)
