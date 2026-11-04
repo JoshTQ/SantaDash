@@ -35,7 +35,7 @@ PR and adds the model to the gallery once it's merged.
 
 | I want to | Do |
 | --- | --- |
-| Make a newly approved model | Claude adds `art/meshy/<Name>.json` in a PR; merging it starts the run |
+| Make a newly approved model | Claude adds `art/meshy/<Name>.json` in a PR; merging it starts the run if the repo variable `MESHY_AUTO` is `true`, otherwise Claude (or you) presses Run workflow |
 | Re-roll a model I didn't like | Close its PR, Actions > Meshy model > Run workflow with the name |
 | Cheap shape check first | Run workflow with **Shape preview only** (no Roblox upload, no PR) |
 | Get the raw FBX/animations | The run's artifacts (`meshy-<Name>-<run>`) |
