@@ -18,7 +18,6 @@ local Parts = require(script.Parent.Parts)
 
 local MapBuilder = {}
 
-local SNOW = Color3.fromRGB(235, 240, 250)
 local WALL = Color3.fromRGB(190, 185, 175)
 local SLEIGH_RED = Color3.fromRGB(200, 30, 40)
 local GOLD = Color3.fromRGB(255, 200, 60)

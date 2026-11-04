@@ -496,7 +496,7 @@ while true do
 		)
 	end
 	if eventEndsAt then
-		setText(eventLabel, eventName .. "  " .. clock(secondsLeft(eventEndsAt)))
+		setText(eventLabel, eventName .. "  " .. Util.clock(secondsLeft(eventEndsAt)))
 	end
 	local splatLeft = splatUntil - Util.now()
 	splatFrame.BackgroundTransparency = if splatLeft > 0 then 1 - math.min(0.45, splatLeft) else 1 -- never blinding
