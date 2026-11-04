@@ -4,6 +4,9 @@
 Pipeline per asset: Text-to-3D preview -> refine (texture) -> remesh to a
 Roblox-friendly triangle count -> (Santa only) humanoid auto-rig.
 Downloads GLB/FBX files into ./out/<asset>/.
+Colour texture only (no PBR): the CI deploy via Open Cloud refuses places with
+SurfaceAppearance, so models use MeshPart.TextureID. Approved models are
+committed as assets/models/<Name>.rbxm.
 
 Usage:
     export MESHY_API_KEY=msy_...
@@ -107,11 +110,13 @@ def run(name, a, preview_only):
         return
     rid = call("POST", "/v2/text-to-3d", {
         "mode": "refine", "preview_task_id": pid, "texture_prompt": a["texture"],
-        "enable_pbr": True, "texture_resolution": "2k",
+        "enable_pbr": False, "texture_resolution": "2k",  # colour map only: Open Cloud deploy rejects SurfaceAppearance
         "target_formats": ["glb"], "moderation": True})["result"]
     r = wait("/v2/text-to-3d", rid, "refine")
     save(r.get("thumbnail_url"), f"{out}/refined.png")
     save(r["model_urls"].get("glb"), f"{out}/refined_highpoly.glb")
+    tex = (r.get("texture_urls") or [{}])[0].get("base_color")
+    save(tex, f"{out}/{name}_color.png")
     mid = call("POST", "/v1/remesh", {
         "input_task_id": rid, "topology": "triangle",
         "target_polycount": a["polycount"], "target_formats": ["glb", "fbx"]})["result"]
