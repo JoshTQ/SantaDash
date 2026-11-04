@@ -6,3 +6,5 @@ sourcemap.json
 /build
 __pycache__/
 out/
+/coverage
+/tools/luau-cov/target

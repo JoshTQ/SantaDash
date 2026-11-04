@@ -165,3 +165,13 @@ test("stops are planned from the map's own street slots", function()
 	expect(plan.houses[2].distance).toBe(Config.Rings.Far.Distance + 25)
 	expect(plan.houses[#plan.houses].side).toBe(0) -- the vault still closes the street
 end)
+
+test("grab noise rises each stop and with every threat in the house", function()
+	local N = Config.Noise
+	expect(Loot.noiseForGrab(1, 0)).toBe(N.PerGrab)
+	expect(Loot.noiseForGrab(2, 0)).toBeGreaterThan(Loot.noiseForGrab(1, 0))
+	expect(Loot.noiseForGrab(3, 0)).toBeGreaterThan(Loot.noiseForGrab(2, 0))
+	expect(Loot.noiseForGrab(1, 2)).toBeNear(N.PerGrab * (1 + 2 * N.PerThreatMultiplier))
+	-- Stops past the table fall back to x1 instead of erroring.
+	expect(Loot.noiseForGrab(99, 0)).toBe(N.PerGrab)
+end)

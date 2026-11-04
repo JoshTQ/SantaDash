@@ -129,11 +129,35 @@ Workspace; players with no TeleportData then join as a test crew.
 | --- | --- | --- |
 | Unit | Pure rules: House Card rolls, stop plans, values, banking, results, Krampus decisions (arrival, targeting, bells, breath, wiggle), elf bot decisions (design mix, present picks), lobby-to-run handoff (validation, admission, departure), crew packing, station timetable, map registry and rotation, map event rolls and timing, Config invariants | `lune run tests/runner` |
 | Integration | MapBuilder and LobbyMap build real Instances (Lune's Roblox library) from real plans: counts, prompts, sleigh on the ground at the Sleigh Stop, no overlapping houses, approved house kit / Lair / vault door (with stand-in models), Krampus and elf rigs, sleigh seats, vault presents, map palette/layout/features/stop origins, every map in the rotation, lobby bays and spawn | same command |
+| Regression | `tests/regression/DesignCalls.spec.luau`: every call Josh has signed off (Krampus from Stop 3, 15 wiggle taps, Sleigh Stop safe zone, missed-final-sleigh half sack, elf bot mix and 80% solo loot, ...). Add a test here for each new call and each bug fix | same command |
 | Static | Format, lint, place build | `stylua --check src tests`, `selene src`, `rojo build` |
 | E2E | Not automated yet; see below | Studio playtest |
 
 CI (`.github/workflows/ci.yml`) runs all of the above on every pull request.
 Filter tests by file name: `lune run tests/runner Loot`.
+
+Specs use a Jest-compatible subset (`describe`, `it`/`test`, `beforeEach`,
+`afterEach`, `expect(x).toBe / toEqual / toContain / toThrow / never...`) so
+they can move to Jest Roblox unchanged. Services that aren't `src/` folders
+(`ServerStorage`, ...) are real empty Instances; fill them through the
+`services` helper (`services.ServerStorage`), and they're emptied per file.
+
+### Coverage
+
+```
+cargo build --release --manifest-path tools/luau-cov/Cargo.toml   # once
+lune run tests/runner --coverage
+```
+
+`tools/luau-cov` adds line and function probes to every module under `src/`
+(on the same line, so error line numbers don't move); the runner counts them
+and writes `coverage/index.html` (per-file table, then each file's source with
+covered lines green and missed lines red), `coverage/lcov.info` (for Codecov or
+the VS Code Coverage Gutters extension) and `coverage/summary.md`. CI posts the
+table to the job summary and uploads the report as the `coverage-report`
+artifact. Files that need the live engine are listed in
+`tests/coverage.luau` (`ENGINE_ONLY`) and kept out of the "Lune-testable"
+total, which has an advisory 80% floor (a warning, not a failure, before launch).
 
 The test runner loads modules straight from `src/` with a fake `game`/`script`/
 `require`, so keep rule code in pure modules (`Loot`, `KrampusBrain`, `ElfBrain`, `Handoff`, `CrewPacker`, `StationClock`, `Util`)

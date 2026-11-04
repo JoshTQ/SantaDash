@@ -1,0 +1,13 @@
+[package]
+name = "luau-cov"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Adds line and function coverage probes to Luau source for the Lune test runner"
+
+[dependencies]
+full_moon = { version = "2", features = ["luau"] }
+serde_json = "1"
+
+[profile.release]
+opt-level = 2

@@ -5,6 +5,10 @@
 	`script` and `require` that resolve Roblox instance paths to files, and
 	Lune's Roblox datatypes (Vector3, CFrame, Instance, ...). Modules that need
 	the live engine (events, physics, pathfinding) are tested in Studio instead.
+
+	  lune run tests/runner                 all specs
+	  lune run tests/runner Loot            only spec files whose name contains "Loot"
+	  lune run tests/runner --coverage      also write coverage/ (see tests/coverage.luau)
 ]]
 
 local fs = require("@lune/fs")
@@ -12,6 +16,22 @@ local luau = require("@lune/luau")
 local process = require("@lune/process")
 local roblox = require("@lune/roblox")
 local task = require("@lune/task")
+
+local Coverage = require("./coverage")
+
+local coverageOn = false
+local filter: string? = nil
+for _, arg in process.args do
+	if arg == "--coverage" then
+		coverageOn = true
+	else
+		filter = arg
+	end
+end
+if coverageOn and not Coverage.available() then
+	print("Coverage needs the instrumenter: cargo build --release --manifest-path tools/luau-cov/Cargo.toml")
+	process.exit(1)
+end
 
 -- Instance path -> folder on disk (mirrors default.project.json).
 local ROOTS = {
@@ -74,9 +94,27 @@ end
 local workspaceInstance = roblox.Instance.new("Model")
 workspaceInstance.Name = "Workspace"
 
+-- Services backed by src/ folders resolve to require paths. Any other service
+-- (ServerStorage, ...) is a real, empty Lune Instance that specs can fill
+-- through the `services` helper; it is emptied before each spec file.
+local services: { [string]: any } = {}
+local function resetServices()
+	for _, service in services do
+		service:ClearAllChildren()
+	end
+end
+
 local fakeGame = {
 	GetService = function(_, name: string)
-		return path({ name })
+		if ROOTS[name] then
+			return path({ name })
+		end
+		if not services[name] then
+			local service = roblox.Instance.new("Folder")
+			service.Name = name
+			services[name] = service
+		end
+		return services[name]
 	end,
 }
 
@@ -142,14 +180,19 @@ function loadModule(parts: { string })
 		env.require = function(target)
 			return loadModule(rawget(target, "__parts"))
 		end
-		local chunk = luau.load(fs.readFile(file), { debugName = file, environment = env })
+		local source = if coverageOn then Coverage.instrument(file, env) else fs.readFile(file)
+		local chunk = luau.load(source, { debugName = file, environment = env })
 		cache[file] = chunk()
 	end
 	return cache[file]
 end
 
 ----------------------------------------------------------------------------
--- Tiny test API: test(name, fn), expect(value).toBe / toEqual / toBeNear ...
+-- Test API, a Jest-compatible subset so specs can move to Jest Roblox
+-- unchanged: describe / it (or test) / beforeEach / afterEach, and expect()
+-- with toBe, toEqual, toBeTruthy, toBeFalsy, toBeNil, toBeNear,
+-- toBeLessThan, toBeGreaterThan, toBeGreaterThanOrEqual, toContain,
+-- toHaveLength, toThrow, each negatable with expect(x).never.
 ----------------------------------------------------------------------------
 
 local results = { passed = 0, failed = {} }
@@ -159,48 +202,160 @@ local function fmt(v): string
 	return if type(v) == "string" then string.format("%q", v) else tostring(v)
 end
 
-local function expect(actual)
-	local e = {}
-	function e.toBe(expected)
-		if actual ~= expected then
-			error("expected " .. fmt(expected) .. ", got " .. fmt(actual), 2)
+local function deepEqual(a, b): boolean
+	if a == b then
+		return true
+	end
+	if type(a) ~= "table" or type(b) ~= "table" then
+		return false
+	end
+	for k, v in a do
+		if not deepEqual(v, b[k]) then
+			return false
 		end
+	end
+	for k in b do
+		if a[k] == nil then
+			return false
+		end
+	end
+	return true
+end
+
+local function makeMatchers(actual, negate: boolean)
+	local e = {}
+	local function check(pass: boolean, message: string)
+		if pass == negate then
+			error((if negate then "not: " else "") .. message, 3)
+		end
+	end
+	function e.toBe(expected)
+		check(actual == expected, "expected " .. fmt(expected) .. ", got " .. fmt(actual))
+	end
+	function e.toEqual(expected)
+		check(deepEqual(actual, expected), "expected tables to be deeply equal")
 	end
 	function e.toBeTruthy()
-		if not actual then
-			error("expected a truthy value, got " .. fmt(actual), 2)
-		end
+		check(not not actual, "expected a truthy value, got " .. fmt(actual))
 	end
 	function e.toBeFalsy()
-		if actual then
-			error("expected a falsy value, got " .. fmt(actual), 2)
-		end
+		check(not actual, "expected a falsy value, got " .. fmt(actual))
+	end
+	function e.toBeNil()
+		check(actual == nil, "expected nil, got " .. fmt(actual))
 	end
 	function e.toBeNear(expected: number, tolerance: number?)
-		if math.abs(actual - expected) > (tolerance or 1e-6) then
-			error("expected about " .. fmt(expected) .. ", got " .. fmt(actual), 2)
-		end
+		check(
+			math.abs(actual - expected) <= (tolerance or 1e-6),
+			"expected about " .. fmt(expected) .. ", got " .. fmt(actual)
+		)
 	end
 	function e.toBeLessThan(limit: number)
-		if not (actual < limit) then
-			error("expected < " .. fmt(limit) .. ", got " .. fmt(actual), 2)
-		end
+		check(actual < limit, "expected < " .. fmt(limit) .. ", got " .. fmt(actual))
 	end
 	function e.toBeGreaterThan(limit: number)
-		if not (actual > limit) then
-			error("expected > " .. fmt(limit) .. ", got " .. fmt(actual), 2)
+		check(actual > limit, "expected > " .. fmt(limit) .. ", got " .. fmt(actual))
+	end
+	function e.toBeGreaterThanOrEqual(limit: number)
+		check(actual >= limit, "expected >= " .. fmt(limit) .. ", got " .. fmt(actual))
+	end
+	function e.toBeLessThanOrEqual(limit: number)
+		check(actual <= limit, "expected <= " .. fmt(limit) .. ", got " .. fmt(actual))
+	end
+	function e.toContain(item)
+		local found = false
+		if type(actual) == "string" then
+			found = string.find(actual, item, 1, true) ~= nil
+		else
+			for _, v in actual do
+				if v == item then
+					found = true
+					break
+				end
+			end
 		end
+		check(found, "expected to contain " .. fmt(item))
+	end
+	function e.toHaveLength(n: number)
+		check(#actual == n, "expected length " .. n .. ", got " .. #actual)
+	end
+	function e.toThrow(pattern: string?)
+		local ok, err = pcall(actual)
+		local pass = not ok and (pattern == nil or string.find(tostring(err), pattern, 1, true) ~= nil)
+		check(
+			pass,
+			"expected to throw" .. (if pattern then " " .. fmt(pattern) else "") .. ", got " .. fmt(err)
+		)
 	end
 	return e
 end
 
+local function expect(actual)
+	local e = makeMatchers(actual, false)
+	e.never = makeMatchers(actual, true)
+	return e
+end
+
+-- describe() scopes: names and before/after hooks nest.
+local scopes = { { name = nil, before = {}, after = {} } }
+
+local function runHooks(kind: string, reverse: boolean)
+	local from, to, step = 1, #scopes, 1
+	if reverse then
+		from, to, step = #scopes, 1, -1
+	end
+	for i = from, to, step do
+		for _, hook in scopes[i][kind] do
+			hook()
+		end
+	end
+end
+
+local function fullName(name: string): string
+	local parts = {}
+	for _, scope in scopes do
+		if scope.name then
+			table.insert(parts, scope.name)
+		end
+	end
+	table.insert(parts, name)
+	return table.concat(parts, " > ")
+end
+
 local function test(name: string, fn: () -> ())
-	local ok, err = pcall(fn)
+	local ok, err = pcall(function()
+		runHooks("before", false)
+		local passed, testErr = pcall(fn)
+		runHooks("after", true)
+		if not passed then
+			error(testErr, 0)
+		end
+	end)
 	if ok then
 		results.passed += 1
 	else
-		table.insert(results.failed, currentFile .. " > " .. name .. "\n    " .. tostring(err))
+		table.insert(results.failed, currentFile .. " > " .. fullName(name) .. "\n    " .. tostring(err))
 	end
+end
+
+local function describe(name: string, fn: () -> ())
+	table.insert(scopes, { name = name, before = {}, after = {} })
+	local ok, err = pcall(fn)
+	table.remove(scopes)
+	if not ok then
+		table.insert(
+			results.failed,
+			currentFile .. " > " .. fullName(name) .. " (describe)\n    " .. tostring(err)
+		)
+	end
+end
+
+local function beforeEach(fn: () -> ())
+	table.insert(scopes[#scopes].before, fn)
+end
+
+local function afterEach(fn: () -> ())
+	table.insert(scopes[#scopes].after, fn)
 end
 
 -- Loads a module by its Roblox path, e.g. load("ServerScriptService.Server.Loot").
@@ -210,18 +365,27 @@ end
 
 local helpers = {
 	test = test,
+	it = test,
+	describe = describe,
+	beforeEach = beforeEach,
+	afterEach = afterEach,
 	expect = expect,
 	load = load,
 	Random = Random,
 	roblox = roblox,
+	-- services.ServerStorage etc.: the same Instances modules get from game:GetService.
+	services = setmetatable({}, {
+		__index = function(_, name)
+			return fakeGame:GetService(name)
+		end,
+	}),
 	newFolder = function()
 		return roblox.Instance.new("Folder")
 	end,
 }
 
-local filter = process.args[1]
 local files = {}
-for _, dir in { "tests/unit", "tests/integration" } do
+for _, dir in { "tests/unit", "tests/integration", "tests/regression" } do
 	for _, name in fs.readDir(dir) do
 		if string.find(name, "%.spec%.luau$") and (not filter or string.find(name, filter, 1, true)) then
 			table.insert(files, dir .. "/" .. name)
@@ -232,6 +396,7 @@ table.sort(files)
 
 for _, file in files do
 	currentFile = file
+	resetServices()
 	local env = table.clone(builtins)
 	for k, v in helpers do
 		env[k] = v
@@ -248,4 +413,12 @@ print(string.format("%d passed, %d failed (%d files)", results.passed, #results.
 for _, failure in results.failed do
 	print("FAIL " .. failure)
 end
+
+if coverageOn then
+	local ratio = Coverage.report("coverage")
+	if ratio < Coverage.FLOOR then
+		print(string.format("warning: Lune-testable coverage is below the %d%% floor", Coverage.FLOOR * 100))
+	end
+end
+
 process.exit(if #results.failed == 0 then 0 else 1)
