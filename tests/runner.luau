@@ -15,6 +15,7 @@
 local fs = require("@lune/fs")
 local luau = require("@lune/luau")
 local process = require("@lune/process")
+local stdio = require("@lune/stdio")
 local roblox = require("@lune/roblox")
 local task = require("@lune/task")
 
@@ -226,7 +227,7 @@ local MOUNTS = {
 
 local sourceCache: { [string]: string } = {}
 
-local function headless()
+local function headless(options: { seed: number? }?)
 	local engine = Engine.new()
 	local world = { engine = engine, Engine = Engine }
 	local moduleCache = {}
@@ -299,7 +300,7 @@ local function headless()
 	env0.os = engine.os
 	env0.typeof = Engine.typeof
 	-- math.random (Krampus's wander) is seeded per world, so runs repeat exactly.
-	local worldRandom = Random.new(1)
+	local worldRandom = Random.new(options and options.seed or 1)
 	env0.math = table.clone(math)
 	env0.math.random = function(a: number?, b: number?)
 		if a == nil then
@@ -330,6 +331,10 @@ local function headless()
 	end
 
 	function world.require(script)
+		local stub = rawget(script, "_value") -- engine-provided modules (PlayerModule)
+		if stub ~= nil then
+			return stub
+		end
 		if moduleCache[script] == nil then
 			moduleCache[script] = chunkFor(script)()
 		end
@@ -505,7 +510,13 @@ local function fullName(name: string): string
 	return table.concat(parts, " > ")
 end
 
+-- TEST_VERBOSE=1 prints each test as it starts, with the time (to find slow ones).
+local verbose = process.env.TEST_VERBOSE ~= nil
+
 local function test(name: string, fn: () -> ())
+	if verbose then
+		stdio.ewrite(string.format("  %.2fs %s\n", os.clock(), fullName(name)))
+	end
 	local ok, err = pcall(function()
 		runHooks("before", false)
 		local passed, testErr = pcall(fn)
@@ -570,6 +581,10 @@ local helpers = {
 		return roblox.Instance.new("Folder")
 	end,
 }
+helpers.readSource = function(file: string): string
+	return fs.readFile(file)
+end
+helpers.listDir = fs.readDir
 
 local files = {}
 for _, dir in { "tests/unit", "tests/integration", "tests/regression", "tests/smoke" } do

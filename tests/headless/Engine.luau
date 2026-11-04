@@ -393,7 +393,12 @@ InstanceMeta.__index = function(self, key)
 	end
 	if EVENTS[key] then
 		local signals = rawget(self, "_signals")
-		signals[key] = signals[key] or newSignal(rawget(self, "_engine"))
+		if not signals[key] then
+			signals[key] = newSignal(rawget(self, "_engine"))
+			if key == "Touched" then
+				rawget(self, "_engine").touchWatch[self] = true
+			end
+		end
 		return signals[key]
 	end
 	return self:FindFirstChild(key)
@@ -651,6 +656,7 @@ function Instance.MoveTo(self, goal)
 	-- Humanoid:MoveTo: the engine walks the root part each Heartbeat.
 	if rawget(self, "_className") == "Humanoid" then
 		rawset(self, "_moveGoal", goal)
+		rawget(self, "_engine").walking[self] = true
 	else
 		self:PivotTo(CFrame.new(goal) * (self:GetPivot() - self:GetPivot().Position))
 	end
@@ -743,6 +749,8 @@ function Engine.new()
 	self.nextUserId = 1000
 	self.welds = {}
 	self.seats = {}
+	self.walking = {} -- humanoids with a MoveTo goal
+	self.touchWatch = {} -- parts someone connected Touched on
 	self.touchParts = {}
 
 	self.DataModel = newInstance(self, "DataModel")
@@ -797,6 +805,23 @@ function Engine.new()
 		return false
 	end
 	self.Heartbeat = runService.Heartbeat
+	-- BindToRenderStep callbacks run every frame, lowest priority first.
+	self.renderSteps = {}
+	props(runService).BindToRenderStep = function(_, name, priority, fn)
+		engine.renderSteps[name] = { priority = priority, fn = fn }
+	end
+	props(runService).UnbindFromRenderStep = function(_, name)
+		engine.renderSteps[name] = nil
+	end
+
+	-- The client's camera.
+	local camera = newInstance(self, "Camera")
+	rawset(camera, "_name", "Camera")
+	props(camera).FieldOfView = 70
+	props(camera).CFrame = CFrame.new(0, 20, 20)
+	props(camera).CameraType = Enum.CameraType.Custom
+	camera.Parent = workspace
+	props(workspace).CurrentCamera = camera
 
 	local pathfinding = self:service("PathfindingService")
 	props(pathfinding).CreatePath = function()
@@ -952,6 +977,16 @@ function Engine:step(dt: number?)
 	self.now += dt
 	self:_physics(dt :: number)
 	self.Heartbeat:Fire(dt)
+	local binds = {}
+	for _, b in self.renderSteps do
+		table.insert(binds, b)
+	end
+	table.sort(binds, function(a, b)
+		return a.priority < b.priority
+	end)
+	for _, b in binds do
+		self:spawn(b.fn, dt)
+	end
 	local due, later = {}, {}
 	for _, entry in self.sleeping do
 		table.insert(if entry.at <= self.now + 1e-9 then due else later, entry)
@@ -1120,20 +1155,25 @@ end
 
 function Engine:_humanoids()
 	local list = {}
-	for _, d in self.workspace:GetDescendants() do
-		if rawget(d, "_className") == "Humanoid" and rawget(d, "_moveGoal") then
-			table.insert(list, d)
+	for humanoid in self.walking do
+		if rawget(humanoid, "_moveGoal") and not rawget(humanoid, "_destroyed") then
+			table.insert(list, humanoid)
+		else
+			self.walking[humanoid] = nil
 		end
 	end
 	return list
 end
 
+-- Parts with Touched listeners that are in the workspace.
 function Engine:_touchListeners()
 	local list = {}
-	for _, d in self.workspace:GetDescendants() do
-		local s = rawget(d, "_signals").Touched
-		if s and #s.handlers > 0 then
-			table.insert(list, d)
+	for part in self.touchWatch do
+		local s = rawget(part, "_signals").Touched
+		if rawget(part, "_destroyed") or not s or #s.handlers == 0 then
+			self.touchWatch[part] = nil
+		elseif part:IsDescendantOf(self.workspace) then
+			table.insert(list, part)
 		end
 	end
 	return list
@@ -1244,6 +1284,27 @@ function Engine:addPlayer(name: string, options: { at: CFrame?, joinData: any?, 
 		engine:removePlayer(plr)
 	end
 	rawset(player, "_spawnAt", spawnAt)
+	-- PlayerScripts.PlayerModule, as the default player scripts provide.
+	local scripts = newInstance(self, "PlayerScripts")
+	rawset(scripts, "_name", "PlayerScripts")
+	local playerModule = newInstance(self, "ModuleScript")
+	rawset(playerModule, "_name", "PlayerModule")
+	local controlsEnabled = { value = true }
+	rawset(player, "_controls", controlsEnabled)
+	rawset(playerModule, "_value", {
+		GetControls = function()
+			return {
+				Enable = function()
+					controlsEnabled.value = true
+				end,
+				Disable = function()
+					controlsEnabled.value = false
+				end,
+			}
+		end,
+	})
+	playerModule.Parent = scripts
+	scripts.Parent = player
 	local gui = newInstance(self, "PlayerGui")
 	rawset(gui, "_name", "PlayerGui")
 	gui.Parent = player
