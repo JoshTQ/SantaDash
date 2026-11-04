@@ -17,10 +17,13 @@ local SleighFlight = {}
 -- Fractions of the route (by distance along the curve).
 SleighFlight.LiftOffAt = 0.2 -- end of the ground run
 SleighFlight.CruiseAt = 0.45 -- top of the climb
-SleighFlight.DescendAt = 0.68 -- start of the glide down
+SleighFlight.DescendAt = 0.6 -- start of the glide down (long and shallow)
 SleighFlight.TouchDownAt = 0.985 -- runners back on the snow
 SleighFlight.MaxBank = math.rad(25)
-SleighFlight.MaxPitch = math.rad(20) -- a gentle nose-up/down, even on a steep climb
+SleighFlight.MaxPitch = math.rad(20) -- nose-up limit on the climb
+SleighFlight.MaxDive = math.rad(7) -- nose-down limit on the glide: it never nose-dives
+SleighFlight.FlareHeight = 12 -- below this on the way down it levels off and flares
+SleighFlight.FlarePitch = math.rad(5) -- nose slightly up as the runners touch
 
 local function smooth(a: number): number
 	a = math.clamp(a, 0, 1)
@@ -99,7 +102,14 @@ function SleighFlight.deckAt(from: CFrame, to: CFrame, t: number, seconds: numbe
 	end
 	local run = flat.Magnitude * (math.min(s + ds, 1) - math.max(s - ds, 0))
 	local pitch =
-		math.clamp(math.atan2(rise, math.max(run, 1e-3)), -SleighFlight.MaxPitch, SleighFlight.MaxPitch)
+		math.clamp(math.atan2(rise, math.max(run, 1e-3)), -SleighFlight.MaxDive, SleighFlight.MaxPitch)
+	if s > SleighFlight.DescendAt then
+		-- Final approach: level off and flare, then settle flat on the runners.
+		local h = SleighFlight.height(s, peak)
+		local flare = 1 - math.clamp(h / SleighFlight.FlareHeight, 0, 1)
+		local settle = math.clamp((s - SleighFlight.TouchDownAt) / (1 - SleighFlight.TouchDownAt), 0, 1)
+		pitch = (pitch + (SleighFlight.FlarePitch - pitch) * flare) * (1 - settle)
+	end
 
 	-- Bank into turns, only while airborne.
 	local _, ahead = bezier(p0, p1, p2, p3, math.min(s + ds, 1))

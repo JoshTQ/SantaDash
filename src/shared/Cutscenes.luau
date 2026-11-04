@@ -76,7 +76,7 @@ local SCENES: { [string]: Scene } = {
 		cues = {
 			{ at = 0, kind = "sfx", key = "CutsceneMusicTakeoff" },
 			{ at = 0.2, kind = "sfx", key = "CutsceneGiddyup" },
-			{ at = 2.4, kind = "marks", hold = 1.3 }, -- gone before the camera drops low
+			{ at = 2.4, kind = "marks", hold = 0.9 }, -- gone before the camera drops low
 			{ at = 4.6, kind = "shake", power = 0.6, hold = 0.3 },
 			{ at = 4.6, kind = "sfx", key = "CutsceneThump" },
 		},

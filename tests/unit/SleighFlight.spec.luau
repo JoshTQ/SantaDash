@@ -86,3 +86,21 @@ test("Takeoff lands on its THUMP: touch-down lines up with 4.6 s", function()
 	local u = math.acos(1 - 2 * SleighFlight.TouchDownAt) / math.pi
 	expect(u * SECONDS).toBeNear(4.6, 0.05)
 end)
+
+test("the landing never nose-dives and flares nose-up before touch-down", function()
+	local flared = false
+	for t = 0, SECONDS, 0.02 do
+		local s = SleighFlight.progress(t / SECONDS)
+		local deck = at(t)
+		local pitch = math.asin(deck.LookVector.Y)
+		if s > SleighFlight.DescendAt then
+			expect(pitch).toBeGreaterThan(-SleighFlight.MaxDive - 1e-3)
+			local h = deck.Position.Y
+			if h > 0 and h < 4 then
+				expect(pitch).toBeGreaterThan(0) -- nose up just before the runners touch
+				flared = true
+			end
+		end
+	end
+	expect(flared).toBeTruthy()
+end)
