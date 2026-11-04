@@ -3,6 +3,11 @@ Uploads the generated sounds (assets/audio/*.ogg) to Roblox with Open Cloud
 and writes each new asset id into src/shared/Sounds.luau.
 
     ROBLOX_API_KEY=... ROBLOX_USER_ID=... python3 tools/audio/upload.py [Key ...]
+    ROBLOX_API_KEY=... ROBLOX_GROUP_ID=... python3 tools/audio/upload.py [Key ...]
+
+Upload as the experience's owner (your account, or the group that owns it),
+or the game can't play the audio. A group upload needs a group API key with
+Assets read/write.
 
 The API key needs the "Assets: Write" (and Read) permission for your account.
 Keys that already have an id other than 0 in Sounds.luau are skipped, so it is
@@ -35,12 +40,12 @@ def request(method, url, key, body=None, content_type=None):
         return json.loads(res.read() or b"{}")
 
 
-def upload(key, user_id, name, path):
+def upload(key, creator, name, path):
     meta = {
         "assetType": "Audio",
         "displayName": "SleighHeist " + name,
         "description": "Sleigh Heist sound effect: " + name,
-        "creationContext": {"creator": {"userId": str(user_id)}},
+        "creationContext": {"creator": creator},
     }
     boundary = uuid.uuid4().hex
     with open(path, "rb") as f:
@@ -69,8 +74,10 @@ def upload(key, user_id, name, path):
 def main():
     key = os.environ.get("ROBLOX_API_KEY")
     user_id = os.environ.get("ROBLOX_USER_ID")
-    if not key or not user_id:
-        sys.exit("Set ROBLOX_API_KEY and ROBLOX_USER_ID first (see the top of this file).")
+    group_id = os.environ.get("ROBLOX_GROUP_ID")
+    if not key or bool(user_id) == bool(group_id):
+        sys.exit("Set ROBLOX_API_KEY and exactly one of ROBLOX_USER_ID or ROBLOX_GROUP_ID (see the top of this file).")
+    creator = {"groupId": str(group_id)} if group_id else {"userId": str(user_id)}
     source = open(SOUNDS, encoding="utf-8").read()
     wanted = sys.argv[1:]
     names = wanted or sorted(f[:-4] for f in os.listdir(AUDIO) if f.endswith(".ogg"))
@@ -79,7 +86,7 @@ def main():
             print(f"skip   {name} (already has an id)")
             continue
         try:
-            asset_id = upload(key, user_id, name, os.path.join(AUDIO, name + ".ogg"))
+            asset_id = upload(key, creator, name, os.path.join(AUDIO, name + ".ogg"))
         except Exception as e:  # keep going; re-run picks up the rest
             print(f"FAILED {name}: {e}")
             continue

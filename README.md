@@ -93,7 +93,7 @@ tiers). To give a key real audio, either:
 for every key, made from code by `tools/audio/synth.py` (re-run it to
 regenerate). Upload them one of two ways:
 
-- `ROBLOX_API_KEY=... ROBLOX_USER_ID=... python3 tools/audio/upload.py`
+- `ROBLOX_API_KEY=... ROBLOX_USER_ID=... python3 tools/audio/upload.py` (or `ROBLOX_GROUP_ID=...` if a group owns the experience; upload as the experience owner)
   uploads each file with Open Cloud (key needs Assets read/write) and writes
   the new ids into `Sounds.luau`. Re-running skips keys that have an id.
 - Or in Studio: Asset Manager > Bulk Import the .ogg files, insert each one,
