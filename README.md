@@ -76,6 +76,31 @@ with `TeleportData = Handoff.make(crewId, kind, memberUserIds)`; the run server
 only admits members of that crew and starts when they are all in, or after
 `Config.Places.ArrivalTimeoutSeconds`.
 
+### The Sleigh Station (lobby)
+
+You spawn inside the Naughty Workshop, walk out past the top crews podium,
+giant weekly present and Most Wanted wall, and follow the present path to a
+signpost that forks to three bays: **Public** (anyone), **Party** (your group,
+topped up with randoms) and **Private** (just your crew). Each bay runs a
+timetable (`StationClock`): a sleigh pulls in, the gate opens under a
+"BOARDING NOW!" sign, you step into the glowing zone to sit down (jump to hop
+off), then the gate shuts and the sleigh leaves. Layout numbers are in
+`Config.LobbyMap`, timings in `Config.Matchmaking` and `Config.LobbyMap`.
+
+Cross-server (`Matchmaker`): Public riders queue in a shared MemoryStore queue
+as soon as they sit; a Party sleigh queues its group when it leaves; any lobby
+server packs crews (`CrewPacker`), reserves a run server, and announces it over
+MessagingService so each lobby server teleports its own riders. Private sleighs
+reserve a server straight away. If no crew forms within
+`Config.Matchmaking.LocalFallbackSeconds` (queue down), riders run in the
+lobby server instead.
+
+**Place setup (once):** in one experience, create the lobby place (start
+place) and a second run place, publish this build to both, put their IDs in
+`Config.Places.Lobby` / `Config.Places.Run`, and turn on Studio Access to API
+Services (MemoryStore). Teleports only work in a published game, so test
+cross-server matchmaking with real servers, not Studio.
+
 Until both places are published and their IDs are set in `Config.Places`,
 everything runs in one server (the local `Lobby` runs the routes itself). To
 test the run place on its own in Studio, set a `RunPlace = true` attribute on
@@ -85,8 +110,8 @@ Workspace; players with no TeleportData then join as a test crew.
 
 | Layer | What | How |
 | --- | --- | --- |
-| Unit | Pure rules: House Card rolls, stop plans, values, banking, results, Krampus decisions (arrival, targeting, bells, breath, wiggle), elf bot decisions (design mix, present picks), lobby-to-run handoff (validation, admission, departure), map registry and rotation, Config invariants | `lune run tests/runner` |
-| Integration | MapBuilder builds real Instances (Lune's Roblox library) from real plans: counts, prompts, sleigh on the ground at the Sleigh Stop, no overlapping houses, approved house kit / Lair / vault door (with stand-in models), Krampus and elf rigs, sleigh seats, vault presents, map palette/layout/features/stop origins, every map in the rotation | same command |
+| Unit | Pure rules: House Card rolls, stop plans, values, banking, results, Krampus decisions (arrival, targeting, bells, breath, wiggle), elf bot decisions (design mix, present picks), lobby-to-run handoff (validation, admission, departure), crew packing, station timetable, map registry and rotation, Config invariants | `lune run tests/runner` |
+| Integration | MapBuilder and LobbyMap build real Instances (Lune's Roblox library) from real plans: counts, prompts, sleigh on the ground at the Sleigh Stop, no overlapping houses, approved house kit / Lair / vault door (with stand-in models), Krampus and elf rigs, sleigh seats, vault presents, map palette/layout/features/stop origins, every map in the rotation, lobby bays and spawn | same command |
 | Static | Format, lint, place build | `stylua --check src tests`, `selene src`, `rojo build` |
 | E2E | Not automated yet; see below | Studio playtest |
 
@@ -94,9 +119,9 @@ CI (`.github/workflows/ci.yml`) runs all of the above on every pull request.
 Filter tests by file name: `lune run tests/runner Loot`.
 
 The test runner loads modules straight from `src/` with a fake `game`/`script`/
-`require`, so keep rule code in pure modules (`Loot`, `KrampusBrain`, `ElfBrain`, `Handoff`, `Util`)
-and keep `MapBuilder` free of events. Code that needs the live engine (`Run`,
-`Lobby`, `Krampus` and `ElfBot` movement, physics, pathfinding, remotes) is covered by the
+`require`, so keep rule code in pure modules (`Loot`, `KrampusBrain`, `ElfBrain`, `Handoff`, `CrewPacker`, `StationClock`, `Util`)
+and keep `MapBuilder` and `LobbyMap` free of events. Code that needs the live engine (`Run`,
+`Lobby`, `Station`, `Matchmaker`, `Krampus` and `ElfBot` movement, physics, pathfinding, remotes) is covered by the
 playtest checklist until E2E is set up.
 
 **E2E plan:** Roblox Open Cloud's Luau Execution API runs a script inside a
@@ -115,7 +140,12 @@ src/shared/Config.luau        every tuning number
 src/shared/Remotes.luau       RemoteEvents (Hud, LeaveCrew, Input)
 src/shared/Util.luau          clock, character helpers, weighted pick
 src/server/Main.server.luau   entry point
-src/server/Lobby.luau         Quick Join queue, run slots, requeue (single-server mode)
+src/server/Lobby.luau         what happens when a station sleigh leaves; same-server runs (fallback)
+src/server/LobbyMap.luau      Sleigh Station lobby: workshop, show-off yard, present path, bays
+src/server/Station.luau       bay timetable: sleighs, gates, boarding signs, seating
+src/server/Matchmaker.luau    cross-server queue, reserved run servers, teleports
+src/shared/CrewPacker.luau    pure crew packing from queue tickets
+src/shared/StationClock.luau  pure bay timetable
 src/server/RunHost.luau       run place: receive a crew, run back to back, return leavers
 src/shared/Handoff.luau       lobby -> run place TeleportData contract
 src/shared/Maps/              map definitions and the rotation
@@ -128,7 +158,8 @@ src/server/ElfBrain.luau      pure elf bot decisions
 src/server/Mover.luau         pathfinding for Krampus and elf bots
 src/server/Assets.luau        approved models from ServerStorage.Assets
 src/server/HouseKit.luau      houses, Lair and vault door from the approved models
-src/server/MapBuilder.luau    greybox hub, houses, streets, sleigh, Krampus and elf stand-ins
+src/server/MapBuilder.luau    greybox houses, streets, sleigh, Krampus and elf stand-ins
+src/server/Parts.luau         shared anchored-part helper for the builders
 src/server/Loot.luau          pure House Card rolls, stop plans, loot and results
 src/client/Hud.client.luau    timer, Jingle, sack, noise, bells, breath, wiggle, queue, results
 tests/runner.luau             Lune test runner

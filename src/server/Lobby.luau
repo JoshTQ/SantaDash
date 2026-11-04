@@ -1,22 +1,28 @@
 --[[
-	Sleigh Station matchmaking.
+	Sleigh Station lobby: what happens to riders when a station sleigh leaves.
 
-	Quick Join: step on the pad and you board the next public sleigh. A sleigh
-	departs QuickJoinSeconds after its first rider, or as soon as it is full.
-	After a run the same crew is requeued together ("Next run in 5..."), and
-	Quick Join players can fill any empty seats. LeaveCrew drops you out.
+	Station (bays, gates, seating) calls back here. Once both places are
+	published (Matchmaker.enabled) riders go cross-server: Public riders queue
+	the moment they sit down, a Party group queues when its sleigh leaves (and
+	is topped up with randoms), a Private sleigh teleports straight to its own
+	run server. Until then, in Studio, or when the queue has not formed a crew
+	within Config.Matchmaking.LocalFallbackSeconds, the crew runs here in this
+	server (the original greybox path). After a local run the crew is requeued
+	together ("Next run in 5...").
 
-	Not in the greybox yet: Party/Private toggle, join-a-friend, drop-in at the
-	next stop, elf bots for empty seats.
+	Not in yet: join-a-friend, drop-in at the next stop.
 ]]
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local CrewPacker = require(ReplicatedStorage.Shared.CrewPacker)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Util = require(ReplicatedStorage.Shared.Util)
+local Matchmaker = require(script.Parent.Matchmaker)
 local Run = require(script.Parent.Run)
+local Station = require(script.Parent.Station)
 
 type Crew = {
 	players: { Player },
@@ -90,6 +96,9 @@ end
 local function launch(crew: Crew, slot: number)
 	crew.launching = true
 	runsBySlot[slot] = true -- reserved while building
+	for _, player in crew.players do
+		Station.release(player)
+	end
 	task.spawn(function()
 		local ok, run = pcall(Run.new, slot, crew.players, onRunFinished)
 		Util.removeValue(crews, crew)
@@ -116,26 +125,56 @@ local function launch(crew: Crew, slot: number)
 	end)
 end
 
-function Lobby.quickJoin(player: Player)
-	if runOf[player] or crewOf[player] then
-		return
-	end
-	-- Fill the sleigh leaving soonest that still has room.
-	local best: Crew? = nil
-	for _, crew in crews do
-		if not crew.launching and #crew.players < Config.Lobby.CrewMax then
-			if not best or crew.departAt < best.departAt then
-				best = crew
-			end
+-- Same-server crew leaving now (local fallback).
+local function departLocally(players: { Player })
+	local crew = newCrew(0, false)
+	for _, player in players do
+		if player.Parent == Players and not runOf[player] and not crewOf[player] then
+			Matchmaker.cancel(player)
+			table.insert(crew.players, player)
+			crewOf[player] = crew
 		end
 	end
-	local crew = best or newCrew(Config.Lobby.QuickJoinSeconds, false)
-	table.insert(crew.players, player)
-	crewOf[player] = crew
 	sendCrew(crew)
 end
 
+local function backToHub(players: { Player })
+	for i, player in players do
+		Matchmaker.cancel(player)
+		Station.release(player)
+		if player.Parent == Players then
+			Util.teleport(player, hubSpawn * CFrame.new((i - 1) * 4, 0, 0))
+			send(player, "QueueClear", {})
+		end
+	end
+end
+
+local stationHandlers = {
+	seated = function(bay, player: Player)
+		if bay.kind == "Public" and Matchmaker.enabled() then
+			Matchmaker.enqueue("Public", { player })
+		end
+	end,
+	unseated = function(_bay, player: Player)
+		Matchmaker.cancel(player)
+	end,
+	depart = function(bay, riders: { Player })
+		if #riders == 0 then
+			return
+		elseif not Matchmaker.enabled() then
+			departLocally(riders)
+		elseif bay.kind == "Party" then
+			Matchmaker.enqueueParty(riders)
+		elseif bay.kind == "Private" then
+			Matchmaker.sendPrivate(riders)
+		end
+		-- Public riders are already queued (they queue when they sit down).
+	end,
+}
+
 function Lobby.leave(player: Player, leftGame: boolean?)
+	Matchmaker.cancel(player)
+	Station.release(player)
 	local crew = crewOf[player]
 	if crew and not crew.launching then
 		crewOf[player] = nil
@@ -162,6 +201,9 @@ end
 
 local function tick()
 	local t = Util.now()
+	for _, crew in CrewPacker.fit(Matchmaker.overdue(t), Config.Lobby.CrewMax) do
+		departLocally(crew)
+	end
 	for _, crew in table.clone(crews) do
 		if crew.launching then
 			continue
@@ -183,13 +225,10 @@ function Lobby.start(hub)
 	hud = Remotes.get("Hud")
 	hubSpawn = hub.spawn
 
-	hub.quickJoinPad.Touched:Connect(function(hit: BasePart)
-		local character = hit:FindFirstAncestorOfClass("Model")
-		local player = character and Players:GetPlayerFromCharacter(character)
-		if player then
-			Lobby.quickJoin(player)
-		end
-	end)
+	Station.start(hub, stationHandlers)
+	if Matchmaker.enabled() then
+		Matchmaker.start(backToHub)
+	end
 
 	Remotes.get("LeaveCrew").OnServerEvent:Connect(function(player)
 		Lobby.leave(player)

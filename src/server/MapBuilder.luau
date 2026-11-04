@@ -14,6 +14,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Maps = require(ReplicatedStorage.Shared.Maps)
 local HouseKit = require(script.Parent.HouseKit)
 local MapFeatures = require(script.Parent.MapFeatures)
+local Parts = require(script.Parent.Parts)
 
 local MapBuilder = {}
 
@@ -41,27 +42,7 @@ for _, z in { -4, 0, 4 } do
 	end
 end
 
-local function newPart(
-	parent: Instance,
-	name: string,
-	size: Vector3,
-	cframe: CFrame,
-	color: Color3,
-	material: Enum.Material?,
-	className: string?
-): BasePart
-	local part = Instance.new(className or "Part") :: BasePart
-	part.Name = name
-	part.Anchored = true
-	part.Size = size
-	part.CFrame = cframe
-	part.Color = color
-	part.Material = material or Enum.Material.SmoothPlastic
-	part.TopSurface = Enum.SurfaceType.Smooth
-	part.BottomSurface = Enum.SurfaceType.Smooth
-	part.Parent = parent
-	return part
-end
+local newPart = Parts.new
 
 local function addPrompt(
 	parent: Instance,
@@ -133,13 +114,15 @@ function MapBuilder.buildSleigh(parent: Instance, cframe: CFrame): Model
 end
 
 -- Places an approved sleigh model (contract in Assets.luau) with its Body at
--- cframe, anchors it, turns its Seats off (riders are carried by Run, not
--- welded), hitches two reindeer and returns rider offsets from Seat1-Seat6.
+-- cframe, anchors it, hitches two reindeer and returns rider offsets from
+-- Seat1-Seat6. Seats are turned off (Run carries riders, not welds) unless
+-- seatable, as at the lobby station where riders really sit down.
 function MapBuilder.placeSleighTemplate(
 	parent: Instance,
 	sleigh: Model,
 	cframe: CFrame,
-	reindeer: Model?
+	reindeer: Model?,
+	seatable: boolean?
 ): (Model, { CFrame })
 	local body = sleigh:FindFirstChild("Body", true) :: BasePart
 	sleigh.PrimaryPart = body
@@ -159,7 +142,7 @@ function MapBuilder.placeSleighTemplate(
 		if part:IsA("BasePart") then
 			part.Anchored = true
 		end
-		if part:IsA("Seat") or part:IsA("VehicleSeat") then
+		if (part:IsA("Seat") or part:IsA("VehicleSeat")) and not seatable then
 			part.Disabled = true
 		end
 	end
@@ -179,56 +162,31 @@ function MapBuilder.placeSleighTemplate(
 	return sleigh, offsets
 end
 
+-- Real Seats for a stand-in sleigh at the rider spots (lobby station).
+function MapBuilder.addSeats(sleigh: Model): { Seat }
+	local seats = {}
+	local pivot = (sleigh.PrimaryPart :: BasePart).CFrame -- the deck centre
+	for i, offset in MapBuilder.SeatOffsets do
+		local seat = newPart(
+			sleigh,
+			"Seat" .. i,
+			Vector3.new(2, 1, 2),
+			pivot * offset * CFrame.new(0, -1.5, 0),
+			GOLD,
+			nil,
+			"Seat"
+		) :: Seat
+		table.insert(seats, seat)
+	end
+	return seats
+end
+
 -- True if a position is inside the Sleigh Stop clearing around the sleigh
 -- (deckCFrame), or riding on it.
 function MapBuilder.isAboard(deckCFrame: CFrame, position: Vector3): boolean
 	local rel = deckCFrame:PointToObjectSpace(position)
 	local flat = Vector3.new(rel.X, 0, rel.Z).Magnitude
 	return flat <= Config.Map.SleighStopRadius and rel.Y >= -4 and rel.Y <= 12
-end
-
-----------------------------------------------------------------------------
--- Hub
-----------------------------------------------------------------------------
-
-function MapBuilder.buildHub(parent: Instance): { model: Model, quickJoinPad: BasePart, spawn: CFrame }
-	local model = Instance.new("Model")
-	model.Name = "SleighStation"
-
-	newPart(model, "Floor", Vector3.new(220, 2, 220), CFrame.new(0, -1, 0), SNOW, Enum.Material.Snow)
-
-	local spawnCF = Config.Map.HubSpawn
-	local spawn = newPart(
-		model,
-		"Spawn",
-		Vector3.new(12, 1, 12),
-		CFrame.new(spawnCF.Position.X, 0.5, spawnCF.Position.Z),
-		Color3.fromRGB(120, 200, 255),
-		nil,
-		"SpawnLocation"
-	) :: SpawnLocation
-	spawn.Neutral = true
-	spawn.Duration = 0
-
-	local pad = newPart(
-		model,
-		"QuickJoinPad",
-		Vector3.new(18, 1, 18),
-		CFrame.new(0, 0.5, 20),
-		Color3.fromRGB(60, 220, 110),
-		Enum.Material.Neon
-	)
-	addLabel(pad, "QUICK JOIN\nstep on to board", Color3.new(1, 1, 1), 6)
-
-	-- Decorative departure sleigh so the hub reads as a station.
-	MapBuilder.buildSleigh(model, CFrame.new(0, 2, 50) * CFrame.Angles(0, math.pi, 0))
-
-	local sign =
-		newPart(model, "Sign", Vector3.new(40, 10, 1), CFrame.new(0, 12, 75), Color3.fromRGB(40, 50, 80))
-	addLabel(sign, "SLEIGH STATION", GOLD, 0)
-
-	model.Parent = parent
-	return { model = model, quickJoinPad = pad, spawn = spawnCF }
 end
 
 ----------------------------------------------------------------------------

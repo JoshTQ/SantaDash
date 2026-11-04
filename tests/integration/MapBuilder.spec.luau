@@ -17,23 +17,6 @@ local function buildRoute(seed)
 	return MapBuilder.buildRoute(parent, 1, rng, plans, onFoot), plans, parent
 end
 
-local function countClass(root, className)
-	local n = 0
-	for _, d in root:GetDescendants() do
-		if d.ClassName == className then
-			n += 1
-		end
-	end
-	return n
-end
-
-test("hub has a spawn, a Quick Join pad and returns the spawn point", function()
-	local hub = MapBuilder.buildHub(newFolder())
-	expect(countClass(hub.model, "SpawnLocation")).toBe(1)
-	expect(hub.quickJoinPad.Name).toBe("QuickJoinPad")
-	expect(hub.spawn).toBe(Config.Map.HubSpawn)
-end)
-
 test("route has one built stop per planned stop and a sleigh", function()
 	local route, plans, parent = buildRoute(1)
 	expect(#route.stops).toBe(#plans)
@@ -315,4 +298,12 @@ test("maps can place stops anywhere and the paths follow them", function()
 	local finale = route.stops[#route.stops]
 	local lairPos = (routeBase * map.layout.StopOrigins[3] * lairAt).Position
 	expect((finale.krampusSpawn.Position - lairPos).Magnitude).toBeLessThan(30)
+end)
+
+test("a stand-in sleigh gets a real Seat at every rider spot", function()
+	local sleigh = MapBuilder.buildSleigh(newFolder(), CFrame.new(0, 2, 0))
+	local seats = MapBuilder.addSeats(sleigh)
+	expect(#seats).toBe(#MapBuilder.SeatOffsets)
+	expect(seats[1].ClassName).toBe("Seat")
+	expect(seats[1].Parent).toBe(sleigh)
 end)
