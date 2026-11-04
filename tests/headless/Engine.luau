@@ -682,6 +682,7 @@ function sit(self, humanoid)
 end
 
 function Instance.SetNetworkOwner() end
+function Instance.Emit() end -- ParticleEmitter: no particles in a headless world
 function Instance.SetNetworkOwnershipAuto() end
 function Instance.BreakJoints() end
 

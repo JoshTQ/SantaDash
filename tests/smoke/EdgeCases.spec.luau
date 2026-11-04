@@ -287,9 +287,18 @@ describe("failures", function()
 			world.runScript("ServerScriptService.Server.Main")
 			world.wait(0.5)
 			a = engine:addPlayer("A")
-			local pad = engine.workspace.SleighStation.QuickJoinPad
-			engine:teleport(a, pad.Position + Vector3.new(0, 3, 0))
-			world.wait(15)
+			-- Board the next Public sleigh (bay 1) and let it leave.
+			local StationClock = world.load("ReplicatedStorage.Shared.StationClock")
+			while true do
+				local p = StationClock.phaseAt("Public", 1, engine.now)
+				if p.name == "Boarding" and p.endsAt - engine.now >= 4 then
+					break
+				end
+				world.wait(0.25)
+			end
+			local zone = engine.workspace:FindFirstChild("PublicZone", true)
+			engine:teleport(a, zone.Position + Vector3.new(0, 3, 0))
+			world.wait(20)
 		end)
 		expect(#engine:hudMessages(a, "QueueClear")).toBe(1)
 		expect(#engine:hudMessages(a, "Stop")).toBe(0)

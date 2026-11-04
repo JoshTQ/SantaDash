@@ -1,6 +1,6 @@
 --[[
 	The HUD (Hud.client) running against the real server in one headless
-	world: the lobby, a run, Krampus, results, and the HUD's own buttons.
+	world: the station lobby, a run, Krampus, results, and the HUD's own buttons.
 ]]
 
 local function waitUntil(world, check: () -> boolean, seconds: number?, what: string?)
@@ -28,8 +28,35 @@ local function boot()
 		world.runScript("StarterPlayer.StarterPlayerScripts.Client.Hud")
 		world.wait(0.5)
 	end)
-	local pad = engine.workspace:FindFirstChild("SleighStation"):FindFirstChild("QuickJoinPad")
-	return world, engine, me, pad, Config
+	return world, engine, me, Config
+end
+
+local function seated(player): boolean
+	local humanoid = player.Character and player.Character:FindFirstChild("Humanoid")
+	return humanoid ~= nil and humanoid.SeatPart ~= nil
+end
+
+-- Waits for the Public sleigh (bay 1) to be boarding, walks on and sits down.
+local function boardPublic(world, player)
+	local StationClock = world.load("ReplicatedStorage.Shared.StationClock")
+	waitUntil(world, function()
+		local p = StationClock.phaseAt("Public", 1, world.engine.now)
+		return p.name == "Boarding" and p.endsAt - world.engine.now >= 4
+	end, 120, "Public boarding")
+	local zone = world.engine.workspace:FindFirstChild("PublicZone", true)
+	world.engine:teleport(player, zone.Position + Vector3.new(0, 3, 0))
+	waitUntil(world, function()
+		return seated(player)
+	end, 5, "sitting on the sleigh")
+end
+
+local function boardShows(engine, text: string): boolean
+	for _, d in engine.workspace:GetDescendants() do
+		if d:IsA("TextLabel") and d.Text == text then
+			return true
+		end
+	end
+	return false
 end
 
 local function shows(world, text: string, seconds: number?)
@@ -39,14 +66,14 @@ local function shows(world, text: string, seconds: number?)
 end
 
 describe("the HUD", function()
-	it("shows the queue countdown, then the stop, timer, Jingle and sack during a run", function()
-		local world, engine, me, pad, Config = boot()
+	it("shows the crew on the bay board, then the stop, timer, Jingle and sack during a run", function()
+		local world, engine, me, Config = boot()
 		world.run(function()
-			expect(engine:guiShows("Sleigh leaves")).toBe(false)
-			engine:teleport(me, pad.Position + Vector3.new(0, 3, 0))
-			shows(world, "Sleigh leaves in")
-			shows(world, "1/" .. Config.Lobby.CrewMax .. " Santas")
-			shows(world, "TAKE-OFF", 20)
+			expect(engine:guiShows("TAKE-OFF")).toBe(false)
+			boardPublic(world, me)
+			world.wait(0.5)
+			expect(boardShows(engine, "CREW 1/" .. Config.Lobby.CrewMax)).toBe(true)
+			shows(world, "TAKE-OFF", 30)
 			shows(world, "STOP 1/2 · SNEAK", 30)
 			shows(world, "Jingle: 500")
 			shows(world, "Sack: 0/" .. Config.Sack.Capacity)
@@ -59,9 +86,9 @@ describe("the HUD", function()
 	end)
 
 	it("warns of Krampus in the Lair and shows the results with the next-run countdown", function()
-		local world, engine, me, pad = boot()
+		local world, engine, me = boot()
 		world.run(function()
-			engine:teleport(me, pad.Position + Vector3.new(0, 3, 0))
+			boardPublic(world, me)
 			shows(world, "KRAMPUS'S LAIR", 200)
 			shows(world, "KRAMPUS IS COMING!", 5)
 			shows(world, "Best thief: Me", 200)
@@ -71,18 +98,16 @@ describe("the HUD", function()
 		end)
 	end)
 
-	it("Leave crew and Back to hub buttons leave the queue and the run", function()
-		local world, engine, me, pad = boot()
+	it("Leave crew and Back to hub buttons leave the sleigh and the run", function()
+		local world, engine, me = boot()
 		world.run(function()
-			engine:teleport(me, pad.Position + Vector3.new(0, 3, 0))
-			shows(world, "Sleigh leaves in")
-			engine:teleport(me, Vector3.new(0, 3, -40))
+			boardPublic(world, me)
 			engine:guiButton("Leave crew").Activated:Fire()
 			world.wait(0.5)
-			expect(engine:guiShows("Sleigh leaves in")).toBe(false)
+			expect(seated(me)).toBe(false)
 
-			engine:teleport(me, pad.Position + Vector3.new(0, 3, 0))
-			shows(world, "STOP 1/2", 40)
+			boardPublic(world, me)
+			shows(world, "STOP 1/2", 60)
 			engine:guiButton("Back to hub").Activated:Fire()
 			world.wait(0.5)
 			expect(engine:guiShows("STOP 1/2")).toBe(false)
@@ -90,10 +115,10 @@ describe("the HUD", function()
 	end)
 
 	it("shows the hiding panel, and Space taps refill your breath", function()
-		local world, engine, me, pad = boot()
+		local world, engine, me = boot()
 		world.run(function()
-			engine:teleport(me, pad.Position + Vector3.new(0, 3, 0))
-			shows(world, "STOP 1/2 · SNEAK", 40)
+			boardPublic(world, me)
+			shows(world, "STOP 1/2 · SNEAK", 60)
 			-- Find the run's first wardrobe and hide in it.
 			local spot
 			for _, d in engine.workspace:GetDescendants() do

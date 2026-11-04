@@ -166,6 +166,11 @@ for _, name in
 		"UDim2",
 		"Instance",
 		"Enum",
+		"NumberRange",
+		"NumberSequence",
+		"NumberSequenceKeypoint",
+		"ColorSequence",
+		"ColorSequenceKeypoint",
 	}
 do
 	builtins[name] = (roblox :: any)[name]

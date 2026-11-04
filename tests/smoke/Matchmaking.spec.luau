@@ -1,7 +1,7 @@
 --[[
 	Matchmaking smoke tests in a headless world, starting from the real
 	entry point (Main.server): the single-server Sleigh Station lobby
-	(Quick Join pad, crews, requeue, leaving) and the run place host that
+	(Public bay boarding, crews, requeue, leaving) and the run place host that
 	receives a crew teleported from the lobby place (Handoff).
 ]]
 
@@ -45,97 +45,138 @@ local function boot(options: { runPlace: boolean? }?)
 		world.runScript("ServerScriptService.Server.Main")
 		world.wait(0.5)
 	end)
-	local pad = engine.workspace:FindFirstChild("SleighStation"):FindFirstChild("QuickJoinPad")
-	return world, engine, Config, pad
-end
-
-local function stepOnPad(engine, pad, player)
-	engine:teleport(player, pad.Position + Vector3.new(0, 3, 0))
+	return world, engine, Config
 end
 
 local function inRun(engine, player): boolean
 	return count(engine, player, "Stop") > 0
 end
 
+local function seated(player): boolean
+	local humanoid = player.Character and player.Character:FindFirstChild("Humanoid")
+	return humanoid ~= nil and humanoid.SeatPart ~= nil
+end
+
+-- The Public bay's (bay 1) phase right now.
+local function publicPhase(world)
+	return world.load("ReplicatedStorage.Shared.StationClock").phaseAt("Public", 1, world.engine.now)
+end
+
+-- Waits for the Public sleigh to be boarding with at least `left` seconds to go.
+local function waitForBoarding(world, left: number?)
+	waitUntil(world, function()
+		local p = publicPhase(world)
+		return p.name == "Boarding" and p.endsAt - world.engine.now >= (left or 4)
+	end, 120, "Public boarding")
+end
+
+local function publicZone(engine)
+	local zone = engine.workspace:FindFirstChild("PublicZone", true)
+	assert(zone, "no Public board zone")
+	return zone
+end
+
+-- Walks players into the Public bay's board zone and waits until they sit.
+local function walkOn(world, players: { any })
+	local zone = publicZone(world.engine)
+	for _, player in players do
+		world.engine:teleport(player, zone.Position + Vector3.new(0, 3, 0))
+	end
+	waitUntil(world, function()
+		for _, player in players do
+			if not seated(player) then
+				return false
+			end
+		end
+		return true
+	end, 5, "riders to sit down")
+end
+
+-- Boards the next Public sleigh; returns the time its gate shuts.
+local function boardPublic(world, players: { any }, left: number?): number
+	waitForBoarding(world, left)
+	walkOn(world, players)
+	return publicPhase(world).endsAt
+end
+
 describe("Sleigh Station lobby (single server)", function()
-	it("boards Quick Join riders onto one sleigh that leaves 10 s after the first rider", function()
-		local world, engine, Config, pad = boot()
+	it("boards Public riders onto one sleigh that leaves when its gate shuts", function()
+		local world, engine = boot()
 		world.run(function()
 			local a = engine:addPlayer("A")
 			local b = engine:addPlayer("B")
-			stepOnPad(engine, pad, a)
-			world.wait(1)
-			local queue = last(engine, a, "Queue")
-			expect(queue.count).toBe(1)
-			local departAt = queue.departAt
-			expect(departAt - engine.now).toBeNear(Config.Lobby.QuickJoinSeconds - 1, 0.6)
-
-			stepOnPad(engine, pad, b)
-			world.wait(1)
-			expect(last(engine, a, "Queue").count).toBe(2)
-			expect(last(engine, b, "Queue").departAt).toBe(departAt) -- same sleigh
-
+			local shutsAt = boardPublic(world, { a }, 8)
+			walkOn(world, { b })
+			expect(publicPhase(world).endsAt).toBe(shutsAt) -- same sleigh
 			expect(inRun(engine, a)).toBe(false)
 			waitUntil(world, function()
 				return inRun(engine, a) and inRun(engine, b)
-			end, 20, "the sleigh to leave")
-			expect(engine.now).toBeGreaterThanOrEqual(departAt)
+			end, 30, "the sleigh to leave")
+			expect(engine.now).toBeGreaterThanOrEqual(shutsAt)
 			expect(count(engine, a, "QueueClear")).toBeGreaterThan(0)
 		end)
 	end)
 
-	it("leaves at once when the sleigh is full, and a 7th rider starts a new sleigh", function()
-		local world, engine, Config, pad = boot()
+	it("seats a crew of 6 per sleigh, and the 7th rider takes the next one", function()
+		local world, engine, Config = boot()
 		world.run(function()
 			local riders = {}
 			for i = 1, Config.Lobby.CrewMax + 1 do
 				riders[i] = engine:addPlayer("R" .. i)
 			end
-			for i = 1, Config.Lobby.CrewMax do
-				stepOnPad(engine, pad, riders[i])
-			end
+			local first = table.clone(riders)
+			local seventh = table.remove(first)
+			boardPublic(world, first, 8)
+			engine:teleport(seventh, publicZone(engine).Position + Vector3.new(0, 3, 0))
+			world.wait(1)
+			expect(seated(seventh)).toBe(false) -- the sleigh is full
 			waitUntil(world, function()
 				return inRun(engine, riders[1])
-			end, 3, "a full sleigh to leave straight away")
-			stepOnPad(engine, pad, riders[Config.Lobby.CrewMax + 1])
-			world.wait(1)
-			expect(last(engine, riders[Config.Lobby.CrewMax + 1], "Queue").count).toBe(1)
+			end, 30, "the full sleigh to leave")
+			expect(inRun(engine, seventh)).toBe(false)
+			boardPublic(world, { seventh })
+			waitUntil(world, function()
+				return inRun(engine, seventh)
+			end, 30, "the next sleigh")
 		end)
 	end)
 
-	it("lets a rider leave the queue, and stepping on the pad again doesn't queue twice", function()
-		local world, engine, _, pad = boot()
+	it("lets a rider hop off, and walking back on doesn't take two seats", function()
+		local world, engine = boot()
 		world.run(function()
 			local a = engine:addPlayer("A")
 			local b = engine:addPlayer("B")
-			stepOnPad(engine, pad, a)
-			stepOnPad(engine, pad, b)
-			world.wait(1)
-			engine:teleport(a, Vector3.new(0, 3, -40))
-			world.wait(0.5)
-			stepOnPad(engine, pad, a) -- walks back on: still one seat
-			world.wait(1)
-			expect(last(engine, b, "Queue").count).toBe(2)
-
+			local c = engine:addPlayer("C")
+			boardPublic(world, { a, b, c }, 8)
 			local leave = world.load("ReplicatedStorage.Shared.Remotes").get("LeaveCrew")
+			leave.OnServerEvent:Fire(a) -- hop off
+			world.wait(0.5)
+			expect(seated(a)).toBe(false)
+			walkOn(world, { a }) -- back on: one seat again
+			local taken = 0
+			for _, d in engine.workspace:GetDescendants() do
+				if d:IsA("Seat") and d.Occupant ~= nil then
+					taken += 1
+				end
+			end
+			expect(taken).toBe(3)
+
+			engine:removePlayer(c) -- leaving the game frees the seat
 			leave.OnServerEvent:Fire(a)
 			world.wait(0.5)
-			expect(count(engine, a, "QueueClear")).toBe(1)
-			expect(last(engine, b, "Queue").count).toBe(1)
-
-			engine:removePlayer(b) -- leaving the game empties the crew
-			world.wait(15)
+			waitUntil(world, function()
+				return inRun(engine, b)
+			end, 30, "the sleigh to leave")
 			expect(inRun(engine, a)).toBe(false)
 		end)
 	end)
 
 	it("requeues the crew together after a run, then starts their next run", function()
-		local world, engine, _, pad = boot()
+		local world, engine = boot()
 		world.run(function()
 			local a = engine:addPlayer("A")
 			local b = engine:addPlayer("B")
-			stepOnPad(engine, pad, a)
-			stepOnPad(engine, pad, b)
+			boardPublic(world, { a, b })
 			waitUntil(world, function()
 				return count(engine, a, "Results") > 0
 			end, 300, "the first run's results")
@@ -153,15 +194,14 @@ describe("Sleigh Station lobby (single server)", function()
 	end)
 
 	it("sends a Santa who leaves mid-run back to the station while the crew plays on", function()
-		local world, engine, Config, pad = boot()
+		local world, engine, Config = boot()
 		world.run(function()
 			local a = engine:addPlayer("A")
 			local b = engine:addPlayer("B")
-			stepOnPad(engine, pad, a)
-			stepOnPad(engine, pad, b)
+			boardPublic(world, { a, b })
 			waitUntil(world, function()
 				return inRun(engine, a)
-			end, 20, "the run")
+			end, 30, "the run")
 			world.wait(8)
 			world.load("ReplicatedStorage.Shared.Remotes").get("LeaveCrew").OnServerEvent:Fire(a)
 			world.wait(0.5)
@@ -175,13 +215,13 @@ describe("Sleigh Station lobby (single server)", function()
 	end)
 
 	it("routes taps from the Input remote to the player's run", function()
-		local world, engine, _, pad = boot()
+		local world, engine = boot()
 		world.run(function()
 			local a = engine:addPlayer("A")
-			stepOnPad(engine, pad, a)
+			boardPublic(world, { a })
 			waitUntil(world, function()
 				return inRun(engine, a)
-			end, 20, "the run")
+			end, 30, "the run")
 			waitUntil(world, function()
 				return count(engine, a, "Stop") >= 2 -- landed at Stop 1
 			end, 20, "Stop 1")
@@ -197,23 +237,25 @@ describe("Sleigh Station lobby (single server)", function()
 	end)
 
 	it("makes a full server's fifth crew wait for a free street", function()
-		local world, engine, Config, pad = boot()
+		local world, engine, Config = boot()
 		world.run(function()
 			local crews = Config.Lobby.MaxRunsPerServer + 1
 			local firsts = {}
 			for c = 1, crews do
+				local crew = {}
 				for i = 1, Config.Lobby.CrewMax do
-					local p = engine:addPlayer("C" .. c .. "P" .. i)
-					if i == 1 then
-						firsts[c] = p
-					end
-					stepOnPad(engine, pad, p)
+					crew[i] = engine:addPlayer("C" .. c .. "P" .. i)
 				end
-				world.wait(1)
+				firsts[c] = crew[1]
+				boardPublic(world, crew)
+				waitUntil(world, function()
+					return publicPhase(world).name ~= "Boarding"
+				end, 30, "this sleigh to leave")
 			end
-			world.wait(3)
-			local queue = last(engine, firsts[crews], "Queue")
-			expect(queue.waiting).toBe(true)
+			waitUntil(world, function()
+				local queue = last(engine, firsts[crews], "Queue")
+				return queue ~= nil and queue.waiting == true
+			end, 30, "the fifth crew to wait")
 			expect(inRun(engine, firsts[crews])).toBe(false)
 			waitUntil(world, function()
 				return inRun(engine, firsts[crews])

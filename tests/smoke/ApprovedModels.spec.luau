@@ -99,7 +99,7 @@ local function kit(world)
 
 	assets.Parent = engine:service("ServerStorage")
 
-	-- Map set dressing for the default map.
+	-- Map set dressing for the default map and every map in the rotation.
 	local maps = New("Folder")
 	maps.Name = "Maps"
 	local dressing = model("TestDressing")
@@ -111,7 +111,11 @@ local function kit(world)
 	routeDressing.Parent = dressing
 	dressing.Parent = maps
 	maps.Parent = engine:service("ServerStorage")
-	world.load("ReplicatedStorage.Shared.Maps").get().dressing = "TestDressing"
+	local Maps = world.load("ReplicatedStorage.Shared.Maps")
+	Maps.get().dressing = "TestDressing"
+	for _, id in Maps.Rotation do -- the run picks from the rotation
+		Maps.get(id).dressing = "TestDressing"
+	end
 end
 
 local function countNamed(root, name)
