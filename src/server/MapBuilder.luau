@@ -215,6 +215,7 @@ export type Stop = {
 	vaultDoor: BasePart?,
 	krampusSpawn: CFrame,
 	doors: { Door }, -- approved houses' front doors (Run swings them)
+	origin: CFrame, -- stop space: +Z runs down the street from the landing house
 }
 
 export type Door = { door: BasePart, prompt: ProximityPrompt, closed: CFrame, open: boolean }
@@ -535,6 +536,7 @@ local function buildStop(
 		cocoaPrompt = nil :: any,
 		doors = {},
 		krampusSpawn = origin * CFrame.new(0, 6, far + map.StreetOverrun - 20), -- past the vault
+		origin = origin,
 	}
 
 	for _, house in plan.houses do

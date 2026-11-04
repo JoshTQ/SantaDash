@@ -63,6 +63,10 @@ Krampus and the sleigh. `Maps/SnowyStreet.luau` is the reference shape.
   kind's Vault or Lair (e.g. the Lair on an island).
 - **Features:** `src/server/MapFeatures.luau` entries with `build` (Instances,
   no events) and `start` (runtime behaviour per stop, returns a cleanup).
+- **Events:** `events = { { kind, weight } }` lists the random map events the
+  map can roll (`src/server/MapEvents.luau`, numbers and off switches in
+  `Config.MapEvents`). One roll per run (60%), never in a Krampus stop, warned
+  8 s ahead and always over before the horn; `MapEventBrain` holds the rules.
 - **Dressing:** an approved Model in `ServerStorage.Maps.<dressing>` with
   `StopDressing` (cloned at every stop) and `RouteDressing` (once). Art only.
 
@@ -110,7 +114,7 @@ Workspace; players with no TeleportData then join as a test crew.
 
 | Layer | What | How |
 | --- | --- | --- |
-| Unit | Pure rules: House Card rolls, stop plans, values, banking, results, Krampus decisions (arrival, targeting, bells, breath, wiggle), elf bot decisions (design mix, present picks), lobby-to-run handoff (validation, admission, departure), crew packing, station timetable, map registry and rotation, Config invariants | `lune run tests/runner` |
+| Unit | Pure rules: House Card rolls, stop plans, values, banking, results, Krampus decisions (arrival, targeting, bells, breath, wiggle), elf bot decisions (design mix, present picks), lobby-to-run handoff (validation, admission, departure), crew packing, station timetable, map registry and rotation, map event rolls and timing, Config invariants | `lune run tests/runner` |
 | Integration | MapBuilder and LobbyMap build real Instances (Lune's Roblox library) from real plans: counts, prompts, sleigh on the ground at the Sleigh Stop, no overlapping houses, approved house kit / Lair / vault door (with stand-in models), Krampus and elf rigs, sleigh seats, vault presents, map palette/layout/features/stop origins, every map in the rotation, lobby bays and spawn | same command |
 | Static | Format, lint, place build | `stylua --check src tests`, `selene src`, `rojo build` |
 | E2E | Not automated yet; see below | Studio playtest |
@@ -150,6 +154,7 @@ src/server/RunHost.luau       run place: receive a crew, run back to back, retur
 src/shared/Handoff.luau       lobby -> run place TeleportData contract
 src/shared/Maps/              map definitions and the rotation
 src/server/MapFeatures.luau   map-specific builders and per-stop runtime hooks
+src/server/MapEvents.luau     random map events (Blizzard); rules in MapEventBrain
 src/server/Run.luau           one crew's run: stops, phases, grabs, buys, noise, hiding, results
 src/server/Krampus.luau       Krampus movement, snatch, carry, bells, wiggle
 src/server/KrampusBrain.luau  pure Krampus decisions

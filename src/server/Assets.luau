@@ -11,6 +11,11 @@
 	House, KrampusLair, VaultDoor  see HouseKit.luau
 	CocoaMachine  PrimaryPart "Body", "BuyPrompt" Attachment (+ Sign, TopMug,
 	          Dispenser, PricePlate); placed standing on the street
+	SnowPile  Blizzard pile (Sparkle Drift): PrimaryPart "Drift", Ball1-Ball5
+	          (hidden per grab, regrow), "Glow" (pulses), "Sparkles" Attachment,
+	          ProximityPrompt; 6x3x6 studs, pivot at its centre
+	Snowball  about 1.2 studs, PrimaryPart + Trail; thrown during a Blizzard
+	SnowSplat decal Model left where a snowball lands, fades out
 	The Sleigh's Seats are disabled: Run carries riders at each Seat's spot.
 
 	Map set dressing lives in ServerStorage.Maps.<dressing> (see shared/Maps):

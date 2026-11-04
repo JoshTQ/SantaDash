@@ -1,6 +1,7 @@
 local Config = load("ReplicatedStorage.Shared.Config")
 local Maps = load("ReplicatedStorage.Shared.Maps")
 local MapFeatures = load("ServerScriptService.Server.MapFeatures")
+local MapEvents = load("ServerScriptService.Server.MapEvents")
 
 test("the default map is the original street with Config's layout", function()
 	local map = Maps.get()
@@ -27,6 +28,10 @@ test("every map in the rotation resolves and is playable", function()
 		end
 		for _, feature in map.features do
 			expect(MapFeatures[feature.kind] ~= nil).toBeTruthy()
+		end
+		for _, event in map.events do
+			expect(MapEvents[event.kind] ~= nil).toBeTruthy()
+			expect(Config.MapEvents.Events[event.kind] ~= nil).toBeTruthy()
 		end
 	end
 end)

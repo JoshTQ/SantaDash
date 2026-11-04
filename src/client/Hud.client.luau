@@ -1,10 +1,12 @@
 --[[
 	Greybox HUD: stop timer and phase, Jingle, sack, noise meter, banners,
 	sleigh queue, Krampus bells, hiding (breath), snatched (wiggle) and the
-	results screen. Plain frames, no art.
+	results screen, and random map events (event chip, Blizzard fog and snow,
+	snowballs, splats). Plain frames, no art.
 ]]
 
 local ContextActionService = game:GetService("ContextActionService")
+local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -138,7 +140,7 @@ stroke.Parent = vignette
 vignette.Parent = gui
 
 -- Centre: banner.
-local banner = label(gui, UDim2.new(0.8, 0, 0, 50), UDim2.new(0.1, 0, 0.22, 0), 34)
+local banner = label(gui, UDim2.new(0.8, 0, 0, 90), UDim2.new(0.1, 0, 0.2, 0), 34)
 banner.TextWrapped = true
 local bannerToken = 0
 
@@ -167,6 +169,28 @@ button(queuePanel, "Leave crew", UDim2.fromOffset(160, 34), UDim2.new(0.5, -80, 
 local quitButton = button(gui, "Back to hub", UDim2.fromOffset(130, 30), UDim2.new(0, 12, 1, -42), leave)
 quitButton.Visible = false
 
+-- Under the stop timer: the running map event and its countdown.
+local eventPanel = panel(UDim2.fromOffset(240, 34), UDim2.new(0.5, 0, 0, 98), Vector2.new(0.5, 0))
+eventPanel.BackgroundColor3 = Color3.fromRGB(60, 110, 170)
+local eventLabel = label(eventPanel, UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), 22)
+
+-- Bottom right: snowballs and the throw button (F / R2 / tap).
+local snowPanel = panel(UDim2.fromOffset(170, 96), UDim2.new(1, -12, 1, -110), Vector2.new(1, 0))
+local snowLabel = label(snowPanel, UDim2.new(1, 0, 0, 30), UDim2.fromOffset(0, 4), 22)
+button(snowPanel, "THROW (F)", UDim2.new(1, -20, 0, 50), UDim2.fromOffset(10, 38), function()
+	input:FireServer("Throw")
+end)
+
+-- Full-screen splat when a crewmate's snowball hits you (cosmetic only).
+local splatFrame = Instance.new("Frame")
+splatFrame.Size = UDim2.fromScale(1, 1)
+splatFrame.BackgroundColor3 = Color3.new(1, 1, 1)
+splatFrame.BackgroundTransparency = 1
+splatFrame.BorderSizePixel = 0
+splatFrame.Parent = gui
+local splatLabel = label(splatFrame, UDim2.new(1, 0, 0, 60), UDim2.fromScale(0, 0.45), 40)
+splatLabel.TextColor3 = Color3.fromRGB(60, 110, 170)
+
 -- Results.
 local resultsPanel = panel(UDim2.fromOffset(460, 340), UDim2.fromScale(0.5, 0.5), Vector2.new(0.5, 0.5))
 local resultsTitle = label(resultsPanel, UDim2.new(1, 0, 0, 44), UDim2.fromOffset(0, 8), 32)
@@ -186,6 +210,11 @@ local queueState: any = nil
 local resultsEndsAt = 0
 local krampusModel: Model? = nil
 local tapMode = false -- hiding or snatched
+local eventEndsAt: number? = nil
+local eventName = ""
+local savedFog: { any }? = nil -- Lighting fog before a weather event
+local snowfall: BasePart? = nil -- follows the camera while it snows
+local splatUntil = 0
 
 -- Labels refreshed by the loop at the bottom only get written when the text changes.
 local shown: { [TextLabel]: string } = {}
@@ -351,7 +380,79 @@ function handlers.Results(data)
 	resultsEndsAt = data.endsAt
 end
 
+-- The HUD chip for a running map event; empty data = it's over.
+function handlers.MapEvent(data)
+	eventEndsAt = data.endsAt
+	eventPanel.Visible = data.endsAt ~= nil
+	eventName = data.label or ""
+end
+
+-- Local-only weather, so other crews' runs in the same server are untouched.
+function handlers.Weather(data)
+	if data.kind == "Blizzard" then
+		if not savedFog then
+			savedFog = { Lighting.FogStart, Lighting.FogEnd, Lighting.FogColor }
+		end
+		Lighting.FogStart = 0
+		Lighting.FogEnd = data.fogEnd
+		Lighting.FogColor = data.fogColor
+		if not snowfall then
+			local part = Instance.new("Part")
+			part.Name = "Snowfall"
+			part.Anchored = true
+			part.CanCollide = false
+			part.CanQuery = false
+			part.Transparency = 1
+			part.Size = Vector3.new(120, 1, 120)
+			local emitter = Instance.new("ParticleEmitter")
+			emitter.Rate = 600
+			emitter.Lifetime = NumberRange.new(3, 4)
+			emitter.Speed = NumberRange.new(18, 26)
+			emitter.EmissionDirection = Enum.NormalId.Bottom
+			emitter.SpreadAngle = Vector2.new(25, 25)
+			emitter.Size = NumberSequence.new(0.35)
+			emitter.Color = ColorSequence.new(Color3.new(1, 1, 1))
+			emitter.LightEmission = 0.3
+			emitter.Parent = part
+			part.Parent = workspace
+			snowfall = part
+		end
+	else
+		if savedFog then
+			Lighting.FogStart, Lighting.FogEnd, Lighting.FogColor = table.unpack(savedFog)
+			savedFog = nil
+		end
+		if snowfall then
+			snowfall:Destroy()
+			snowfall = nil
+		end
+	end
+end
+
+function handlers.Snowballs(data)
+	snowPanel.Visible = data.count > 0
+	snowLabel.Text = "Snowballs: " .. data.count
+	if data.count > 0 then
+		ContextActionService:BindAction("SleighHeistThrow", function(_, state)
+			if state == Enum.UserInputState.Begin then
+				input:FireServer("Throw")
+			end
+			return Enum.ContextActionResult.Sink
+		end, false, Enum.KeyCode.F, Enum.KeyCode.ButtonR2)
+	else
+		ContextActionService:UnbindAction("SleighHeistThrow")
+	end
+end
+
+function handlers.Splat(data)
+	splatUntil = Util.now() + data.seconds
+	splatLabel.Text = "SPLAT! (" .. data.by .. ")"
+end
+
 function handlers.RunEnd()
+	handlers.MapEvent({})
+	handlers.Weather({})
+	handlers.Snowballs({ count = 0 })
 	setInRun(false)
 	setTapMode(false)
 	handlers.Krampus({})
@@ -387,6 +488,16 @@ while true do
 					Config.Lobby.CrewMax
 				)
 		)
+	end
+	if eventEndsAt then
+		setText(eventLabel, eventName .. "  " .. clock(secondsLeft(eventEndsAt)))
+	end
+	local splatLeft = splatUntil - Util.now()
+	splatFrame.BackgroundTransparency = if splatLeft > 0 then 1 - math.min(0.45, splatLeft) else 1 -- never blinding
+	splatLabel.Visible = splatLeft > 0
+	local camera = workspace.CurrentCamera
+	if snowfall and camera then
+		snowfall.CFrame = CFrame.new(camera.CFrame.Position + Vector3.new(0, 40, 0))
 	end
 	if resultsPanel.Visible then
 		setText(resultsFooter, "Next run in " .. secondsLeft(resultsEndsAt) .. "...")

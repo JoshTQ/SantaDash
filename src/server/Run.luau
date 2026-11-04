@@ -22,6 +22,8 @@ local Loot = require(script.Parent.Loot)
 local KrampusBrain = require(script.Parent.KrampusBrain)
 local Krampus = require(script.Parent.Krampus)
 local MapBuilder = require(script.Parent.MapBuilder)
+local MapEventBrain = require(script.Parent.MapEventBrain)
+local MapEvents = require(script.Parent.MapEvents)
 local MapFeatures = require(script.Parent.MapFeatures)
 local HouseKit = require(script.Parent.HouseKit)
 
@@ -65,6 +67,9 @@ function Run.new(
 	self.krampus = nil
 	self.ended = false
 	self.featureCleanups = {} :: { () -> () }
+	self.noiseScale = 1 -- map events can muffle (or boost) all street noise
+	self.eventCleanup = nil :: (() -> ())?
+	self.eventInput = nil :: ((player: Player, action: string) -> ())?
 	self.times = { departAt = 0 }
 
 	local rng = Random.new()
@@ -94,6 +99,7 @@ function Run.new(
 		reindeer = Assets.get("Reindeer"),
 	})
 	self.deck = self.route.startDeck
+	self.eventPlan = MapEventBrain.plan(rng, map, Config.Run.StopKinds)
 
 	for _, player in crew do
 		self:_addPlayer(player)
@@ -475,6 +481,8 @@ function Run:onInput(player: Player, action: string)
 			st.breath = KrampusBrain.tapBreath(st.breath)
 			self:_send(player, "Hide", { hidden = true, breath = st.breath })
 		end
+	elseif self.eventInput then
+		self.eventInput(player, action) -- e.g. "Throw" during a Blizzard
 	end
 end
 
@@ -482,7 +490,7 @@ function Run:_addNoise(amount: number)
 	if not NOISY_PHASES[self.phase] then
 		return
 	end
-	self.noise = math.min(Config.Noise.Max, self.noise + amount)
+	self.noise = math.min(Config.Noise.Max, self.noise + amount * self.noiseScale)
 	self.noiseFull = self.noiseFull or self.noise >= Config.Noise.Max
 	self:_sendNoise()
 end
@@ -594,6 +602,7 @@ function Run:_startFeatures(stop)
 end
 
 function Run:_stopFeatures()
+	self:_stopEvent()
 	for _, cleanup in self.featureCleanups do
 		local ok, err = pcall(cleanup)
 		if not ok then
@@ -601,6 +610,70 @@ function Run:_stopFeatures()
 		end
 	end
 	self.featureCleanups = {}
+end
+
+-- Random map event (MapEvents), if this run rolled one for this stop.
+function Run:_startEvent(stop, endsAt: number)
+	local plan = self.eventPlan
+	local ok, cleanup = pcall(MapEvents[plan.kind].start, {
+		run = self,
+		stop = stop,
+		entry = plan.entry,
+		endsAt = endsAt,
+	})
+	if not ok then
+		warn("[Run] map event " .. plan.kind .. " failed to start: " .. tostring(cleanup))
+		self.noiseScale = 1
+		self.eventInput = nil
+		return
+	end
+	self.eventCleanup = cleanup
+	self:_send(nil, "MapEvent", { label = Config.MapEvents.Events[plan.kind].Label, endsAt = endsAt })
+end
+
+-- Ends the event early or on time; safe to call when none is running.
+function Run:_stopEvent()
+	local cleanup = self.eventCleanup
+	if not cleanup then
+		return
+	end
+	self.eventCleanup = nil
+	local ok, err = pcall(cleanup)
+	if not ok then
+		warn("[Run] map event cleanup failed: " .. tostring(err))
+	end
+	self.noiseScale = 1
+	self.eventInput = nil
+	self:_send(nil, "MapEvent", {})
+end
+
+-- Warn, start and end phases for this stop's map event (none if not rolled).
+function Run:_eventPhases(stop, t0: number): { any }
+	local plan = self.eventPlan
+	if not plan or plan.stop ~= stop.plan.index then
+		return {}
+	end
+	local def = Config.MapEvents.Events[plan.kind]
+	return {
+		{
+			at = t0 + plan.warnAt,
+			enter = function()
+				self:_banner(nil, string.format(def.Warning, plan.startAt - plan.warnAt), 4)
+			end,
+		},
+		{
+			at = t0 + plan.startAt,
+			enter = function()
+				self:_startEvent(stop, t0 + plan.endAt)
+			end,
+		},
+		{
+			at = t0 + plan.endAt,
+			enter = function()
+				self:_stopEvent()
+			end,
+		},
+	}
 end
 
 ----------------------------------------------------------------------------
@@ -698,6 +771,12 @@ function Run:_playStop(stop): { Player }
 			end,
 		},
 	}
+	for _, p in self:_eventPhases(stop, t0) do
+		table.insert(phases, p)
+	end
+	table.sort(phases, function(a, b)
+		return a.at < b.at
+	end)
 	local nextPhase = 1
 	local teased = false
 
@@ -710,9 +789,11 @@ function Run:_playStop(stop): { Player }
 		while phases[nextPhase] and t >= phases[nextPhase].at do
 			local p = phases[nextPhase]
 			nextPhase += 1
-			self.phase = p.phase
+			self.phase = p.phase or self.phase -- map event phases keep the stop's phase
 			p.enter()
-			self:_sendStop()
+			if p.phase then
+				self:_sendStop()
+			end
 		end
 		if self.phase ~= "Sneak" then
 			self:_addNoise(Config.Noise.LightsOnPerSecond * TICK)
@@ -773,7 +854,10 @@ end
 function Run:_main()
 	self:_banner(
 		nil,
-		"Take-off for " .. self.route.map.name .. "! Rob the houses, then escape Krampus's Lair.",
+		"Take-off for "
+			.. self.route.map.name
+			.. "! Rob the houses, then escape Krampus's Lair."
+			.. (if self.eventPlan then "\n" .. Config.MapEvents.Events[self.eventPlan.kind].Forecast else ""),
 		4
 	)
 	for player in self.players do
