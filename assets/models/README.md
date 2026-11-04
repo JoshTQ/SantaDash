@@ -7,7 +7,10 @@ name are listed in the top-level README.
 
 Only models Josh approved through the models gallery go here.
 
-To add one: in Studio, right-click the model in `ServerStorage.Assets` >
+Meshy models arrive here automatically: the Meshy model workflow opens a PR
+with `<Name>.rbxm` (see tools/meshy/README.md); merging it is the approval.
+
+To add one by hand: in Studio, right-click the model in `ServerStorage.Assets` >
 Save to File... > `.rbxm`, name it exactly as the game expects, and commit it.
 CI deploys replace the whole place, so a model that is only in Studio is
 wiped on the next deploy.
