@@ -14,11 +14,14 @@ local Maps = {}
 
 local Defs = {
 	SnowyStreet = require(script.SnowyStreet),
+	FrozenCanal = require(script.FrozenCanal),
 }
 
 Maps.Default = "SnowyStreet"
 -- Runs pick from these at random, avoiding the map the crew just played.
-Maps.Rotation = { "SnowyStreet" }
+-- Launch ships Frozen Canal Town only (Josh, 1 Nov 2026); SnowyStreet stays
+-- as the greybox reference map and comes back once it has its own art.
+Maps.Rotation = { "FrozenCanal" }
 
 export type Look = { any } -- { Color3, Enum.Material? }
 
@@ -102,6 +105,18 @@ function Maps.get(id: string?): Map
 	end
 	cache[key] = map
 	return map
+end
+
+-- Where stop i sits, relative to the route base: the map's StopOrigins, else
+-- StopSpacing apart along +X.
+function Maps.stopOrigin(layout: Layout, i: number): CFrame
+	local given = layout.StopOrigins and layout.StopOrigins[i]
+	return given or CFrame.new((i - 1) * layout.StopSpacing, 0, 0)
+end
+
+-- A feature with `stops = { ... }` only builds and starts at those stops.
+function Maps.featureOnStop(feature: { [string]: any }, stopIndex: number): boolean
+	return feature.stops == nil or table.find(feature.stops, stopIndex) ~= nil
 end
 
 -- A random map from the rotation, not `last` when there is a choice.

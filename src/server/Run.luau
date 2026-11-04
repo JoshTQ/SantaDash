@@ -223,13 +223,16 @@ function Run:_isEmpty(): boolean
 	return next(self.players) == nil
 end
 
+-- A Santa's own WalkSpeed with their perks (map features may add to it).
+function Run:baseWalkSpeed(st: PlayerState): number
+	return if st.perks.PeppermintRush then Config.Buys.PeppermintRush.WalkSpeed else Config.Player.WalkSpeed
+end
+
 function Run:_applyPerks(player: Player)
 	local st = self.players[player]
 	local humanoid = humanoidOf(player)
 	if st and humanoid then
-		humanoid.WalkSpeed = if st.perks.PeppermintRush
-			then Config.Buys.PeppermintRush.WalkSpeed
-			else Config.Player.WalkSpeed
+		humanoid.WalkSpeed = self:baseWalkSpeed(st)
 	end
 end
 
@@ -590,7 +593,7 @@ end
 function Run:_startFeatures(stop)
 	for _, feature in self.route.map.features do
 		local entry = MapFeatures[feature.kind]
-		if entry and entry.start then
+		if entry and entry.start and Maps.featureOnStop(feature, stop.plan.index) then
 			local ok, cleanup = pcall(entry.start, { run = self, stop = stop, feature = feature })
 			if not ok then
 				warn("[Run] map feature " .. feature.kind .. " failed to start: " .. tostring(cleanup))

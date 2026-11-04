@@ -19,6 +19,7 @@ stand-in (a model missing a required part is skipped with a warning):
 | `KrampusLair` | `Floor`, `ListPedestal`, `KrampusSpawn`, `HideSpot1`-`2` | Block Lair |
 | `VaultDoor` | `Frame`, `Door` (hinged on its left edge) | Gold block door |
 | `CocoaMachine` | `Body`, `BuyPrompt` attachment | Brown block |
+| `DogCorgi`, `DogTin` | `Humanoid`, `HumanoidRootPart` (anchored and moved along the patrol) | Block dogs |
 | `Present` (any number, or an `Assets.Presents` folder) | `Box` (recoloured per present), `Ribbon`, `Bow` | Box with ribbons; scaled so the Box's longest side matches the present's size |
 | `NaughtyList` | a PrimaryPart (the `Book`) | Gold scroll |
 
@@ -67,6 +68,18 @@ Krampus and the sleigh. `Maps/SnowyStreet.luau` is the reference shape.
   map can roll (`src/server/MapEvents.luau`, numbers and off switches in
   `Config.MapEvents`). One roll per run (60%), never in a Krampus stop, warned
   8 s ahead and always over before the horn; `MapEventBrain` holds the rules.
+- **Frozen Canal Town** (`Maps/FrozenCanal`, `server/CanalTown`, launch map):
+  each street is a frozen canal (skate = WalkSpeed 24 on Ice, boost hoops 40)
+  with pavements, front gardens, picket fences, hedges and bollard barriers
+  with ICE gaps; a main canal with hoops joins the stops along the on-foot
+  path. Stop 1 Christmas Market with security dogs (`DogCorgi` rams you and
+  knocks a present out to grab back, `DogTin` bonks then winds down 3 s);
+  Stop 2 Ice Rink Square with the ice polisher (scoops you into a snowbank);
+  Stop 3 the Lair on a lake island with the bell bridge, and 8 s in Krampus
+  stomps the lake into floes (fall in = SPLOOSH back onto a floe).
+  `CanalTown.breakZone(part)` breaks any `IceZone` part into floes (Thin Ice
+  uses it on `CrackZone` canal pieces). Stalls, hoops, rink, floes and the
+  bridge are greybox until the canal kit is approved.
 - **Dressing:** an approved Model in `ServerStorage.Maps.<dressing>` with
   `StopDressing` (cloned at every stop) and `RouteDressing` (once). Art only.
 

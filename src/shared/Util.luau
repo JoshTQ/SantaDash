@@ -26,6 +26,12 @@ function Util.rootOf(player: Player): BasePart?
 end
 
 -- Moves a character without carrying over its velocity.
+-- The player whose character a touching part belongs to, if any.
+function Util.playerFromHit(hit: BasePart): Player?
+	local model = hit:FindFirstAncestorOfClass("Model")
+	return model and game:GetService("Players"):GetPlayerFromCharacter(model)
+end
+
 function Util.teleport(player: Player, target: CFrame)
 	local root = Util.rootOf(player)
 	if root then

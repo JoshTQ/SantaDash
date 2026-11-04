@@ -338,4 +338,50 @@ Config.LobbyMap = {
 	GapSeconds = 3, -- empty bay before the next sleigh
 }
 
+-- Frozen Canal Town (Maps/FrozenCanal, server/CanalTown). Josh's picks, 1 Nov
+-- 2026: Christmas Market with security dogs, skate lanes with boost hoops,
+-- Ice Rink Square, floe hop at the Lair.
+Config.Canal = {
+	SkateSpeed = 24, -- WalkSpeed on Ice (a boost, not custom physics)
+	HoopSpeed = 40, -- WalkSpeed for a moment after flying through a boost hoop
+	HoopBoostSeconds = 1.5,
+	Width = 44, -- the main canal between stops (runs along the on-foot path)
+	SegmentLength = 100, -- canal ice is split so Thin Ice can break one piece
+	StopEndClear = 30, -- canal ice this close to a stop is never CrackZone
+	IceTop = 0.25, -- top of canal and lake ice
+	FloeTop = 0.9, -- floes sit proud of the water so the hop reads
+	FloeCell = 11, -- floe grid pitch; floes are 7-8 studs with ~3-4 stud gaps
+	Promenade = 6, -- pavement width either side of a street canal
+	Dogs = {
+		Count = 4, -- Stop 1 market, mixed Corgi Patrol and Tin Sausage Dog
+		Speed = 9, -- slower than a walking Santa (16), so you can dodge them
+		HitRadius = 4,
+		Knockback = 40,
+		CorgiCooldown = 5, -- seconds before the same corgi can ram you again
+		TinWindDown = 3, -- a tin dog stops for this long after a bonk
+	},
+	Polisher = { AngularSpeed = 0.35, HitRadius = 5 }, -- Ice Rink Square, Stop 2
+	StompDelay = 8,
+	-- Forest and snowy hills around the town (Josh, 2 Nov: "not just totally flat").
+	Woodland = {
+		Band = 260, -- studs of forest either side of each street (stops are 700 apart)
+		Inner = 90, -- forest starts this far from the street's centre line
+		Edge = 160, -- forest depth around the outside of the town
+		TreeSpacing = 30,
+		TreeChance = 0.55,
+		TreeHeight = { 16, 30 },
+		LitChance = 0.15, -- trees wrapped in Christmas lights
+		HillArea = 9000, -- one hill per this many square studs of forest
+		HillRadius = { 26, 60 },
+		HillHeight = { 10, 22 }, -- rounder bumps keep the sunk balls small
+	},
+	LightColours = { -- Christmas bulbs: red, gold, green, blue, pink
+		Color3.fromRGB(255, 70, 70),
+		Color3.fromRGB(255, 205, 80),
+		Color3.fromRGB(90, 230, 120),
+		Color3.fromRGB(90, 160, 255),
+		Color3.fromRGB(255, 120, 210),
+	}, -- Lair: seconds after landing before Krampus stomps the lake into floes
+}
+
 return Config

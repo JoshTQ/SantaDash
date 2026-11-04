@@ -16,6 +16,7 @@
 	          ProximityPrompt; 6x3x6 studs, pivot at its centre
 	Snowball  about 1.2 studs, PrimaryPart + Trail; thrown during a Blizzard
 	SnowSplat decal Model left where a snowball lands, fades out
+	DogCorgi/DogTin  Humanoid, HumanoidRootPart (Frozen Canal market security dogs)
 	The Sleigh's Seats are disabled: Run carries riders at each Seat's spot.
 
 	Map set dressing lives in ServerStorage.Maps.<dressing> (see shared/Maps):
