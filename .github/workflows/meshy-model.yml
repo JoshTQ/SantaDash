@@ -6,6 +6,8 @@ name: Meshy model
 # Setup: tools/meshy/README.md.
 #
 #   push to main changing art/meshy/<Name>.json -> runs for each changed spec
+#                                                  (only when the repo variable
+#                                                  MESHY_AUTO is true)
 #   Actions > Meshy model > Run workflow         -> runs for the name you type
 
 on:
@@ -29,6 +31,9 @@ permissions:
 
 jobs:
   pick:
+    # Pushes only start paid Meshy runs once MESHY_AUTO=true; the Run
+    # workflow button always works.
+    if: github.event_name == 'workflow_dispatch' || vars.MESHY_AUTO == 'true'
     runs-on: ubuntu-latest
     outputs:
       models: ${{ steps.pick.outputs.models }}
