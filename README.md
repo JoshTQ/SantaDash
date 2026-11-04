@@ -113,6 +113,7 @@ Servers.
 ```
 src/shared/Config.luau        every tuning number
 src/shared/Remotes.luau       RemoteEvents (Hud, LeaveCrew, Input)
+src/shared/Cutscenes.luau     the five short cutscenes: timing, camera keys, text pops, gags
 src/shared/Util.luau          clock, character helpers, weighted pick
 src/server/Main.server.luau   entry point
 src/server/Lobby.luau         Quick Join queue, run slots, requeue (single-server mode)
@@ -131,6 +132,7 @@ src/server/HouseKit.luau      houses, Lair and vault door from the approved mode
 src/server/MapBuilder.luau    greybox hub, houses, streets, sleigh, Krampus and elf stand-ins
 src/server/Loot.luau          pure House Card rolls, stop plans, loot and results
 src/client/Hud.client.luau    timer, Jingle, sack, noise, bells, breath, wiggle, queue, results
+src/client/CutscenePlayer.luau plays a cutscene locally: letterbox, camera, pops, Skip
 tests/runner.luau             Lune test runner
 tests/unit, tests/integration specs
 ```

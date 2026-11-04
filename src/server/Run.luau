@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local Cutscenes = require(ReplicatedStorage.Shared.Cutscenes)
 local Maps = require(ReplicatedStorage.Shared.Maps)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Util = require(ReplicatedStorage.Shared.Util)
@@ -126,6 +127,26 @@ function Run:_send(target: Player?, kind: string, data: any)
 	for player in self.players do
 		self:_send(player, kind, data)
 	end
+end
+
+-- Plays a cutscene (Cutscenes.luau) for one player, a list of players, or
+-- the whole crew when target is nil. Clients run the camera and can skip; the
+-- server never waits on them. Returns the scene length, or 0 when it is off.
+function Run:_cutscene(id: string, target: Player | { Player } | nil, data: { [string]: any }): number
+	local scene = Cutscenes.get(id)
+	if not scene or not Config.Cutscenes.Enabled then
+		return 0
+	end
+	data.id = id
+	data.startedAt = now()
+	if type(target) == "table" then
+		for _, player in target do
+			self:_send(player, "Cutscene", data)
+		end
+	else
+		self:_send(target, "Cutscene", data)
+	end
+	return scene.seconds
 end
 
 function Run:_banner(target: Player?, text: string, seconds: number?)
@@ -543,6 +564,13 @@ function Run:onSnatched(player: Player)
 		root.Anchored = true
 	end
 	self:_banner(nil, "Krampus snatched " .. player.DisplayName .. "! Ring the bells behind him!", 3)
+	if self.krampus then
+		self:_cutscene(
+			"Snatched",
+			player,
+			{ anchor = self.krampus.body.root.CFrame, follow = self.krampus.body.model }
+		)
+	end
 	self:_send(player, "Captive", { captive = true, wiggles = 0, needed = KrampusBrain.wiggleNeeded() })
 end
 
@@ -561,13 +589,26 @@ function Run:onReleased(player: Player, at: CFrame)
 end
 
 function Run:_startKrampus(stop)
-	self:_banner(nil, "KRAMPUS IS COMING!", Config.Krampus.WarningSeconds)
 	for _, light in stop.lights do
 		light.Enabled = true
 		light.Color = Color3.fromRGB(255, 60, 60)
 	end
-	self.krampus = Krampus.new(self, stop)
+	local intro = Cutscenes.get("KrampusArrives")
+	local introSeconds = if Config.Cutscenes.Enabled and intro then intro.seconds else 0
+	local hold = if introSeconds > 0
+		then introSeconds + Config.Cutscenes.KrampusGrace
+		else Config.Krampus.WarningSeconds
+	self:_banner(nil, "KRAMPUS IS COMING!", hold)
+	self.krampus = Krampus.new(self, stop, hold)
 	self:_send(nil, "Krampus", { model = self.krampus.body.model })
+	if introSeconds > 0 then
+		self.krampus:playIntro(introSeconds)
+		self:_cutscene(
+			"KrampusArrives",
+			nil,
+			{ anchor = stop.krampusSpawn, follow = self.krampus.body.model }
+		)
+	end
 end
 
 function Run:_stopKrampus()
@@ -610,7 +651,16 @@ end
 function Run:_fly(fromDeck: CFrame, toDeck: CFrame, riders: { Player })
 	self.phase = "Flight"
 	self:_sendStop()
+	self:_ride(riders, Config.Run.FlightSeconds, function(t)
+		local a = t / Config.Run.FlightSeconds
+		return fromDeck:Lerp(toDeck, a) + Vector3.yAxis * math.sin(a * math.pi) * Config.Run.FlightArcHeight
+	end)
+end
 
+-- Moves the sleigh along deckAt(t) for `seconds`, carrying the riders in
+-- their seats, and leaves it at deckAt(seconds). keepSeated leaves riders
+-- anchored in the sleigh (the Getaway ends in the sky; _finish frees them).
+function Run:_ride(riders: { Player }, seconds: number, deckAt: (t: number) -> CFrame, keepSeated: boolean?)
 	local seats: { [BasePart]: CFrame } = {}
 	for i, player in riders do
 		local root = rootOf(player)
@@ -634,14 +684,15 @@ function Run:_fly(fromDeck: CFrame, toDeck: CFrame, riders: { Player })
 
 	local started = os.clock()
 	local connection = RunService.Heartbeat:Connect(function()
-		local a = math.clamp((os.clock() - started) / Config.Run.FlightSeconds, 0, 1)
-		place(fromDeck:Lerp(toDeck, a) + Vector3.yAxis * math.sin(a * math.pi) * Config.Run.FlightArcHeight)
+		place(deckAt(math.min(os.clock() - started, seconds)))
 	end)
-	task.wait(Config.Run.FlightSeconds)
+	task.wait(seconds)
 	connection:Disconnect()
-	place(toDeck)
-	for root in seats do
-		root.Anchored = false
+	place(deckAt(seconds))
+	if not keepSeated then
+		for root in seats do
+			root.Anchored = false
+		end
 	end
 end
 
@@ -735,7 +786,9 @@ function Run:_playStop(stop): { Player }
 	end
 
 	self:_stopFeatures()
-	self:_stopKrampus()
+	if not plan.escapeMultiplier then
+		self:_stopKrampus() -- at the finale he stays for the Getaway belly-flop
+	end
 	local aboard = {}
 	for _, player in table.clone(self.order) do
 		local st = self.players[player]
@@ -749,11 +802,49 @@ function Run:_playStop(stop): { Player }
 			Loot.bankMissed(st)
 			self:_sendPlayer(player)
 			self:_banner(player, "You missed the last sleigh! Half your sack fell out.", 4)
+			self:_leftBehind(player, stop)
 		elseif st then
 			self:_banner(player, "You missed the sleigh! Follow the path to the next stop.", 4)
+			self:_leftBehind(player, stop)
 		end
 	end
 	return aboard
+end
+
+function Run:_leftBehind(player: Player, stop)
+	self:_cutscene("LeftBehind", player, { anchor = stop.deckCFrame, follow = self.route.sleigh })
+end
+
+-- The Takeoff swoop looks down on the whole route from above its middle.
+function Run:_routeCentre(): CFrame
+	local sum = Vector3.zero
+	for _, stop in self.route.stops do
+		sum += stop.deckCFrame.Position
+	end
+	return CFrame.new(sum / #self.route.stops)
+end
+
+-- Getaway: the overloaded sleigh strains and shoots off with whoever made it,
+-- while Krampus belly-flops behind it. Runs after the finale's loot is banked.
+-- Only the riders see it; anyone who missed it is watching Left Behind.
+function Run:_getaway(stop, riders: { Player })
+	local seconds = if #riders > 0
+		then self:_cutscene("Getaway", riders, { anchor = stop.deckCFrame, follow = self.route.sleigh })
+		else 0
+	if seconds <= 0 then
+		self:_stopKrampus()
+		return
+	end
+	self.phase = "Flight"
+	self:_sendStop()
+	if self.krampus then
+		self.krampus:playFlop(seconds, stop.deckCFrame.Position)
+	end
+	local deck = stop.deckCFrame
+	self:_ride(riders, seconds, function(t)
+		return deck * Cutscenes.getawaySleigh(t)
+	end, true)
+	self:_stopKrampus()
 end
 
 ----------------------------------------------------------------------------
@@ -781,6 +872,16 @@ function Run:_main()
 	end
 
 	local stops = self.route.stops
+	local marks = {}
+	for _, stop in stops do
+		table.insert(marks, stop.deckCFrame.Position)
+	end
+	self:_cutscene("Takeoff", nil, {
+		anchor = self:_routeCentre(),
+		follow = self.route.sleigh,
+		marks = marks,
+		map = self.route.map.name,
+	})
 	self:_fly(self.route.startDeck, stops[1].deckCFrame, table.clone(self.order))
 	for i, stop in stops do
 		if self.ended or self:_isEmpty() then
@@ -789,6 +890,8 @@ function Run:_main()
 		local aboard = self:_playStop(stop)
 		if stops[i + 1] and not self:_isEmpty() then
 			self:_fly(stop.deckCFrame, stops[i + 1].deckCFrame, aboard)
+		elseif not stops[i + 1] and not self:_isEmpty() then
+			self:_getaway(stop, aboard)
 		end
 	end
 

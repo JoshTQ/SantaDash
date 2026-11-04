@@ -26,6 +26,8 @@ globals:
     any: true
   Random:
     any: true
+  TweenInfo:
+    any: true
   task:
     any: true
   RBXScriptConnection:

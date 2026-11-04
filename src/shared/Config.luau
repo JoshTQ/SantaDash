@@ -173,7 +173,9 @@ Config.Krampus = {
 	TeaseFrom = 1,
 	TeaseAt = 30, -- seconds into a stop
 	ArriveAt = 45, -- seconds into an automatic stop (with the lights)
-	WarningSeconds = 3, -- "KRAMPUS IS COMING" before he appears
+	-- He stands still this long when he arrives: the KrampusArrives cutscene
+	-- (4 s) plus Config.Cutscenes.KrampusGrace. Without cutscenes, a 3 s warning.
+	WarningSeconds = 3,
 	WalkSpeed = 14, -- slower than a Santa (16), so running works
 	CarrySpeed = 10,
 	SenseRange = 70, -- sees and sniffs players this close, unless hidden
@@ -192,6 +194,14 @@ Config.Krampus = {
 	BreathPerTap = 0.08,
 	MaxTapsPerSecond = 8,
 	Height = 11, -- about 2.2x a Santa
+}
+
+-- Short slapstick cutscenes (src/shared/Cutscenes.luau). Josh, 2 Nov 2026:
+-- all five, one version each that plays every time; any player can skip.
+Config.Cutscenes = {
+	Enabled = true,
+	MaxSeconds = 5, -- no scene runs longer than this
+	KrampusGrace = 2, -- seconds Krampus still waits after his intro ends
 }
 
 -- Elf bots fill in for missing friends in solo runs (game-design.md "Solo").

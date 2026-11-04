@@ -3,7 +3,7 @@
 
 	Hud (server -> client): fire(kind: string, data: table). Kinds:
 		Queue, QueueClear, Stop, Banner, Noise, Player, Results, RunEnd,
-		Krampus, KrampusTease, Hide, Captive
+		Krampus, KrampusTease, Hide, Captive, Cutscene
 	LeaveCrew (client -> server): leave the queue or the current run.
 	Input (client -> server): "Tap" (breath / wiggle) or "Unhide".
 ]]
