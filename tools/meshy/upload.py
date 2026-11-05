@@ -30,6 +30,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 API = "https://apis.roblox.com"
 KEY = os.environ.get("ROBLOX_API_KEY")
 GIVE_UP_SECONDS = 15 * 60  # moderation can take a while
+RETRIES = 5
+RETRY_SECONDS = 5  # 5, 10, 15, 20, 25 s
+RETRY_CODES = (429, 502, 503, 504)
 
 
 def request(method, url, body=None, content_type=None, raw=False):
@@ -38,13 +41,28 @@ def request(method, url, body=None, content_type=None, raw=False):
         req.add_header("x-api-key", KEY)
     if content_type:
         req.add_header("Content-Type", content_type)
-    try:
-        with urllib.request.urlopen(req, timeout=120) as res:
-            data = res.read()
-    except urllib.error.HTTPError as e:
-        detail = e.read().decode(errors="replace")[:500]
-        hint = " (check the key has Assets Read+Write and no IP restriction)" if e.code in (401, 403) else ""
-        sys.exit(f"::error::{method} {url} -> {e.code}{hint}\n{detail}")
+    # Open Cloud has brief outages (503 "No server is available") and rate
+    # limits: retry those with backoff. They mean the request wasn't handled,
+    # so a retried POST doesn't create a second asset.
+    for attempt in range(RETRIES + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=120) as res:
+                data = res.read()
+            break
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode(errors="replace")[:500]
+            if e.code in RETRY_CODES and attempt < RETRIES:
+                print(f"  {method} {url} -> {e.code}, retrying ({attempt + 1}/{RETRIES})")
+                time.sleep(RETRY_SECONDS * (attempt + 1))
+                continue
+            hint = " (check the key has Assets Read+Write and no IP restriction)" if e.code in (401, 403) else ""
+            sys.exit(f"::error::{method} {url} -> {e.code}{hint}\n{detail}")
+        except urllib.error.URLError as e:
+            if method == "GET" and attempt < RETRIES:
+                print(f"  {method} {url} -> {e.reason}, retrying ({attempt + 1}/{RETRIES})")
+                time.sleep(RETRY_SECONDS * (attempt + 1))
+                continue
+            raise
     if data[:2] == b"\x1f\x8b":
         data = gzip.decompress(data)
     return data if raw else json.loads(data or b"{}")
