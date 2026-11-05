@@ -1,0 +1,33 @@
+{
+  "name": "DogCorgi",
+  "approved": "1 Nov 2026",
+  "rig": false,
+  "pose_mode": "",
+  "polycount": 8000,
+  "shape_prompt": "Stylized 3D game character, chunky vinyl-toy style, smooth sculpted rounded forms, quirky proportions. A cute cartoon corgi standing upright like a little security guard, big round eyes, tall pointy ears, a police-style cap with a badge, a hi-vis vest with reflective stripes, riding a small patrol scooter on ski runners with a handlebar, a round headlight and a siren light. Kid-friendly and goofy, single object, no base.",
+  "texture_prompt": "Bright saturated colours, smooth soft vinyl-toy finish, clean hand-painted look. Orange and cream corgi fur, black nose, navy cap with a gold badge, yellow hi-vis vest with white reflective stripes and K9 on the chest, red scooter body, silver ski runners, navy handlebar, white glowing headlight, red and blue siren light. No other text, no logos.",
+  "assemble": {
+    "_note": "Stand-in root 2 x 2 x 3 at the pivot, 1.5 studs above the ground; CanalTown anchors and moves it. Faces -Z (yaw set from the render).",
+    "mesh": {
+      "name": "Body",
+      "yaw": 180,
+      "fit": {
+        "axis": "Z",
+        "studs": 4.4
+      },
+      "bottom": [
+        0,
+        -1.5,
+        0
+      ]
+    },
+    "humanoid": {
+      "hip": 0.5,
+      "root": [
+        2,
+        2,
+        3
+      ]
+    }
+  }
+}

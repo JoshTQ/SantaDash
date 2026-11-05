@@ -11,6 +11,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Util = require(ReplicatedStorage.Shared.Util)
 local Assets = require(script.Parent.Assets)
 local ElfBrain = require(script.Parent.ElfBrain)
+local RigAnimator = require(script.Parent.RigAnimator)
 local MapBuilder = require(script.Parent.MapBuilder)
 local Mover = require(script.Parent.Mover)
 
@@ -44,6 +45,7 @@ function ElfBot.new(run, owner: Player, variant: string, index: number, cframe: 
 	self.variant = variant
 	self.offset = ElfBrain.followOffset(index)
 	self.body = buildBody(run.route.model, variant, cframe)
+	self.anim = RigAnimator.new(self.body.model) -- no-op on the stand-in
 	pcall(function()
 		self.body.root:SetNetworkOwner(nil)
 	end)
@@ -102,15 +104,19 @@ function ElfBot:_think()
 	if target then
 		if (root.Position - target.position).Magnitude <= REACH then
 			self.target = nil
+			self.anim:oneShot("Grab", 3)
 			self.nextGrabAt = t + E.GrabEverySeconds
 			run:elfCollect(self.owner, target.present, root.Position)
 		else
 			self.mover:moveTo(target.position)
+			self.anim:play("Follow")
 		end
 	elseif (root.Position - behindOwner).Magnitude > E.FollowDistance then
 		self.mover:moveTo(behindOwner)
+		self.anim:play("Follow")
 	else
 		self.mover:stop()
+		self.anim:play("Idle")
 	end
 end
 

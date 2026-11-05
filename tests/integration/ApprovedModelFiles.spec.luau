@@ -24,6 +24,23 @@ local CONTRACTS = {
 	},
 	Reindeer = { primary = "Body", parts = { "Body" } },
 	CocoaMachine = { primary = "Body", parts = { "Body", "BuyPrompt" } },
+	ElfA = {
+		primary = "HumanoidRootPart",
+		parts = { "Humanoid", "HumanoidRootPart" },
+		clips = { "Idle", "Follow", "Grab" },
+	},
+	ElfD = {
+		primary = "HumanoidRootPart",
+		parts = { "Humanoid", "HumanoidRootPart" },
+		clips = { "Idle", "Follow", "Grab" },
+	},
+	DogCorgi = { primary = "HumanoidRootPart", parts = { "Humanoid", "HumanoidRootPart" } },
+	DogTin = { primary = "HumanoidRootPart", parts = { "Humanoid", "HumanoidRootPart" } },
+	VaultDoor = { primary = "Frame", parts = { "Frame", "Door", "Dial", "PricePlate" } },
+	Present = { primary = "Box", parts = { "Box" } },
+	PresentTall = { primary = "Box", parts = { "Box" } },
+	PresentLong = { primary = "Box", parts = { "Box" } },
+	NaughtyList = { primary = "Book", parts = { "Book", "Chain", "Lock" } },
 	SnowPile = {
 		primary = "Drift",
 		parts = { "Drift", "Ball1", "Ball2", "Ball3", "Ball4", "Ball5", "Glow", "Sparkles" },
@@ -39,26 +56,37 @@ local UNPUBLISHABLE = {
 	"PackageLink",
 }
 
+-- Top-level models plus one level of variant folders (assets/models/Presents/*.rbxm).
 local files = {}
+local paths = {}
 if fs.isDir(DIR) then
 	for _, file in fs.readDir(DIR) do
 		local name = string.match(file, "^(%w+)%.rbxm$")
 		if name then
 			table.insert(files, name)
+			paths[name] = DIR .. "/" .. file
+		elseif fs.isDir(DIR .. "/" .. file) then
+			for _, inner in fs.readDir(DIR .. "/" .. file) do
+				local variant = string.match(inner, "^(%w+)%.rbxm$")
+				if variant then
+					table.insert(files, variant)
+					paths[variant] = DIR .. "/" .. file .. "/" .. inner
+				end
+			end
 		end
 	end
 end
 table.sort(files)
 
 local function load(name: string)
-	local roots = roblox.deserializeModel(fs.readFile(DIR .. "/" .. name .. ".rbxm"))
+	local roots = roblox.deserializeModel(fs.readFile(paths[name]))
 	return roots
 end
 
 describe("assets/models", function()
 	it("only holds .rbxm files named like Assets entries", function()
 		for _, file in fs.isDir(DIR) and fs.readDir(DIR) or {} do
-			if file ~= "README.md" then
+			if file ~= "README.md" and not fs.isDir(DIR .. "/" .. file) then
 				expect(string.match(file, "^%w+%.rbxm$")).toBe(file)
 			end
 		end

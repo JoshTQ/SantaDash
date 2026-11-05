@@ -1,0 +1,52 @@
+{
+  "name": "NaughtyList",
+  "approved": "1 Nov 2026",
+  "rig": false,
+  "pose_mode": "",
+  "polycount": 4000,
+  "shape_prompt": "Stylized 3D game prop, chunky vinyl-toy style, smooth sculpted rounded forms, quirky proportions. A big thick closed ledger book bound shut with a chunky chain wrapped around it and a big round padlock on the front, a scroll of paper curling out of the pages. Kid-friendly villain prop, single object, no base.",
+  "texture_prompt": "Bright saturated colours, smooth soft vinyl-toy finish, clean hand-painted look. Deep red leather cover with gold corner caps, cream pages and scroll, grey steel chain, shiny gold padlock. No text, no logos.",
+  "assemble": {
+    "_note": "One mesh; Chain and Lock are helper parts so the contract names exist.",
+    "mesh": {
+      "name": "Book",
+      "fit": {
+        "axis": "max",
+        "studs": 3
+      },
+      "bottom": [
+        0,
+        0,
+        0
+      ]
+    },
+    "parts": {
+      "Chain": {
+        "size": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "at": [
+          0,
+          1,
+          0
+        ]
+      },
+      "Lock": {
+        "size": [
+          0.6,
+          0.6,
+          0.3
+        ],
+        "at": [
+          0,
+          1,
+          -0.9
+        ]
+      }
+    },
+    "primary": "Book",
+    "anchored": true
+  }
+}

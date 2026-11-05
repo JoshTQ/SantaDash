@@ -1,0 +1,52 @@
+{
+  "name": "ElfD",
+  "approved": "1 Nov 2026",
+  "rig": true,
+  "pose_mode": "a-pose",
+  "polycount": 8000,
+  "height_meters": 1.0,
+  "shape_prompt": "Stylized 3D game character, chunky vinyl-toy style, smooth sculpted rounded forms, quirky proportions. A small cheerful gingerbread cookie elf helper, kid-friendly: chunky soft gingerbread body, thick but slightly flattened, wavy icing trim around the body, wrists and ankles, three round gumdrop buttons. Round head with shiny eyes, round cheeks, icing smile, pointed elf ears. Floppy elf hat with a fur band and a bell on the tip. Full body, standing, A-pose, arms slightly out, single character, no base, no props.",
+  "texture_prompt": "Bright saturated colours, smooth soft vinyl-toy finish, clean hand-painted look. Warm golden-brown baked gingerbread, white icing trim and white icing smile, gumdrop buttons in red, green and yellow, shiny black eyes, pink cheeks. Green elf hat with white fur band and a gold bell. No text, no logos.",
+  "assemble": {
+    "_note": "Stand-in: hip 1.2, root 2 x 1.6 x 1 at the pivot, feet 2 studs below it, about 5 studs tall. Faces +Z in Meshy; yaw 180.",
+    "mesh": {
+      "name": "Body",
+      "yaw": 180,
+      "fit": {
+        "axis": "Y",
+        "studs": 5
+      },
+      "bottom": [
+        0,
+        -2,
+        0
+      ]
+    },
+    "humanoid": {
+      "hip": 1.2,
+      "root": [
+        2,
+        1.6,
+        1
+      ]
+    }
+  },
+  "animations": {
+    "_note": "Meshy library clips (3 credits each). Keys are what src/server/ElfBot.luau plays.",
+    "actions": [
+      0,
+      40,
+      276
+    ],
+    "clips": {
+      "Idle": "Idle",
+      "Follow": "Excited_Walk_Male",
+      "Grab": "Male_Bend_Over_Pick_Up"
+    },
+    "loop": [
+      "Idle",
+      "Follow"
+    ],
+    "fps": 15
+  }
+}

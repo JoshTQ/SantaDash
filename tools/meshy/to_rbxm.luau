@@ -428,8 +428,10 @@ local summary = {
 	children = partNames,
 }
 
-fs.writeDir("assets/models")
-fs.writeFile("assets/models/" .. name .. ".rbxm", roblox.serializeModel({ model }))
+-- "folder": variants the game reads as a set (e.g. Presents -> ServerStorage.Assets.Presents).
+local outDir = if spec.folder then "assets/models/" .. spec.folder else "assets/models"
+fs.writeDir(outDir)
+fs.writeFile(outDir .. "/" .. name .. ".rbxm", roblox.serializeModel({ model }))
 fs.writeFile("build/meshy/" .. name .. "/summary.json", serde.encode("json", summary, true))
 print(
 	string.format(

@@ -1,0 +1,27 @@
+{
+  "name": "PresentLong",
+  "approved": "1 Nov 2026",
+  "rig": false,
+  "pose_mode": "",
+  "polycount": 2500,
+  "folder": "Presents",
+  "shape_prompt": "Stylized 3D game prop, chunky vinyl-toy style, smooth sculpted rounded forms, quirky proportions. A long low wrapped Christmas present box, twice as long as wide, puffy rounded edges, a ribbon around the middle and a star-shaped bow on top. Single object, no base.",
+  "texture_prompt": "Bright saturated colours, smooth soft vinyl-toy finish, clean hand-painted look. Purple wrapping paper with yellow polka dots, lime green ribbon, gold star bow. No text, no logos.",
+  "assemble": {
+    "_note": "placePresent scales by the Box's largest side, so the size here only sets proportions.",
+    "mesh": {
+      "name": "Box",
+      "fit": {
+        "axis": "max",
+        "studs": 2
+      },
+      "bottom": [
+        0,
+        0,
+        0
+      ]
+    },
+    "primary": "Box",
+    "anchored": true
+  }
+}

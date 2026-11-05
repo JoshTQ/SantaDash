@@ -1,0 +1,27 @@
+{
+  "name": "Present",
+  "approved": "1 Nov 2026",
+  "rig": false,
+  "pose_mode": "",
+  "polycount": 2500,
+  "folder": "Presents",
+  "shape_prompt": "Stylized 3D game prop, chunky vinyl-toy style, smooth sculpted rounded forms, quirky proportions. A small wrapped Christmas present cube with puffy rounded edges, a wide ribbon crossing over the top and down every side, and a big loop bow on top. Clean simple shapes, single object, no base.",
+  "texture_prompt": "Bright saturated colours, smooth soft vinyl-toy finish, clean hand-painted look. Glossy red wrapping paper with small white snowflakes, wide golden-yellow ribbon and bow. No text, no logos.",
+  "assemble": {
+    "_note": "placePresent scales by the Box's largest side, so the size here only sets proportions.",
+    "mesh": {
+      "name": "Box",
+      "fit": {
+        "axis": "max",
+        "studs": 2
+      },
+      "bottom": [
+        0,
+        0,
+        0
+      ]
+    },
+    "primary": "Box",
+    "anchored": true
+  }
+}
