@@ -147,6 +147,27 @@ they empty, and new players get the new one. Because old lobbies can still
 teleport crews into new run servers for a while, keep the lobby-to-run
 handoff (`Shared/Handoff.luau`) backwards compatible, or restart.
 
+## Watching for crashes and errors
+
+Every server counts what goes wrong (`src/server/Telemetry.luau`) and sends
+the counts to Roblox once a minute. Nothing to set up: open **Creator
+Dashboard > the experience > Analytics > Custom Events**.
+
+| Event | What it means |
+| --- | --- |
+| `ServerError` | A server script errored. Split by a short signature, e.g. `Run:#: attempt to index nil` |
+| `ClientError` | A player's script errored (max 20 reports per player per server) |
+| `Warning` | Any warning in server output, e.g. `[Matchmaker] could not queue` |
+| `TeleportRetried` / `TeleportFailed` | A teleport needed another try / gave up (the rider went back to the hub) |
+| `MatchCrewFormed` | A crew left for a run server, split by kind and size (`Public 6`) |
+| `MatchLocalFallback` | Riders waited too long and ran on the lobby server instead (MemoryStore trouble) |
+| `MatchQueueFailed` / `MatchCrewRetry` / `MatchReserveFailed` | MemoryStore or reserving a run server failed |
+| `RunBuildFailed` | A run server couldn't build its route |
+
+CustomField01 is the detail (the signature or reason), CustomField02 is
+`Lobby` or `Run`. No player names, ids or chat are sent. Roblox's own
+**Error Report** page in the dashboard also lists raw script errors.
+
 ## Things that break a deploy, and the fix
 
 | Error in the log | Fix |

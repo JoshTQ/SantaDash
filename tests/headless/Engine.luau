@@ -243,6 +243,9 @@ local EVENTS = {
 	Completed = true,
 	TeleportInitFailed = true,
 	RenderStepped = true,
+	PromptGamePassPurchaseFinished = true,
+	Error = true, -- ScriptContext
+	MessageOut = true, -- LogService
 }
 
 ----------------------------------------------------------------------------
@@ -946,7 +949,17 @@ function Engine:resume(thread, ...)
 	end
 	local ok, err = coroutine.resume(thread, ...)
 	if not ok then
-		table.insert(self.errors, debug.traceback(thread, tostring(err)))
+		local trace = debug.traceback(thread, tostring(err))
+		table.insert(self.errors, trace)
+		-- As in Roblox, ScriptContext.Error hears every script error (once:
+		-- an error inside an Error handler is only recorded).
+		if not self.reportingError then
+			self.reportingError = true
+			pcall(function()
+				self:service("ScriptContext").Error:Fire(tostring(err), trace, nil)
+			end)
+			self.reportingError = false
+		end
 	end
 end
 

@@ -1,0 +1,41 @@
+{
+  "name": "SantaShark",
+  "approved": "5 Nov 2026",
+  "rig": true,
+  "pose_mode": "a-pose",
+  "polycount": 10000,
+  "shape_prompt": "Stylized 3D game character, chunky vinyl-toy style, smooth sculpted rounded forms. The same short, round, grumpy Santa with a big belly, wearing a puffy inflatable blue shark costume: a big shark-head hood with wide open jaws and a ring of white triangle teeth framing his grumpy face and white beard, a dorsal fin on top wearing a tiny red Santa hat, a white shark belly, blue fin-shaped sleeves, chunky white sneakers. Full body, A-pose, arms slightly out, single character, no base.",
+  "texture_prompt": "Bright saturated colours, smooth glossy vinyl-toy finish. Glossy blue inflatable shark costume with a white belly, white triangle teeth only along the edge of the hood opening, small black shark eyes on top of the hood, tiny red Santa hat on the fin. Inside the hood around his face is dark navy blue, not pink or red. His grumpy human face is fully visible in the opening: normal warm skin tone, open eyes with dark pupils, bushy white eyebrows, rosy round nose, frowning mouth, big white beard. Chunky white sneakers with hot-pink soles and a mint stripe. No text, no logos.",
+  "height_meters": 1.5,
+  "assemble": {
+    "_note": "The player character (StarterCharacter). Faces +Z in Meshy; yaw 180 to face -Z. Root 2x2x1 at the pivot, hip 2, so feet are 3 studs below the root centre; 5.5 studs tall (a bit taller than a default avatar, he's round).",
+    "mesh": {
+      "name": "Body",
+      "yaw": 180,
+      "fit": {
+        "axis": "Y",
+        "studs": 5.5
+      },
+      "bottom": [
+        0,
+        -3,
+        0
+      ]
+    },
+    "humanoid": {
+      "hip": 2,
+      "root": [
+        2,
+        2,
+        1
+      ]
+    }
+  },
+  "_note": "Cosmetic suit (store item SharkySuit), approved by Josh 5 Nov 2026. New shape on the Santa proportions, rigged as a humanoid; reuses Santa's animation clips.",
+  "meshy": {
+    "preview": "01a1ac57-44cb-7726-abb9-3f0a58019578",
+    "refine": "01a1ac5e-a9e4-7161-9790-7d4cf277e7ad",
+    "remesh": "01a1ac5f-d9d2-7059-b945-ef98888a95a7",
+    "rig": "01a1ac60-aedb-744e-b188-4618111be830"
+  }
+}

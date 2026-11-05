@@ -44,6 +44,9 @@ in the server's command bar, `require(game.ReplicatedStorage.Shared.Config).Run.
 | 12 | **Playable Santa** (once `assets/models/Santa.rbxm` is in): spawn, stand, walk | You're the Meshy Santa with the sack on your back (not inside him, not floating); idle sways, walk legs match speed, feet on the ground | Bones, hip height and the sack offset (`SantaCharacter.SACK_OFFSET`) only show on a real client |
 | 13 | Santa: move during the first 45 s of a stop, then after the lights come on | Tiptoe (Sneak) first, normal walk after | |
 | 14 | Santa: grab a present; bank a sack at the sleigh | Bend-over grab; Victory cheer, also seen by the other player | Client-played tracks must replicate |
+| 15 | **First-time tips** (fresh account, or Studio): spawn in the workshop | A gold tip card ("Follow the trail to a sleigh!"), a gold trail and ring on the Public bay, and a "First heist!" tag over your Santa that your friend can see | The trail is a client Beam; only a real client shows it |
+| 16 | Tips: play the first run | One tip at a time, never over a cutscene: sneak (trail to the nearest door), grab, carry, lights on, horn (trail back to the ring), banked, Lair, Krampus, done. The tag goes after the run | |
+| 17 | Tips: second run on the same account; then press X on a tip on another account | No repeats. X hides the card and trail and no tips come back | Saved only once the store thread's PlayerData is plugged in; until then progress resets when the server restarts |
 
 ## 2. Phone (5 min)
 
@@ -58,6 +61,10 @@ Staging.
 | 4 | Hide in a wardrobe | The TAP button and Come out are both tappable |
 | 5 | Frame rate at Stop 1 (market, ~200 bulbs in view) and the Lair | Smooth (Ctrl/Cmd+F5 in Studio; a real phone should feel steady). Note the device if not |
 | 6 | Blizzard | Lighter snowfall than on PC, still readable |
+| 7 | First-time tip card | Readable, under the stop timer, the X is easy to tap, and it says "Hold the button" rather than "Hold E" |
+| 8 | Level of detail: ride the sleigh from Stop 1 to Stop 2 | Stop 1's bulbs and trim fade out behind you and Stop 2 is fully dressed before you land. No hole in the street, no tree popping in right next to you |
+| 9 | Level of detail on/off: in the Studio command bar run `workspace:SetAttribute("DetailOff", true)`, then `nil` | With it off the frame rate drops at Stop 1 (that's what the culler saves). If a part you can see up close vanishes with it on, note its name |
+| 10 | Respawn or get snatched by Krampus | Nothing missing under your feet when you land (a camera jump brings everything near back that frame) |
 
 ## 3. Lobby to Run place (Staging only)
 

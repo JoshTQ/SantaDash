@@ -1,7 +1,8 @@
 --[[
 	Render and physics budgets for the built maps (phones feel every part):
-	Frozen Canal Town is ~7,600 parts, a third of them light bulbs. These
-	fail loudly if a change blows the budget or undoes Parts.settle.
+	Frozen Canal Town is ~8,650 parts. These fail loudly if a change blows
+	the budget or undoes Parts.settle. What a phone actually draws at each
+	stop (level of detail, Shared.Detail) is checked in Detail.spec.
 ]]
 
 local Config = load("ReplicatedStorage.Shared.Config")

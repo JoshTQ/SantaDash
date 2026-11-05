@@ -13,6 +13,12 @@
 	the run server starts with whoever arrived (Config.Places.ArrivalTimeoutSeconds)
 	and bots fill the seats.
 
+	Launch hardening (5 Nov 2026): MemoryStore calls and teleports are retried
+	(Config.Matchmaking.Attempts, server/Teleporter.luau); a crew message only
+	moves riders still waiting on one of that crew's tickets, so a crew packed
+	twice (a batch that couldn't be removed and came back) can't pull someone
+	who has since queued again; and every failure is counted in Telemetry.
+
 	Only active once both places are published (Config.Places) and outside
 	Studio; Lobby falls back to same-server runs otherwise, and for anyone
 	still waiting after Config.Matchmaking.LocalFallbackSeconds.
@@ -30,6 +36,8 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local CrewPacker = require(ReplicatedStorage.Shared.CrewPacker)
 local Handoff = require(ReplicatedStorage.Shared.Handoff)
 local Util = require(ReplicatedStorage.Shared.Util)
+local Telemetry = require(script.Parent.Telemetry)
+local Teleporter = require(script.Parent.Teleporter)
 
 local Matchmaker = {}
 
@@ -37,6 +45,7 @@ type Pending = { since: number, ticket: string }
 
 local pending: { [Player]: Pending } = {} -- waiting for a crew on this server
 local announced: { [string]: boolean } = {} -- crewIds already handled here
+local packedTickets: { [string]: number } = {} -- ticket id -> until when: crews this server started from a batch it couldn't remove
 local queue: MemoryStoreQueue? = nil
 local cancelledMap: MemoryStoreSortedMap? = nil -- UserId -> ticket id they hopped off
 local onFailed: ((players: { Player }, reason: string) -> ())? = nil
@@ -68,6 +77,7 @@ end
 -- ticket is already in the shared queue, so leave a short-lived note that
 -- takes this player out of it wherever it gets packed.
 function Matchmaker.cancel(player: Player)
+	Teleporter.forget(player)
 	local p = pending[player]
 	if not p then
 		return
@@ -105,6 +115,16 @@ local function readCancelled(): { [number]: string }
 	return out
 end
 
+local function failed(players: { Player }, reason: string)
+	if onFailed then
+		onFailed(players, reason)
+	end
+end
+
+local function retry(fn: (...any) -> any, ...: any): (boolean, any)
+	return Util.retry(Config.Matchmaking.Attempts, Config.Matchmaking.RetryBackoffSeconds, fn, ...)
+end
+
 local function teleport(players: { Player }, accessCode: string, data)
 	if #players == 0 then
 		return
@@ -112,15 +132,7 @@ local function teleport(players: { Player }, accessCode: string, data)
 	local options = Instance.new("TeleportOptions")
 	options.ReservedServerAccessCode = accessCode
 	options:SetTeleportData(data)
-	local ok, err = pcall(function()
-		TeleportService:TeleportAsync(Config.Places.Run, players, options)
-	end)
-	if not ok then
-		warn("[Matchmaker] teleport failed: " .. tostring(err))
-		if onFailed then
-			onFailed(players, "teleport")
-		end
-	end
+	Teleporter.send(players, Config.Places.Run, options, failed)
 end
 
 -- Teleports this server's members of an announced crew.
@@ -136,10 +148,21 @@ local function onCrewReady(message)
 	task.delay(120, function()
 		announced[data.crewId] = nil
 	end)
+	-- Only riders still waiting on one of this crew's tickets.
+	local tickets: { [string]: boolean }? = nil
+	if type(message.tickets) == "table" then
+		tickets = {}
+		for _, id in message.tickets do
+			if type(id) == "string" then
+				(tickets :: any)[id] = true
+			end
+		end
+	end
 	local players = {}
 	for _, userId in data.members do
 		local player = Players:GetPlayerByUserId(userId)
-		if player and pending[player] then
+		local p = player and pending[player]
+		if player and p and (tickets == nil or tickets[p.ticket]) then
 			pending[player] = nil
 			table.insert(players, player)
 		end
@@ -150,7 +173,12 @@ end
 local function announce(crew: CrewPacker.Crew)
 	local accessCode = TeleportService:ReserveServer(Config.Places.Run)
 	local crewId = HttpService:GenerateGUID(false)
-	local message = { code = accessCode, data = Handoff.make(crewId, crew.kind, crew.members) }
+	local tickets = {}
+	for _, ticket in crew.tickets do
+		table.insert(tickets, ticket.id)
+	end
+	local message =
+		{ code = accessCode, data = Handoff.make(crewId, crew.kind, crew.members), tickets = tickets }
 	-- Other servers hear it over MessagingService; our own members go now.
 	for _, jobId in crew.servers do
 		if jobId ~= game.JobId then
@@ -159,14 +187,16 @@ local function announce(crew: CrewPacker.Crew)
 		end
 	end
 	onCrewReady(message)
+	Telemetry.count("MatchCrewFormed", crew.kind .. " " .. #crew.members)
 end
 
 local function addTicket(ticket)
-	local ok, err = pcall(function()
+	local ok, err = retry(function()
 		(queue :: MemoryStoreQueue):AddAsync(ticket, Config.Matchmaking.TicketTTLSeconds)
 	end)
 	if not ok then
 		warn("[Matchmaker] could not queue: " .. tostring(err)) -- LocalFallbackSeconds picks them up
+		Telemetry.count("MatchQueueFailed", "add")
 	end
 end
 
@@ -202,14 +232,16 @@ function Matchmaker.sendPrivate(players: { Player })
 		for _, player in players do
 			table.insert(members, player.UserId)
 		end
-		local ok, accessCode = pcall(TeleportService.ReserveServer, TeleportService, Config.Places.Run)
+		local ok, accessCode = retry(function()
+			return TeleportService:ReserveServer(Config.Places.Run)
+		end)
 		if not ok then
 			warn("[Matchmaker] could not reserve a server: " .. tostring(accessCode))
-			if onFailed then
-				onFailed(players, "reserve")
-			end
+			Telemetry.count("MatchReserveFailed", "Private")
+			failed(players, "reserve")
 			return
 		end
+		Telemetry.count("MatchCrewFormed", "Private " .. #members)
 		teleport(players, accessCode, Handoff.make(HttpService:GenerateGUID(false), "Private", members))
 	end)
 end
@@ -221,28 +253,59 @@ local function pack()
 		return
 	end
 	local now = Util.now()
-	local crews, keep = CrewPacker.pack(CrewPacker.clean(items, now, readCancelled()), now)
+	for id, untilTime in packedTickets do
+		if untilTime <= now then
+			packedTickets[id] = nil
+		end
+	end
+	local fresh = {}
+	for _, item in items do
+		if not (type(item) == "table" and packedTickets[item.id]) then
+			table.insert(fresh, item)
+		end
+	end
+	local crews, keep = CrewPacker.pack(CrewPacker.clean(fresh, now, readCancelled()), now)
+	local started = {}
 	for _, crew in crews do
 		local ok, err = pcall(announce, crew)
-		if not ok then
+		if ok then
+			table.insert(started, crew)
+		else
 			warn("[Matchmaker] could not start a crew: " .. tostring(err))
+			Telemetry.count("MatchCrewRetry")
 			for _, ticket in crew.tickets do
 				table.insert(keep, ticket) -- try again next pack
 			end
 		end
 	end
-	-- Always put the rest back and remove the batch, even when no crew left:
+	-- Always remove the batch and put the rest back, even when no crew left:
 	-- a batch left in place stays hidden from every server's next read, so
 	-- riders queued a few seconds apart would never be packed together.
+	local removed, removeErr = retry(function()
+		q:RemoveAsync(readId)
+	end)
+	if not removed then
+		-- The whole batch comes back once it stops being hidden, so don't add
+		-- the leftovers again (they'd be in the queue twice), and remember the
+		-- crews already started so this server doesn't start them twice.
+		warn("[Matchmaker] could not remove a packed batch: " .. tostring(removeErr))
+		Telemetry.count("MatchQueueFailed", "remove")
+		local forget = now + Config.Matchmaking.InvisibleSeconds + Config.Matchmaking.TicketTTLSeconds
+		for _, crew in started do
+			for _, ticket in crew.tickets do
+				packedTickets[ticket.id] = forget
+			end
+		end
+		return
+	end
 	for _, ticket in keep do
 		task.spawn(addTicket, ticket)
 	end
-	q:RemoveAsync(readId)
 end
 
--- failed(players, reason) is called when a teleport or reservation fails.
-function Matchmaker.start(failed: (players: { Player }, reason: string) -> ())
-	onFailed = failed
+-- onFail(players, reason) is called when a teleport or reservation gives up.
+function Matchmaker.start(onFail: (players: { Player }, reason: string) -> ())
+	onFailed = onFail
 	queue = MemoryStoreService:GetQueue(Config.Matchmaking.QueueName, Config.Matchmaking.InvisibleSeconds)
 	cancelledMap = MemoryStoreService:GetSortedMap(Config.Matchmaking.CancelledMapName)
 
@@ -255,12 +318,7 @@ function Matchmaker.start(failed: (players: { Player }, reason: string) -> ())
 		warn("[Matchmaker] could not subscribe: " .. tostring(err))
 	end
 
-	TeleportService.TeleportInitFailed:Connect(function(player, result, message)
-		warn(("[Matchmaker] %s could not teleport: %s %s"):format(player.Name, tostring(result), message))
-		if onFailed then
-			onFailed({ player }, "teleport")
-		end
-	end)
+	Teleporter.start()
 
 	task.spawn(function()
 		while true do
@@ -268,6 +326,7 @@ function Matchmaker.start(failed: (players: { Player }, reason: string) -> ())
 			local packed, packErr = pcall(pack)
 			if not packed then
 				warn("[Matchmaker] pack failed: " .. tostring(packErr))
+				Telemetry.count("MatchQueueFailed", "pack")
 			end
 		end
 	end)

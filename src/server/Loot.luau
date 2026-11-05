@@ -47,6 +47,7 @@ export type PlayerState = {
 	grabs: number,
 	escapeMultiplier: number?,
 	lootMultiplier: number, -- 0.8 for solo runs with elf bots
+	sackCapacity: number,
 }
 
 local TYPE_ORDER = { "Cosy", "Normal", "Risky" }
@@ -209,12 +210,13 @@ function Loot.newPlayerState(): PlayerState
 		grabs = 0,
 		escapeMultiplier = nil,
 		lootMultiplier = 1,
+		sackCapacity = Config.Sack.Capacity, -- Bigger Sack passes raise it (Store)
 	}
 end
 
 -- Returns false (and changes nothing) when the sack is full.
 function Loot.grab(state: PlayerState, present: PresentPlan): boolean
-	if state.sackCount >= Config.Sack.Capacity then
+	if state.sackCount >= (state.sackCapacity or Config.Sack.Capacity) then
 		return false
 	end
 	state.sackCount += 1
@@ -249,16 +251,17 @@ end
 
 export type ResultRow = { name: string, loot: number, coal: number, escaped: boolean, grabs: number }
 
--- entries: { { name, state } }. Sorted best thief first.
+-- entries: { { name, state, coal? } }; coal overrides the plain conversion
+-- (2X Loot and Santa's Blessing, from Store.creditRun). Sorted best thief first.
 function Loot.results(entries: { { any } }): { ResultRow }
 	local rows = {}
 	for _, entry in entries do
-		local name, state = entry[1], entry[2]
+		local name, state, coal = entry[1], entry[2], entry[3]
 		local loot = Loot.finalLoot(state)
 		table.insert(rows, {
 			name = name,
 			loot = loot,
-			coal = math.floor(loot * Config.Coal.PerLootValue),
+			coal = coal or math.floor(loot * Config.Coal.PerLootValue),
 			escaped = state.escapeMultiplier ~= nil,
 			grabs = state.grabs,
 		})

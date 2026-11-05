@@ -761,6 +761,7 @@ function MapBuilder.buildRoute(
 	end
 	presentKit = { variants = {} }
 	Parts.settle(model)
+	model:SetAttribute("DetailRoot", true) -- clients drop far dressing (Shared.Detail)
 	model.Parent = parent
 	return route
 end

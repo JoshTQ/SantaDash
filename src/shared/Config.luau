@@ -70,6 +70,22 @@ Config.Matchmaking = {
 	PublicWaitSeconds = 12, -- a crew leaves part-full once its oldest rider waited this long (bots fill)
 	PartyFillSeconds = 8, -- a Party group waits this long for randoms to top it up
 	LocalFallbackSeconds = 25, -- no crew by then (MemoryStore down): leave with whoever is on this server
+	-- Roblox's cloud calls fail now and then (throttling, flood limits):
+	-- MemoryStore, MessagingService and teleports are tried this many times,
+	-- waiting RetryBackoffSeconds, then twice that, between tries.
+	Attempts = 3,
+	RetryBackoffSeconds = 1,
+}
+
+-- Crash and error analytics (server/Telemetry.luau): script errors (server
+-- and client), warnings and matchmaking events are counted per server and
+-- sent to Roblox's Custom Events (Creator Dashboard > Analytics) every
+-- FlushSeconds. No names or chat text are ever sent.
+Config.Telemetry = {
+	FlushSeconds = 60,
+	SignatureLength = 90, -- characters kept from an error message
+	MaxSignaturesPerFlush = 25, -- the rest are counted as "Other"
+	ClientErrorsPerPlayer = 20, -- reports accepted per player per server
 }
 
 Config.Player = {
@@ -299,9 +315,258 @@ Config.ElfBots = {
 	},
 }
 
--- Results: loot becomes Coal. Not saved yet (DataStore comes with the Grotto).
+-- Saved player data (server/PlayerData.luau): one DataStore for both places.
+Config.PlayerData = {
+	StoreName = "PlayerData_v1",
+	AutosaveSeconds = 60,
+	LockSeconds = 180, -- a session lock older than this (crashed server) is taken over
+	LoadAttempts = 6, -- a teleport can arrive before the old server lets go
+	RetrySeconds = 2,
+	SaveInStudio = false, -- Studio plays use fresh defaults and save nothing
+}
+
+-- Results: loot becomes Coal, saved in PlayerData.
 Config.Coal = {
 	PerLootValue = 1,
+}
+
+-- Store and holiday monetisation (game-design.md "Monetisation";
+-- server/Store.luau, shared/StoreRules.luau). Rules that never bend:
+--   * Jingle, Mythic and Secret are never sold or boosted for Robux.
+--   * No purchase prompt in a player's first 3 minutes of play (all items).
+--   * Paid random boosts show their odds and are hidden from players
+--     PolicyService restricts (ArePaidRandomItemsRestricted).
+-- assetId 0 = not created on the Creator Dashboard yet: listed but never prompted.
+-- ready = false: the thing it powers isn't built yet (or its art isn't
+-- approved), so it stays hidden. from / to: UTC dates it is on sale
+-- ("YYYY-MM-DD", to is the last day).
+Config.Store = {
+	NoPromptSeconds = 180,
+	FastSneakBonus = 3, -- walk speed added during the sneak phase (16 -> 19; Peppermint Rush is 22)
+	HolidayFrom = "2026-12-06", -- first holiday bundle (Grow a Garden started Dec 6 last year)
+	HolidayAllBy = "2026-12-20", -- every holiday item live before the gifted-Robux spike
+	HolidayTo = "2027-01-05", -- holiday shop's last day
+	-- Staging only: show dated items any day, so they can be tested now.
+	IgnoreDates = false,
+	Items = {
+		{
+			id = "StarterSack",
+			kind = "Product",
+			assetId = 0,
+			price = 25,
+			once = true,
+			name = "Starter Sack",
+			blurb = "1,000 Coal and 2 Instant Break-outs. One per player.",
+			grants = { coal = 1000, inventory = { InstantBreakout = 2 } },
+			ready = true,
+		},
+		{
+			id = "TwoXLoot",
+			kind = "Pass",
+			assetId = 0,
+			price = 149,
+			name = "2X Loot",
+			blurb = "Double the Coal from every run you finish.",
+			grants = { perk = "TwoXLoot" },
+			ready = true,
+		},
+		{
+			id = "BiggerSack2",
+			kind = "Pass",
+			assetId = 0,
+			price = 79,
+			name = "Bigger Sack 2X",
+			blurb = "Carry twice as many presents per stop.",
+			grants = { perk = "BiggerSack2" },
+			ready = true,
+		},
+		{
+			id = "BiggerSack3",
+			kind = "Pass",
+			assetId = 0,
+			price = 179,
+			name = "Bigger Sack 3X",
+			blurb = "Carry three times as many presents per stop.",
+			grants = { perk = "BiggerSack3" },
+			ready = true,
+		},
+		{
+			id = "BiggerSack5",
+			kind = "Pass",
+			assetId = 0,
+			price = 449,
+			name = "Bigger Sack 5X",
+			blurb = "Carry five times as many presents per stop.",
+			grants = { perk = "BiggerSack5" },
+			ready = true,
+		},
+		{
+			id = "FastSneak",
+			kind = "Pass",
+			assetId = 0,
+			price = 99,
+			name = "Fast Sneak",
+			blurb = "Tiptoe faster while the house is asleep.",
+			grants = { perk = "FastSneak" },
+			ready = true,
+		},
+		{
+			id = "InstantBreakout",
+			kind = "Product",
+			assetId = 0,
+			price = 15,
+			name = "Instant Break-out",
+			blurb = "Pop out of Krampus's basket right away.",
+			grants = { inventory = { InstantBreakout = 1 } },
+			ready = true,
+		},
+		{
+			id = "SantasBlessing",
+			kind = "Product",
+			assetId = 0,
+			price = 99,
+			name = "Santa's Blessing",
+			blurb = "2X loot for everyone on this server for 10 minutes. Your name goes up in lights!",
+			grants = { blessing = true },
+			runServerOnly = true, -- it boosts the runs on this server
+			ready = true,
+		},
+		{
+			id = "LuckySack",
+			kind = "Product",
+			assetId = 0,
+			price = 29,
+			name = "Lucky Sack",
+			blurb = "x3 luck for Rare, Epic and Legendary presents in your next run.",
+			grants = { inventory = { LuckySack = 1 } },
+			paidRandom = true, -- changes the odds of a random reward
+			luck = 3,
+			ready = false, -- needs present rarities (Grotto unwrap)
+		},
+		{
+			id = "NaughtyPass",
+			kind = "Pass",
+			assetId = 0,
+			price = 399,
+			name = "Naughty Pass",
+			blurb = "The paid track of this season's 25 tiers.",
+			grants = { perk = "NaughtyPass" },
+			ready = false, -- pass tiers not built
+		},
+		{
+			id = "VIPGrotto",
+			kind = "Pass",
+			assetId = 0,
+			price = 299,
+			name = "VIP Grotto",
+			blurb = "Gold sleigh, VIP name tag and an extra shelf.",
+			grants = { perk = "VIPGrotto" },
+			ready = false, -- Grotto not built; gold sleigh needs art approval
+		},
+		{
+			id = "HolidayBundle",
+			kind = "Product",
+			assetId = 0,
+			price = 199,
+			once = true,
+			name = "Holiday Bundle",
+			blurb = "A Christmas suit, 2,500 Coal and a Santa's Blessing.",
+			grants = { coal = 2500, blessing = true, cosmetic = "HolidaySuit" },
+			from = "2026-12-06",
+			to = "2027-01-05",
+			ready = false, -- suit art approved (Ugly Jumper); waits for the Meshy import
+		},
+		{
+			id = "ChristmasEveSuit",
+			kind = "Product",
+			assetId = 0,
+			price = 149,
+			once = true,
+			name = "Christmas Eve Suit",
+			blurb = "Only on sale over Christmas. Becomes a Legacy suit in January.",
+			grants = { cosmetic = "ChristmasEveSuit" },
+			from = "2026-12-20",
+			to = "2027-01-05",
+			ready = false, -- art approved (Midnight Frost); waits for the Meshy import
+		},
+		{
+			id = "SharkySuit",
+			kind = "Product",
+			assetId = 0,
+			price = 149,
+			once = true,
+			name = "Sharky Claus",
+			blurb = "Santa in a shark costume. Leaves bubbles behind; his Cheer goes chomp-chomp.",
+			grants = { cosmetic = "SharkySuit" },
+			ready = false, -- art approved; waits for the Meshy import
+		},
+		{
+			id = "ChromeSuit",
+			kind = "Product",
+			assetId = 0,
+			price = 149,
+			once = true,
+			name = "Chrome Puffer",
+			blurb = "A shiny silver puffer that glints as you run; his Cheer pops a rainbow.",
+			grants = { cosmetic = "ChromeSuit" },
+			ready = false, -- art approved; waits for the Meshy import
+		},
+	},
+}
+
+--[[
+	Santa suits (skins). The id is the key in PlayerData's owned table, so a
+	store item's grants.cosmetic unlocks it; "free" suits everyone has.
+	model: the ServerStorage.Assets model whose "Body" mesh replaces the
+	classic Santa's (same rig, so every clip still plays). nil = classic.
+	Effects are cosmetic only: a trail while moving and a burst on Cheer,
+	trimmed on phones (client/SkinEffects.client.luau).
+]]
+Config.Skins = {
+	Default = "Classic",
+	List = {
+		{ id = "Classic", name = "Classic Santa", free = true },
+		{
+			id = "HolidaySuit",
+			name = "Ugly Jumper",
+			model = "SantaJumper",
+			howTo = "In the Holiday Bundle (Dec 6 to Jan 5)",
+			trail = { Color3.fromRGB(220, 40, 50), Color3.fromRGB(40, 150, 80) },
+			cheer = { colors = { Color3.fromRGB(255, 255, 255), Color3.fromRGB(220, 40, 50) }, count = 24 },
+		},
+		{
+			id = "ChristmasEveSuit",
+			name = "Midnight Frost",
+			model = "SantaFrost",
+			howTo = "On sale Dec 20 to Jan 5",
+			trail = { Color3.fromRGB(190, 230, 255), Color3.fromRGB(120, 160, 255) },
+			cheer = { colors = { Color3.fromRGB(124, 245, 208), Color3.fromRGB(176, 124, 255) }, count = 30 },
+		},
+		{
+			id = "SharkySuit",
+			name = "Sharky Claus",
+			model = "SantaShark",
+			howTo = "Sharky Claus in the shop",
+			trail = { Color3.fromRGB(170, 220, 255), Color3.fromRGB(58, 123, 213) },
+			cheer = { colors = { Color3.fromRGB(255, 255, 255), Color3.fromRGB(170, 220, 255) }, count = 20 },
+		},
+		{
+			id = "ChromeSuit",
+			name = "Chrome Puffer",
+			model = "SantaChrome",
+			howTo = "Chrome Puffer in the shop",
+			trail = { Color3.fromRGB(230, 235, 250), Color3.fromRGB(255, 78, 138) },
+			cheer = {
+				colors = {
+					Color3.fromRGB(255, 78, 138),
+					Color3.fromRGB(255, 184, 74),
+					Color3.fromRGB(74, 184, 255),
+				},
+				count = 28,
+			},
+		},
+	},
+	PhoneEffectScale = 0.5, -- phones get half the particles and a shorter trail
 }
 
 Config.Map = {

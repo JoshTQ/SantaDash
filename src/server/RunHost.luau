@@ -11,13 +11,14 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local TeleportService = game:GetService("TeleportService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Handoff = require(ReplicatedStorage.Shared.Handoff)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Util = require(ReplicatedStorage.Shared.Util)
 local Run = require(script.Parent.Run)
+local Telemetry = require(script.Parent.Telemetry)
+local Teleporter = require(script.Parent.Teleporter)
 
 local RunHost = {}
 
@@ -44,20 +45,27 @@ local function sendQueue()
 	end
 end
 
--- Back to the lobby place (or the waiting spot when there is none, e.g. Studio).
+local function toWaitingSpot(player: Player)
+	if player.Parent == Players then
+		Util.teleport(player, spawn)
+		send(player, "QueueClear", {})
+	end
+end
+
+-- Back to the lobby place (retried; the waiting spot if that fails, or when
+-- there is no lobby place, e.g. Studio).
 local function toLobby(player: Player)
 	Util.removeValue(waiting, player)
 	if Config.Places.Lobby ~= 0 and not RunService:IsStudio() then
-		local ok, err = pcall(function()
-			TeleportService:TeleportAsync(Config.Places.Lobby, { player })
+		task.spawn(Teleporter.send, { player }, Config.Places.Lobby, nil, function(players)
+			warn("[RunHost] teleport to lobby failed")
+			for _, p in players do
+				toWaitingSpot(p)
+			end
 		end)
-		if ok then
-			return
-		end
-		warn("[RunHost] teleport to lobby failed: " .. tostring(err))
+		return
 	end
-	Util.teleport(player, spawn)
-	send(player, "QueueClear", {})
+	toWaitingSpot(player)
 end
 
 local function onFinished(_run, survivors: { Player })
@@ -88,6 +96,7 @@ local function launch()
 		local ok, run = pcall(Run.new, 1, players, onFinished, lastMap)
 		if not ok then
 			warn("[RunHost] failed to build a route: " .. tostring(run))
+			Telemetry.count("RunBuildFailed")
 			current = nil
 			waiting = players
 			departAt = Util.now() + Config.Run.RequeueSeconds
@@ -142,6 +151,7 @@ end
 function RunHost.start(hub)
 	hud = Remotes.get("Hud")
 	spawn = hub.spawn
+	Teleporter.start()
 
 	Players.PlayerAdded:Connect(admit)
 	for _, player in Players:GetPlayers() do

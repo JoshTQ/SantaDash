@@ -321,7 +321,9 @@ local function headless(options: { seed: number? }?)
 		for i = 1, parts.n do
 			parts[i] = tostring(parts[i])
 		end
-		table.insert(engine.warnings, table.concat(parts, " "))
+		local text = table.concat(parts, " ")
+		table.insert(engine.warnings, text)
+		engine:service("LogService").MessageOut:Fire(text, roblox.Enum.MessageType.MessageWarning)
 	end
 	env0.print = function() end -- keep test output quiet
 

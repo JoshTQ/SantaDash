@@ -29,15 +29,19 @@ local MapBuilder = require(script.Parent.MapBuilder)
 local MapEventBrain = require(script.Parent.MapEventBrain)
 local MapEvents = require(script.Parent.MapEvents)
 local MapFeatures = require(script.Parent.MapFeatures)
+local Onboarding = require(script.Parent.Onboarding)
 local SantaCharacter = require(script.Parent.SantaCharacter)
 local HouseKit = require(script.Parent.HouseKit)
 local LairBuilder = require(script.Parent.LairBuilder)
+local Store = require(script.Parent.Store)
+local StoreRules = require(ReplicatedStorage.Shared.StoreRules)
 
 local now, rootOf, humanoidOf = Util.now, Util.rootOf, Util.humanoidOf
 
 -- Run-only fields on top of Loot.PlayerState.
 type PlayerState = Loot.PlayerState & {
 	perks: { [string]: boolean },
+	fastSneak: boolean, -- Fast Sneak pass
 	hidden: any?, -- the MapBuilder.HideSpot they are in
 	captive: boolean,
 	breath: number,
@@ -124,6 +128,15 @@ function Run.new(
 		end
 	end
 	self:_wirePrompts()
+	-- A Break-out bought while snatched frees the Santa straight away.
+	self.unbindBreakout = Store.onBreakout(function(player)
+		local st = self.players[player]
+		if st and st.captive and self.krampus and Store.useBreakout(player) then
+			self:_breakOut(player)
+			return true
+		end
+		return false
+	end)
 	return self
 end
 
@@ -183,6 +196,7 @@ function Run:_sendPlayer(player: Player)
 			sackValue = st.sackValue,
 			banked = st.banked,
 			rush = st.perks.PeppermintRush == true,
+			sackCapacity = st.sackCapacity,
 		})
 	end
 end
@@ -191,6 +205,7 @@ function Run:_sendStop()
 	local stop = self.route.stops[self.stopIndex]
 	for _, player in self.order do
 		SantaCharacter.setSneaking(player, self.phase == "Sneak") -- Santas tiptoe
+		self:_applyPerks(player) -- Fast Sneak only counts while sneaking
 	end
 	self:_send(nil, "Stop", {
 		stop = self.stopIndex,
@@ -215,6 +230,9 @@ end
 function Run:_addPlayer(player: Player)
 	local st = Loot.newPlayerState() :: PlayerState
 	st.perks = {}
+	local owned = Store.owned(player)
+	st.sackCapacity = StoreRules.sackCapacity(owned)
+	st.fastSneak = owned.FastSneak == true
 	st.captive = false
 	st.breath = 1
 	st.lastTapAt = 0
@@ -273,7 +291,13 @@ end
 
 -- A Santa's own WalkSpeed with their perks (map features may add to it).
 function Run:baseWalkSpeed(st: PlayerState): number
-	return if st.perks.PeppermintRush then Config.Buys.PeppermintRush.WalkSpeed else Config.Player.WalkSpeed
+	local speed = if st.perks.PeppermintRush
+		then Config.Buys.PeppermintRush.WalkSpeed
+		else Config.Player.WalkSpeed
+	if st.fastSneak and self.phase == "Sneak" then
+		speed += Config.Store.FastSneakBonus
+	end
+	return speed
 end
 
 function Run:_applyPerks(player: Player)
@@ -373,7 +397,74 @@ function Run:_grab(player: Player, present)
 		self:_collect(player, st, present, root.Position)
 		if st.sackCount > before then
 			SantaMoves.play(player.Character, "Grab")
+			Onboarding.complete(player, "Grab")
+			Onboarding.teach(player, "Carry")
+			self:_teachCocoa(player, st)
 		end
+	end
+end
+
+----------------------------------------------------------------------------
+-- First-time player tips (Onboarding, shared/Tutorial)
+----------------------------------------------------------------------------
+
+local function partAt(instance: Instance?): Vector3?
+	if not instance then
+		return nil
+	elseif instance:IsA("BasePart") then
+		return instance.Position
+	elseif instance:IsA("Attachment") then
+		return instance.WorldPosition
+	elseif instance:IsA("Model") then
+		return instance:GetPivot().Position
+	end
+	return partAt(instance.Parent)
+end
+
+-- The closest door of this street to `from` (where the sleigh landed).
+function Run._nearestDoor(stop, from: Vector3): Vector3?
+	local best, bestDistance = nil, math.huge
+	for _, door in stop.doors do
+		local at = door.door.CFrame.Position
+		local distance = (at - from).Magnitude
+		if distance < bestDistance then
+			best, bestDistance = at, distance
+		end
+	end
+	return best
+end
+
+function Run._naughtyListAt(stop): Vector3?
+	for _, present in stop.presents do
+		if present.plan.naughtyList and not present.taken then
+			return partAt(present.prompt)
+		end
+	end
+	return nil
+end
+
+-- Landing tips: sneak to the nearest door, or (in the Lair) go for the List.
+function Run:_teachLanding(stop)
+	local deckAt = stop.deckCFrame.Position
+	for _, player in self.order do
+		if stop.plan.escapeMultiplier then
+			Onboarding.teach(player, "Lair", Run._naughtyListAt(stop))
+		else
+			Onboarding.teach(player, "Sneak", Run._nearestDoor(stop, deckAt))
+		end
+		Onboarding.teach(player, "Grab")
+	end
+end
+
+function Run:_teachCocoa(player: Player, st: PlayerState)
+	local stop = self.route.stops[self.stopIndex]
+	if
+		stop
+		and stop.cocoaPrompt
+		and not st.perks.PeppermintRush
+		and st.jingle >= Config.Buys.PeppermintRush.Cost
+	then
+		Onboarding.teach(player, "Cocoa", partAt(stop.cocoaPrompt))
 	end
 end
 
@@ -404,7 +495,7 @@ function Run:canElfGrab(owner: Player): boolean
 	return st ~= nil
 		and not self.ended
 		and NOISY_PHASES[self.phase] == true
-		and st.sackCount < Config.Sack.Capacity
+		and st.sackCount < st.sackCapacity
 end
 
 function Run:elfCollect(owner: Player, present, from: Vector3)
@@ -512,6 +603,7 @@ function Run:_hide(player: Player, spot)
 	root.CFrame = spot.inside
 	SoundPlayer.at("HideIn", spot.inside.Position)
 	self:_send(player, "Hide", { hidden = true, breath = 1 })
+	Onboarding.teach(player, "Hide")
 end
 
 function Run:_unhide(player: Player)
@@ -539,6 +631,14 @@ function Run:onInput(player: Player, action: string)
 	end
 	if action == "Unhide" then
 		self:_unhide(player)
+	elseif action == "Breakout" then
+		if st.captive and self.krampus then
+			if Store.useBreakout(player) then
+				self:_breakOut(player)
+			else
+				Store.prompt(player, "InstantBreakout") -- the receipt frees them
+			end
+		end
 	elseif action == "Tap" then
 		local t = now()
 		if not KrampusBrain.tapAllowed(st.lastTapAt, t) then
@@ -630,7 +730,21 @@ function Run:onSnatched(player: Player)
 			{ anchor = self.krampus.body.root.CFrame, follow = self.krampus.body.model }
 		)
 	end
-	self:_send(player, "Captive", { captive = true, wiggles = 0, needed = KrampusBrain.wiggleNeeded() })
+	self:_send(player, "Captive", {
+		captive = true,
+		wiggles = 0,
+		needed = KrampusBrain.wiggleNeeded(),
+		breakout = Store.breakoutOffer(player),
+	})
+	Onboarding.teach(player, "Snatched")
+end
+
+-- Instant Break-out (already paid for): out of the basket now.
+function Run:_breakOut(player: Player)
+	if self.krampus then
+		self.krampus:release()
+		self:_banner(nil, player.DisplayName .. " burst out of the basket!", 2)
+	end
 end
 
 function Run:onReleased(player: Player, at: CFrame)
@@ -662,6 +776,7 @@ function Run:_startKrampus(stop)
 	self.krampus = Krampus.new(self, stop, hold)
 	self:_lairCue(stop, "BellsAt")
 	self:_send(nil, "Krampus", { model = self.krampus.body.model })
+	Onboarding.teachAll(self.order, "Krampus")
 	if introSeconds > 0 then
 		self.krampus:playIntro(introSeconds)
 		self:_cutscene(
@@ -903,6 +1018,7 @@ function Run:_playStop(stop): { Player }
 	end
 	self:_startFeatures(stop)
 	self:_startSnores(stop)
+	self:_teachLanding(stop)
 
 	-- Timed phases, entered in order once their time has passed.
 	local phases = {
@@ -915,6 +1031,7 @@ function Run:_playStop(stop): { Player }
 				end
 				self:_wakeParents(stop)
 				self:_banner(nil, "The lights are on! Heat is rising.", 3)
+				Onboarding.teachAll(self.order, "LightsOn")
 			end,
 		},
 		{
@@ -924,6 +1041,9 @@ function Run:_playStop(stop): { Player }
 				local left = Config.Run.StopSeconds - Config.Run.HornAt
 				self:_banner(nil, "HONK! The sleigh leaves in " .. left .. " seconds!", 3)
 				self:_lairCue(stop, "CuckooAt")
+				Onboarding.teachAll(self.order, "Horn", function()
+					return stop.deckCFrame.Position
+				end)
 			end,
 		},
 	}
@@ -981,11 +1101,13 @@ function Run:_playStop(stop): { Player }
 		local st = self.players[player]
 		local root = rootOf(player)
 		self:_unhide(player)
+		Onboarding.clearGuide(player)
 		if st and root and MapBuilder.isAboard(stop.deckCFrame, root.Position) then
 			table.insert(aboard, player)
 			if st.sackCount > 0 then
 				self:_sfx(player, "Bank")
 				SantaMoves.play(player.Character, "Cheer")
+				Onboarding.teach(player, "Bank")
 			end
 			Loot.bank(st, plan.escapeMultiplier)
 			self:_sendPlayer(player)
@@ -999,6 +1121,7 @@ function Run:_playStop(stop): { Player }
 			self:_leftBehind(player, stop)
 		elseif st then
 			self:_banner(player, "You missed the sleigh! Follow the path to the next stop.", 4)
+			Onboarding.teach(player, "Missed")
 			self:_leftBehind(player, stop)
 		end
 	end
@@ -1096,12 +1219,14 @@ function Run:_main()
 		self.phase = "Results"
 		local entries = {}
 		for player, st in self.players do
-			table.insert(entries, { player.DisplayName, st })
+			-- Coal is saved here, through 2X Loot and any Santa's Blessing.
+			table.insert(entries, { player.DisplayName, st, Store.creditRun(player, Loot.finalLoot(st)) })
 		end
 		self:_send(nil, "Results", {
 			rows = Loot.results(entries),
 			endsAt = now() + Config.Run.ResultsSeconds + Config.Run.RequeueSeconds,
 		})
+		Onboarding.teachAll(self.order, "Done")
 		for player, st in self.players do
 			if st.banked > 0 then
 				SantaMoves.play(player.Character, "Cheer") -- got away with it
@@ -1119,6 +1244,7 @@ function Run:_finish()
 	self:_stopKrampus()
 	self:_stopSnores()
 	self:_removeElves()
+	self.unbindBreakout()
 	self.ended = true
 	local survivors = {}
 	for _, player in self.order do

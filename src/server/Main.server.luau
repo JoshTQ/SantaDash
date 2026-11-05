@@ -12,12 +12,24 @@ local Handoff = require(ReplicatedStorage.Shared.Handoff)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Lobby = require(script.Parent.Lobby)
 local LobbyMap = require(script.Parent.LobbyMap)
+local PlayerData = require(script.Parent.PlayerData)
+local Onboarding = require(script.Parent.Onboarding)
 local RunHost = require(script.Parent.RunHost)
 local SantaCharacter = require(script.Parent.SantaCharacter)
+local Skins = require(script.Parent.Skins)
+local Store = require(script.Parent.Store)
+
+local Config = require(ReplicatedStorage.Shared.Config)
+local Telemetry = require(script.Parent.Telemetry)
 
 Remotes.init()
+local isRunPlace = Handoff.isRunPlace(game.PlaceId, workspace:GetAttribute("RunPlace"))
+-- Crash and error analytics first, so anything below that breaks is counted.
+Telemetry.start(if isRunPlace then "Run" else "Lobby", Remotes.get("ClientError"))
 -- The Meshy Santa as everyone's character, before anyone spawns.
 SantaCharacter.install()
+-- First-time player tips, saved in the shared player data (data.tutorial).
+Onboarding.start(PlayerData)
 
 -- Christmas Eve night, always (Josh, 2 Nov): a bright moon so kids can see,
 -- stars, and bloom so the Christmas lights glow. Lighting.Technology is
@@ -50,8 +62,14 @@ effect(
 	{ Saturation = 0.12, Contrast = 0.06, TintColor = Color3.fromRGB(235, 240, 255) }
 )
 
+-- Saved data and the store, in both places. Runs happen here if this is the
+-- run place, or while the places aren't published (single server).
+PlayerData.start()
+Store.start({ runServer = isRunPlace or Config.Places.Run == 0 })
+Skins.start() -- each player's chosen Santa suit
+
 local hub = LobbyMap.build(workspace)
-if Handoff.isRunPlace(game.PlaceId, workspace:GetAttribute("RunPlace")) then
+if isRunPlace then
 	RunHost.start(hub) -- GREYBOX: crews wait in the hub between runs
 else
 	Lobby.start(hub)
