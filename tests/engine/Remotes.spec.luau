@@ -16,7 +16,7 @@ describe("Remotes", function()
 			expect(remote:IsA("RemoteEvent")).toBe(true)
 			expect(remote.Parent).toBe(folder)
 		end
-		expect(#folder:GetChildren()).toBe(4)
+		expect(#folder:GetChildren()).toBe(5)
 	end)
 
 	it("fails loudly for a remote that doesn't exist", function()
