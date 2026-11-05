@@ -1,0 +1,42 @@
+{
+  "name": "SantaFrost",
+  "approved": "5 Nov 2026",
+  "rig": true,
+  "pose_mode": "a-pose",
+  "polycount": 10000,
+  "shape_prompt": "Stylized 3D game character, chunky vinyl-toy style, smooth sculpted rounded forms, soft simple shapes, quirky proportions. A scruffy, grumpy Santa Claus: short and round with a big pot belly, slightly hunched. Big head, furrowed bushy eyebrows, frowning grumpy face, round nose, messy uneven beard. Suit with a few sewn-on fabric patches with visible stitching, thick fur trim, belt with a crooked buckle. Floppy hat tilted sideways with a droopy tip and a fluffy pompom. Worn boots and mittens. Full body, standing, A-pose, arms slightly out from the body, hands separate from the belly, legs slightly apart, single character, no base, no props.",
+  "texture_prompt": "Bright saturated colours, smooth soft vinyl-toy finish, clean hand-painted look. Same grumpy round Santa in a deep midnight-blue velvet suit with frosty white fur trim, four big white snowflake patches with visible stitching, and a glowing mint-green aurora stripe across the chest. Frosty pale-blue tinted beard and eyebrows, rosy nose. White mittens, navy belt with an icy pale-blue crystal buckle, navy boots. Midnight-blue hat sprinkled with tiny white stars, white fur band painted with small icicles, pale-blue pompom. Magical and rare looking. No text, no logos.",
+  "height_meters": 1.5,
+  "assemble": {
+    "_note": "The player character (StarterCharacter). Faces +Z in Meshy; yaw 180 to face -Z. Root 2x2x1 at the pivot, hip 2, so feet are 3 studs below the root centre; 5.5 studs tall (a bit taller than a default avatar, he's round).",
+    "mesh": {
+      "name": "Body",
+      "yaw": 180,
+      "fit": {
+        "axis": "Y",
+        "studs": 5.5
+      },
+      "bottom": [
+        0,
+        -3,
+        0
+      ]
+    },
+    "humanoid": {
+      "hip": 2,
+      "root": [
+        2,
+        2,
+        1
+      ]
+    }
+  },
+  "_note": "Christmas Eve Suit (store item ChristmasEveSuit). Approved by Josh 5 Nov 2026. Texture re-roll of the approved Santa preview (same shape); reuses Santa's animation clips, so no new animation task.",
+  "from_preview": "01a1ab06-cc73-75e1-b131-34ffc2b2cc5e",
+  "meshy": {
+    "preview": "01a1ab06-cc73-75e1-b131-34ffc2b2cc5e",
+    "refine": "01a1ac4b-73ad-7124-989b-5c817ff65e34",
+    "remesh": "01a1ac4c-24ff-77ae-8ef0-a9a8552348e4",
+    "rig": "01a1ac4d-25a6-76ff-8f2d-be4bb3ee082d"
+  }
+}

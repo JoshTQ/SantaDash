@@ -1,0 +1,41 @@
+{
+  "name": "SantaChrome",
+  "approved": "5 Nov 2026",
+  "rig": true,
+  "pose_mode": "a-pose",
+  "polycount": 10000,
+  "shape_prompt": "Stylized 3D game character, chunky vinyl-toy style, smooth sculpted rounded forms. The same short, round, grumpy Santa with a big belly and white beard, wearing an oversized shiny quilted puffer jacket with big rounded puffy bands, a bucket hat with a pompom, wraparound visor sunglasses, chunky platform sneakers and a small charm on the zip. Full body, A-pose, arms slightly out, single character, no base.",
+  "texture_prompt": "Bright saturated colours, smooth glossy vinyl-toy finish. Shiny metallic silver chrome puffer jacket and trousers with holographic rainbow reflections in cyan, lilac and pink over silver (mostly silver, not pink). Wraparound rainbow mirrored visor sunglasses painted across his eyes, orange to pink to blue. Holographic silver beanie hat with a hot-pink pompom. Hot-pink belt with a silver buckle, white gloves, white chunky platform sneakers with sky-blue soles. Rosy nose, white beard, bushy white eyebrows. No text, no logos.",
+  "height_meters": 1.5,
+  "assemble": {
+    "_note": "The player character (StarterCharacter). Faces +Z in Meshy; yaw 180 to face -Z. Root 2x2x1 at the pivot, hip 2, so feet are 3 studs below the root centre; 5.5 studs tall (a bit taller than a default avatar, he's round).",
+    "mesh": {
+      "name": "Body",
+      "yaw": 180,
+      "fit": {
+        "axis": "Y",
+        "studs": 5.5
+      },
+      "bottom": [
+        0,
+        -3,
+        0
+      ]
+    },
+    "humanoid": {
+      "hip": 2,
+      "root": [
+        2,
+        2,
+        1
+      ]
+    }
+  },
+  "_note": "Cosmetic suit (store item ChromeSuit), approved by Josh 5 Nov 2026. New shape on the Santa proportions, rigged as a humanoid; reuses Santa's animation clips.",
+  "meshy": {
+    "preview": "01a1ac5a-3686-7211-9852-58eac374578a",
+    "refine": "01a1ac61-1b4d-7427-8775-1c0fd0370950",
+    "remesh": "01a1ac61-f93f-73d1-8b96-90b870987c6e",
+    "rig": "01a1ac62-f96e-72be-91fc-a9fa7b180b46"
+  }
+}

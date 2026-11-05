@@ -88,6 +88,7 @@ function SantaCharacter.build(): (Model?, string?)
 	local santa = (template :: Model):Clone()
 	santa.Name = "StarterCharacter"
 	santa:SetAttribute(SantaMoves.SANTA_ATTRIBUTE, true)
+	santa:SetAttribute(SantaMoves.SKIN_ATTRIBUTE, "Classic") -- server/Skins.luau swaps the suit
 	for _, part in santa:GetDescendants() do
 		if part:IsA("BasePart") then
 			part.Anchored = false

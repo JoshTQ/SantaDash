@@ -32,12 +32,15 @@ local MapFeatures = require(script.Parent.MapFeatures)
 local SantaCharacter = require(script.Parent.SantaCharacter)
 local HouseKit = require(script.Parent.HouseKit)
 local LairBuilder = require(script.Parent.LairBuilder)
+local Store = require(script.Parent.Store)
+local StoreRules = require(ReplicatedStorage.Shared.StoreRules)
 
 local now, rootOf, humanoidOf = Util.now, Util.rootOf, Util.humanoidOf
 
 -- Run-only fields on top of Loot.PlayerState.
 type PlayerState = Loot.PlayerState & {
 	perks: { [string]: boolean },
+	fastSneak: boolean, -- Fast Sneak pass
 	hidden: any?, -- the MapBuilder.HideSpot they are in
 	captive: boolean,
 	breath: number,
@@ -124,6 +127,15 @@ function Run.new(
 		end
 	end
 	self:_wirePrompts()
+	-- A Break-out bought while snatched frees the Santa straight away.
+	self.unbindBreakout = Store.onBreakout(function(player)
+		local st = self.players[player]
+		if st and st.captive and self.krampus and Store.useBreakout(player) then
+			self:_breakOut(player)
+			return true
+		end
+		return false
+	end)
 	return self
 end
 
@@ -183,6 +195,7 @@ function Run:_sendPlayer(player: Player)
 			sackValue = st.sackValue,
 			banked = st.banked,
 			rush = st.perks.PeppermintRush == true,
+			sackCapacity = st.sackCapacity,
 		})
 	end
 end
@@ -191,6 +204,7 @@ function Run:_sendStop()
 	local stop = self.route.stops[self.stopIndex]
 	for _, player in self.order do
 		SantaCharacter.setSneaking(player, self.phase == "Sneak") -- Santas tiptoe
+		self:_applyPerks(player) -- Fast Sneak only counts while sneaking
 	end
 	self:_send(nil, "Stop", {
 		stop = self.stopIndex,
@@ -215,6 +229,9 @@ end
 function Run:_addPlayer(player: Player)
 	local st = Loot.newPlayerState() :: PlayerState
 	st.perks = {}
+	local owned = Store.owned(player)
+	st.sackCapacity = StoreRules.sackCapacity(owned)
+	st.fastSneak = owned.FastSneak == true
 	st.captive = false
 	st.breath = 1
 	st.lastTapAt = 0
@@ -273,7 +290,13 @@ end
 
 -- A Santa's own WalkSpeed with their perks (map features may add to it).
 function Run:baseWalkSpeed(st: PlayerState): number
-	return if st.perks.PeppermintRush then Config.Buys.PeppermintRush.WalkSpeed else Config.Player.WalkSpeed
+	local speed = if st.perks.PeppermintRush
+		then Config.Buys.PeppermintRush.WalkSpeed
+		else Config.Player.WalkSpeed
+	if st.fastSneak and self.phase == "Sneak" then
+		speed += Config.Store.FastSneakBonus
+	end
+	return speed
 end
 
 function Run:_applyPerks(player: Player)
@@ -404,7 +427,7 @@ function Run:canElfGrab(owner: Player): boolean
 	return st ~= nil
 		and not self.ended
 		and NOISY_PHASES[self.phase] == true
-		and st.sackCount < Config.Sack.Capacity
+		and st.sackCount < st.sackCapacity
 end
 
 function Run:elfCollect(owner: Player, present, from: Vector3)
@@ -539,6 +562,14 @@ function Run:onInput(player: Player, action: string)
 	end
 	if action == "Unhide" then
 		self:_unhide(player)
+	elseif action == "Breakout" then
+		if st.captive and self.krampus then
+			if Store.useBreakout(player) then
+				self:_breakOut(player)
+			else
+				Store.prompt(player, "InstantBreakout") -- the receipt frees them
+			end
+		end
 	elseif action == "Tap" then
 		local t = now()
 		if not KrampusBrain.tapAllowed(st.lastTapAt, t) then
@@ -630,7 +661,20 @@ function Run:onSnatched(player: Player)
 			{ anchor = self.krampus.body.root.CFrame, follow = self.krampus.body.model }
 		)
 	end
-	self:_send(player, "Captive", { captive = true, wiggles = 0, needed = KrampusBrain.wiggleNeeded() })
+	self:_send(player, "Captive", {
+		captive = true,
+		wiggles = 0,
+		needed = KrampusBrain.wiggleNeeded(),
+		breakout = Store.breakoutOffer(player),
+	})
+end
+
+-- Instant Break-out (already paid for): out of the basket now.
+function Run:_breakOut(player: Player)
+	if self.krampus then
+		self.krampus:release()
+		self:_banner(nil, player.DisplayName .. " burst out of the basket!", 2)
+	end
 end
 
 function Run:onReleased(player: Player, at: CFrame)
@@ -1096,7 +1140,8 @@ function Run:_main()
 		self.phase = "Results"
 		local entries = {}
 		for player, st in self.players do
-			table.insert(entries, { player.DisplayName, st })
+			-- Coal is saved here, through 2X Loot and any Santa's Blessing.
+			table.insert(entries, { player.DisplayName, st, Store.creditRun(player, Loot.finalLoot(st)) })
 		end
 		self:_send(nil, "Results", {
 			rows = Loot.results(entries),
@@ -1119,6 +1164,7 @@ function Run:_finish()
 	self:_stopKrampus()
 	self:_stopSnores()
 	self:_removeElves()
+	self.unbindBreakout()
 	self.ended = true
 	local survivors = {}
 	for _, player in self.order do

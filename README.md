@@ -51,6 +51,12 @@ To build a place file instead: `rojo build -o SleighHeist.rbxl`.
 
 All tuning numbers live in `src/shared/Config.luau`.
 
+## Store and saved data
+
+Saved player data (Coal, time played, purchases, tutorial progress) lives in one
+DataStore shared by both places (`src/server/PlayerData.luau`). The Robux store,
+its compliance rules and the steps to put it live are in [docs/STORE.md](docs/STORE.md).
+
 ## Maps
 
 Each run picks a map from `Maps.Rotation` (never the one the crew just
