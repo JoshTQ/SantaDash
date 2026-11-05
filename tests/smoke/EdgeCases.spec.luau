@@ -334,7 +334,7 @@ describe("failures", function()
 		expect(logged).toBe(true)
 	end)
 
-	it("the run place falls back to the waiting spot when the lobby teleport fails", function()
+	it("the run place falls back to the waiting spot when the lobby teleport keeps failing", function()
 		local world = headless()
 		local engine = world.engine
 		engine.workspace:SetAttribute("RunPlace", true)
@@ -349,7 +349,7 @@ describe("failures", function()
 			world.runScript("ServerScriptService.Server.Main")
 			world.wait(0.5)
 			stranger = engine:addPlayer("Stranger")
-			world.wait(1)
+			world.wait(4) -- tried 3 times (1 s, then 2 s apart) before giving up
 		end)
 		expect(#engine:hudMessages(stranger, "QueueClear")).toBe(1)
 		local logged = false

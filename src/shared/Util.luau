@@ -59,6 +59,23 @@ function Util.removeValue(list: { any }, value: any): boolean
 	return false
 end
 
+-- Calls fn(...) up to `attempts` times, waiting backoff, 2 * backoff, ...
+-- between tries (yields). Returns true and fn's first result, or false and
+-- the last error.
+function Util.retry(attempts: number, backoff: number, fn: (...any) -> any, ...: any): (boolean, any)
+	local ok, result = false, nil
+	for i = 1, math.max(1, attempts) do
+		ok, result = pcall(fn, ...)
+		if ok then
+			return true, result
+		end
+		if i < attempts then
+			task.wait(backoff * 2 ^ (i - 1))
+		end
+	end
+	return false, result
+end
+
 -- Picks a key from { {key, weight} } entries. Zero weights are never picked.
 function Util.weightedPick(rng: Random, entries: { { any } }): any
 	local total = 0

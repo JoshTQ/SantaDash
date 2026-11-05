@@ -14,8 +14,12 @@ local Lobby = require(script.Parent.Lobby)
 local LobbyMap = require(script.Parent.LobbyMap)
 local RunHost = require(script.Parent.RunHost)
 local SantaCharacter = require(script.Parent.SantaCharacter)
+local Telemetry = require(script.Parent.Telemetry)
 
 Remotes.init()
+local isRunPlace = Handoff.isRunPlace(game.PlaceId, workspace:GetAttribute("RunPlace"))
+-- Crash and error analytics first, so anything below that breaks is counted.
+Telemetry.start(if isRunPlace then "Run" else "Lobby", Remotes.get("ClientError"))
 -- The Meshy Santa as everyone's character, before anyone spawns.
 SantaCharacter.install()
 
@@ -51,7 +55,7 @@ effect(
 )
 
 local hub = LobbyMap.build(workspace)
-if Handoff.isRunPlace(game.PlaceId, workspace:GetAttribute("RunPlace")) then
+if isRunPlace then
 	RunHost.start(hub) -- GREYBOX: crews wait in the hub between runs
 else
 	Lobby.start(hub)

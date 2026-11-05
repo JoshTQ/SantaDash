@@ -21,6 +21,7 @@ local CrewPacker = require(ReplicatedStorage.Shared.CrewPacker)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Util = require(ReplicatedStorage.Shared.Util)
 local Matchmaker = require(script.Parent.Matchmaker)
+local Telemetry = require(script.Parent.Telemetry)
 local Run = require(script.Parent.Run)
 local Station = require(script.Parent.Station)
 
@@ -202,6 +203,7 @@ end
 local function tick()
 	local t = Util.now()
 	for _, crew in CrewPacker.fit(Matchmaker.overdue(t), Config.Lobby.CrewMax) do
+		Telemetry.count("MatchLocalFallback", nil, #crew)
 		departLocally(crew)
 	end
 	for _, crew in table.clone(crews) do

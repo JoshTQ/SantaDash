@@ -6,6 +6,7 @@
 		Krampus, KrampusTease, Hide, Captive, MapEvent, Weather, Snowballs, Splat, Cutscene
 	LeaveCrew (client -> server): leave the queue or the current run.
 	Input (client -> server): "Tap" (breath / wiggle), "Unhide" or "Throw" (snowball).
+	ClientError (client -> server): a client script error, for Telemetry.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -14,7 +15,7 @@ local RunService = game:GetService("RunService")
 local Remotes = {}
 
 local FOLDER_NAME = "Remotes"
-local NAMES = { "Hud", "LeaveCrew", "Input" }
+local NAMES = { "Hud", "LeaveCrew", "Input", "ClientError" }
 
 local function serverFolder(): Folder
 	local folder = ReplicatedStorage:FindFirstChild(FOLDER_NAME)
