@@ -10,8 +10,9 @@
 	Animator walks (to_rbxm joins the mesh to the root with a Motor6D). Bone
 	poses are offsets from the rest pose, as Bone.Transform expects.
 
-	Fails if the model Roblox imported has no bones or different bone names,
-	so a clip that can't play never gets uploaded.
+	Fails if the model Roblox imported has no bones or lacks one of its
+	bones, so a clip that can't play never gets uploaded. The exception is leaf
+	"_end" bones (head_end), which Roblox drops on import: they're left out.
 ]]
 
 local fs = require("@lune/fs")
@@ -50,10 +51,23 @@ if fs.isFile(dir .. "/imported.rbxm") then
 			imported[root.Name] = true
 		end
 	end
+	-- Roblox drops the leaf "_end" bones (head_end) on import. They carry no
+	-- skin, so leave them out of the clips; any other missing bone fails.
+	local hasChildren = {}
+	for _, info in data.bones do
+		if info.parent then
+			hasChildren[info.parent] = true
+		end
+	end
 	local missing = {}
 	for bone in data.bones do
 		if not imported[bone] then
-			table.insert(missing, bone)
+			if hasChildren[bone] or not string.match(bone, "_end$") then
+				table.insert(missing, bone)
+			else
+				print("(the imported rig dropped the end bone " .. bone .. ": leaving it out of the clips)")
+				data.bones[bone] = nil
+			end
 		end
 	end
 	if next(imported) == nil then
