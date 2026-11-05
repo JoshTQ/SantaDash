@@ -3,10 +3,12 @@
 
 	Hud (server -> client): fire(kind: string, data: table). Kinds:
 		Queue, QueueClear, Stop, Banner, Noise, Player, Results, RunEnd,
-		Krampus, KrampusTease, Hide, Captive, MapEvent, Weather, Snowballs, Splat, Cutscene
+		Krampus, KrampusTease, Hide, Captive, MapEvent, Weather, Snowballs, Splat, Cutscene,
+		Tip, TipDone, Guide (first-time player tips, server/Onboarding.luau)
 	LeaveCrew (client -> server): leave the queue or the current run.
-	Input (client -> server): "Tap" (breath / wiggle), "Unhide", "Throw" (snowball)
-		or "Breakout" (use an Instant Break-out while snatched).
+	Input (client -> server): "Tap" (breath / wiggle), "Unhide", "Throw" (snowball),
+		"Breakout" (use an Instant Break-out while snatched), or
+		"TipsReady" / "TipsOff" (first-time tips).
 	Store (both ways): see server/Store.luau.
 ]]
 
