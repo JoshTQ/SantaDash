@@ -6,7 +6,7 @@
 
 	- one root Model named <Name> (the deploy names ServerStorage.Assets.<Name>
 	  after the file, the game looks the model up by its Name)
-	- every MeshPart gets the uploaded colour texture as TextureID
+	- every MeshPart gets the uploaded colour texture (TextureContent)
 	- removes what Open Cloud can't publish (SurfaceAppearance, unions,
 	  Editable*, wraps) and the PackageLink the asset upload adds
 	- fails if anything unpublishable is left, so a bad file never reaches main
@@ -112,7 +112,9 @@ local function loadMeshes(runName: string): { any }
 	local meshes = {}
 	for _, instance in holder:GetDescendants() do
 		if instance:IsA("MeshPart") then
-			instance.TextureID = texture
+			-- Lune drops writes to the legacy TextureID on save; the file
+			-- (and Roblox) read TextureContent.
+			instance.TextureContent = roblox.Content.fromUri(texture)
 			table.insert(meshes, instance)
 		end
 	end
