@@ -8,7 +8,8 @@
 	Sleigh    PrimaryPart "Body", Seat1-Seat6, "Horn", "Lantern", "Hitch"
 	Reindeer  PrimaryPart "Body", Head, LegFL/LegFR/LegBL/LegBR on Motor6Ds
 	          (two per sleigh, placed in front of the sleigh's Hitch)
-	House, KrampusLair, VaultDoor  see HouseKit.luau
+	House, KrampusLair, VaultDoor  see HouseKit.luau (no House in Assets: the
+	          approved kit is built from parts by HouseBuilder.luau)
 	CocoaMachine  PrimaryPart "Body", "BuyPrompt" Attachment (+ Sign, TopMug,
 	          Dispenser, PricePlate); placed standing on the street
 	SnowPile  Blizzard pile (Sparkle Drift): PrimaryPart "Drift", Ball1-Ball5

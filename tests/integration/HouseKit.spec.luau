@@ -84,9 +84,11 @@ test("street houses come from the approved kit, sitting on the ground", function
 			expect(child:GetAttribute("HouseType") ~= nil).toBeTruthy()
 		end
 	end
-	expect(found).toBe(#plans[1].houses - 1) -- every house but the vault
-	expect(#stop.doors).toBe(found)
-	expect(#stop.chimneys).toBe(found)
+	-- Every house, the vault too (its front door is the vault door, no chimney).
+	expect(found).toBe(#plans[1].houses)
+	expect(#stop.doors).toBe(found - 1)
+	expect(#stop.chimneys).toBe(found - 1)
+	expect(stop.vaultDoor ~= nil and stop.vaultPrompt ~= nil).toBeTruthy()
 end)
 
 test("kit houses fill their spawn points first and keep every present", function()
@@ -176,7 +178,8 @@ test("approved presents are scaled to their size and sit on the floor", function
 				local s = main.Size
 				expect(math.max(s.X, s.Y, s.Z)).toBeNear(1.6 * present.plan.size, 0.001)
 				local bottom = main.CFrame.Position.Y - s.Y / 2
-				expect(bottom).toBeLessThan(2.1) -- on a floor, not floating at the template's height
+				-- On a floor (ground, or a Two-storey's bedroom), not at the template's height.
+				expect(bottom).toBeLessThan(15)
 				expect(present.model:FindFirstChild("Bow") ~= nil).toBeTruthy()
 			end
 		end
