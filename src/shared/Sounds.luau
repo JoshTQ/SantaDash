@@ -40,28 +40,28 @@ Sounds.Defs = {
 	--------------------------------------------------------------------
 	-- Tier 1: the sleigh is leaving
 	--------------------------------------------------------------------
-	SleighHorn = { id = 0, find = "cartoon car horn beep beep", group = "Ui", volume = 0.9 },
-	LastCall = { id = 0, find = "fast double horn beep", group = "Ui", volume = 0.95 },
-	CountdownTick = { id = 0, find = "sleigh bell single jingle", group = "Ui", volume = 0.45 },
-	SleighTakeoff = { id = 0, find = "sleigh bells whoosh", group = "Sfx", volume = 0.55 },
-	SleighLand = { id = 0, find = "soft snow thump", group = "Sfx", volume = 0.5 },
-	FlightBells = { id = 0, find = "sleigh bells loop", group = "Sfx", volume = 0.3, looped = true },
+	SleighHorn = { id = 103337759957552, find = "cartoon car horn beep beep", group = "Ui", volume = 0.9 },
+	LastCall = { id = 132613047546185, find = "fast double horn beep", group = "Ui", volume = 0.95 },
+	CountdownTick = { id = 72124849536326, find = "sleigh bell single jingle", group = "Ui", volume = 0.45 },
+	SleighTakeoff = { id = 137526023064114, find = "sleigh bells whoosh", group = "Sfx", volume = 0.55 },
+	SleighLand = { id = 87613514400200, find = "soft snow thump", group = "Sfx", volume = 0.5 },
+	FlightBells = { id = 124768513358645, find = "sleigh bells loop", group = "Sfx", volume = 0.3, looped = true },
 
 	--------------------------------------------------------------------
 	-- Tier 1: Krampus
 	--------------------------------------------------------------------
-	KrampusComing = { id = 0, find = "cartoon monster roar funny", group = "Ui", volume = 0.6 },
+	KrampusComing = { id = 78454732737770, find = "cartoon monster roar funny", group = "Ui", volume = 0.6 },
 	KrampusBells = {
-		id = 0,
+		id = 135219766274112,
 		find = "jingle bells shaking loop",
 		group = "Sfx",
 		volume = 0.8,
 		range = { 12, 140 },
 		looped = true,
 	},
-	KrampusHeartbeat = { id = 0, find = "heartbeat loop", group = "Ui", volume = 0.5, looped = true },
+	KrampusHeartbeat = { id = 124053169424945, find = "heartbeat loop", group = "Ui", volume = 0.5, looped = true },
 	KrampusSnatch = {
-		id = 0,
+		id = 137537717230164,
 		find = "cartoon evil laugh",
 		group = "Sfx",
 		volume = 0.8,
@@ -69,7 +69,7 @@ Sounds.Defs = {
 		cooldown = 2,
 	},
 	KrampusSniff = {
-		id = 0,
+		id = 89583237679405,
 		find = "cartoon sniff sniff",
 		group = "Sfx",
 		volume = 0.6,
@@ -78,7 +78,7 @@ Sounds.Defs = {
 		cooldown = 6,
 	},
 	BellBonk = {
-		id = 0,
+		id = 114059483688596,
 		find = "bell clang cartoon",
 		group = "Sfx",
 		volume = 0.8,
@@ -86,24 +86,24 @@ Sounds.Defs = {
 		cooldown = 0.5,
 	},
 	KrampusDizzy = {
-		id = 0,
+		id = 87432656866406,
 		find = "cartoon dizzy birds tweet",
 		group = "Sfx",
 		volume = 0.6,
 		range = { 10, 80 },
 	},
 	Boing = {
-		id = 0,
+		id = 96145230303089,
 		find = "cartoon boing",
 		group = "Sfx",
 		volume = 0.85,
 		pitch = { 0.95, 1.1 },
 		range = { 10, 80 },
 	},
-	Wiggle = { id = 0, find = "cloth shuffle rustle", group = "Ui", volume = 0.35, pitch = { 0.9, 1.3 } },
-	KrampusTease = { id = 0, find = "distant sleigh bells", group = "Ui", volume = 0.35 },
+	Wiggle = { id = 72114778853774, find = "cloth shuffle rustle", group = "Ui", volume = 0.35, pitch = { 0.9, 1.3 } },
+	KrampusTease = { id = 106027454357073, find = "distant sleigh bells", group = "Ui", volume = 0.35 },
 	KrampusStomp = {
-		id = 0,
+		id = 71692941615552,
 		find = "giant stomp ice crack",
 		group = "Sfx",
 		volume = 0.9,
@@ -114,7 +114,7 @@ Sounds.Defs = {
 	-- Tier 1: presents and loot
 	--------------------------------------------------------------------
 	PresentGrab = {
-		id = 0,
+		id = 103923669951431,
 		find = "paper rustle pop",
 		group = "Sfx",
 		volume = 0.5,
@@ -122,14 +122,14 @@ Sounds.Defs = {
 		range = { 8, 60 },
 	},
 	NaughtyListGrab = {
-		id = 0,
+		id = 118785204214396,
 		find = "chain rattle dramatic sting",
 		group = "Sfx",
 		volume = 0.8,
 		range = { 20, 160 },
 	},
 	SackFull = {
-		id = 0,
+		id = 98909911567144,
 		find = "cartoon grunt thud",
 		group = "Sfx",
 		volume = 0.5,
@@ -137,21 +137,21 @@ Sounds.Defs = {
 		cooldown = 1.5,
 	},
 	JingleGain = {
-		id = 0,
+		id = 120845024202412,
 		find = "coin jingle short",
 		group = "Ui",
 		volume = 0.3,
 		pitch = { 1, 1.2 },
 		cooldown = 0.15,
 	},
-	Bank = { id = 0, find = "cash register ka-ching", group = "Ui", volume = 0.5 },
-	SackSpill = { id = 0, find = "presents tumble cartoon", group = "Ui", volume = 0.5 },
+	Bank = { id = 134560111889844, find = "cash register ka-ching", group = "Ui", volume = 0.5 },
+	SackSpill = { id = 128197119438736, find = "presents tumble cartoon", group = "Ui", volume = 0.5 },
 
 	--------------------------------------------------------------------
 	-- Tier 1: parents (house occupants) and the noise meter
 	--------------------------------------------------------------------
 	ParentSnore = {
-		id = 0,
+		id = 117621130195035,
 		find = "cartoon snore loop",
 		group = "Sfx",
 		volume = 0.55,
@@ -160,22 +160,22 @@ Sounds.Defs = {
 		looped = true,
 	},
 	ParentWake = {
-		id = 0,
+		id = 77235121182574,
 		find = "cartoon huh who's there grumble",
 		group = "Sfx",
 		volume = 0.7,
 		pitch = { 0.9, 1.1 },
 		range = { 10, 90 },
 	},
-	LightsOn = { id = 0, find = "light switch click uh oh", group = "Ui", volume = 0.5 },
-	NoiseWarn = { id = 0, find = "three warning beeps", group = "Ui", volume = 0.45 },
-	NoiseFull = { id = 0, find = "cartoon alarm siren short", group = "Ui", volume = 0.5 },
+	LightsOn = { id = 100845290563185, find = "light switch click uh oh", group = "Ui", volume = 0.5 },
+	NoiseWarn = { id = 140446725193598, find = "three warning beeps", group = "Ui", volume = 0.45 },
+	NoiseFull = { id = 77854624593363, find = "cartoon alarm siren short", group = "Ui", volume = 0.5 },
 
 	--------------------------------------------------------------------
 	-- Tier 1: security dogs (Frozen Canal Town market)
 	--------------------------------------------------------------------
 	CorgiGrowl = {
-		id = 0,
+		id = 106855818049896,
 		find = "small dog growl",
 		group = "Sfx",
 		volume = 0.55,
@@ -184,7 +184,7 @@ Sounds.Defs = {
 		cooldown = 3,
 	},
 	CorgiWoof = {
-		id = 0,
+		id = 97880853607845,
 		find = "small dog bark",
 		group = "Sfx",
 		volume = 0.7,
@@ -192,7 +192,7 @@ Sounds.Defs = {
 		range = { 10, 80 },
 	},
 	TinDogWhirr = {
-		id = 0,
+		id = 122218651051829,
 		find = "wind up toy clockwork",
 		group = "Sfx",
 		volume = 0.45,
@@ -200,7 +200,7 @@ Sounds.Defs = {
 		cooldown = 3,
 	},
 	TinDogBonk = {
-		id = 0,
+		id = 138399806651117,
 		find = "metal bonk spring wind down",
 		group = "Sfx",
 		volume = 0.7,
@@ -211,30 +211,30 @@ Sounds.Defs = {
 	-- Tier 2: doors, hiding, buys
 	--------------------------------------------------------------------
 	DoorOpen = {
-		id = 0,
+		id = 98551566833572,
 		find = "door creak short",
 		group = "Sfx",
 		volume = 0.45,
 		pitch = { 0.9, 1.1 },
 		range = { 6, 45 },
 	},
-	DoorClose = { id = 0, find = "door close soft", group = "Sfx", volume = 0.4, range = { 6, 45 } },
-	ChimneySlide = { id = 0, find = "slide whistle down", group = "Sfx", volume = 0.5, range = { 8, 60 } },
-	ChimneyClimb = { id = 0, find = "slide whistle up", group = "Sfx", volume = 0.5, range = { 8, 60 } },
-	HideIn = { id = 0, find = "wardrobe door shut", group = "Sfx", volume = 0.45, range = { 6, 40 } },
-	HideOut = { id = 0, find = "wardrobe door open creak", group = "Sfx", volume = 0.45, range = { 6, 40 } },
-	Gasp = { id = 0, find = "cartoon gasp for air", group = "Sfx", volume = 0.8, range = { 10, 90 } },
-	BreathStrain = { id = 0, find = "holding breath strain", group = "Ui", volume = 0.35, cooldown = 2 },
-	CocoaSlurp = { id = 0, find = "slurp drink cartoon", group = "Sfx", volume = 0.5, range = { 6, 40 } },
-	VaultOpen = { id = 0, find = "vault door unlock heavy", group = "Sfx", volume = 0.7, range = { 15, 120 } },
-	Nope = { id = 0, find = "cartoon error buzz", group = "Ui", volume = 0.35, cooldown = 0.5 },
+	DoorClose = { id = 137636984511563, find = "door close soft", group = "Sfx", volume = 0.4, range = { 6, 45 } },
+	ChimneySlide = { id = 74892954452519, find = "slide whistle down", group = "Sfx", volume = 0.5, range = { 8, 60 } },
+	ChimneyClimb = { id = 131541787159529, find = "slide whistle up", group = "Sfx", volume = 0.5, range = { 8, 60 } },
+	HideIn = { id = 99023424781977, find = "wardrobe door shut", group = "Sfx", volume = 0.45, range = { 6, 40 } },
+	HideOut = { id = 136486322601624, find = "wardrobe door open creak", group = "Sfx", volume = 0.45, range = { 6, 40 } },
+	Gasp = { id = 140257255510764, find = "cartoon gasp for air", group = "Sfx", volume = 0.8, range = { 10, 90 } },
+	BreathStrain = { id = 77840586659884, find = "holding breath strain", group = "Ui", volume = 0.35, cooldown = 2 },
+	CocoaSlurp = { id = 131712508847511, find = "slurp drink cartoon", group = "Sfx", volume = 0.5, range = { 6, 40 } },
+	VaultOpen = { id = 129863531248065, find = "vault door unlock heavy", group = "Sfx", volume = 0.7, range = { 15, 120 } },
+	Nope = { id = 107307875294014, find = "cartoon error buzz", group = "Ui", volume = 0.35, cooldown = 0.5 },
 
 	--------------------------------------------------------------------
 	-- Tier 2: Frozen Canal Town
 	--------------------------------------------------------------------
-	Splash = { id = 0, find = "cartoon splash", group = "Sfx", volume = 0.7, range = { 10, 80 } },
+	Splash = { id = 83405834336067, find = "cartoon splash", group = "Sfx", volume = 0.7, range = { 10, 80 } },
 	HoopBoost = {
-		id = 0,
+		id = 133896540097512,
 		find = "magic chime whoosh",
 		group = "Sfx",
 		volume = 0.45,
@@ -242,53 +242,53 @@ Sounds.Defs = {
 		cooldown = 1,
 	},
 	PolisherHum = {
-		id = 0,
+		id = 79023675449506,
 		find = "machine hum loop",
 		group = "Sfx",
 		volume = 0.4,
 		range = { 8, 60 },
 		looped = true,
 	},
-	PolisherScoop = { id = 0, find = "cartoon whoosh", group = "Sfx", volume = 0.6, range = { 10, 70 } },
-	IceCrack = { id = 0, find = "ice crack", group = "Sfx", volume = 0.7, range = { 20, 200 } },
+	PolisherScoop = { id = 134317366455068, find = "cartoon whoosh", group = "Sfx", volume = 0.6, range = { 10, 70 } },
+	IceCrack = { id = 116993069675338, find = "ice crack", group = "Sfx", volume = 0.7, range = { 20, 200 } },
 
 	--------------------------------------------------------------------
 	-- Tier 3: music, ambience and results
 	--------------------------------------------------------------------
 	NightAmbience = {
-		id = 0,
+		id = 93735883297301,
 		find = "winter night wind ambience loop",
 		group = "Ambience",
 		volume = 0.35,
 		looped = true,
 	},
-	SneakMusic = { id = 0, find = "sneaky pizzicato loop", group = "Music", volume = 0.4, looped = true },
-	HurryMusic = { id = 0, find = "fast christmas chase loop", group = "Music", volume = 0.45, looped = true },
-	KrampusMusic = { id = 0, find = "spooky funny chase loop", group = "Music", volume = 0.45, looped = true },
-	LobbyMusic = { id = 0, find = "cheerful christmas loop", group = "Music", volume = 0.35, looped = true },
-	ResultsWin = { id = 0, find = "fanfare short cartoon", group = "Ui", volume = 0.55 },
-	ResultsMiss = { id = 0, find = "sad trombone", group = "Ui", volume = 0.5 },
+	SneakMusic = { id = 127321626193735, find = "sneaky pizzicato loop", group = "Music", volume = 0.4, looped = true },
+	HurryMusic = { id = 73523632783469, find = "fast christmas chase loop", group = "Music", volume = 0.45, looped = true },
+	KrampusMusic = { id = 134476419640377, find = "spooky funny chase loop", group = "Music", volume = 0.45, looped = true },
+	LobbyMusic = { id = 134377198278111, find = "cheerful christmas loop", group = "Music", volume = 0.35, looped = true },
+	ResultsWin = { id = 90369196928217, find = "fanfare short cartoon", group = "Ui", volume = 0.55 },
+	ResultsMiss = { id = 87891117529186, find = "sad trombone", group = "Ui", volume = 0.5 },
 	--------------------------------------------------------------------
 	-- Cutscenes (PR #10): played by Cutscenes.luau at fixed times, 2D
 	--------------------------------------------------------------------
-	CutsceneGiddyup = { id = 0, find = "reins snap giddy up hooves", group = "Ui", volume = 0.75 },
-	CutsceneThump = { id = 0, find = "heavy landing thump", group = "Ui", volume = 0.7 },
-	CutsceneBells = { id = 0, find = "distant bells approaching heartbeat", group = "Ui", volume = 0.7 },
-	CutsceneClonk = { id = 0, find = "horns hit metal gate clonk", group = "Ui", volume = 0.75 },
-	CutsceneRoar = { id = 0, find = "goofy monster roar", group = "Ui", volume = 0.75 },
-	CutsceneStrain = { id = 0, find = "cartoon strain grunt", group = "Ui", volume = 0.6 },
-	CutsceneFlump = { id = 0, find = "belly flop into snow", group = "Ui", volume = 0.75 },
-	CutsceneFireworks = { id = 0, find = "fireworks whistle burst crackle", group = "Ui", volume = 0.7 },
-	CutsceneStamp = { id = 0, find = "rubber stamp ding", group = "Ui", volume = 0.7 },
-	CutsceneYoink = { id = 0, find = "slide whistle up", group = "Ui", volume = 0.6 },
-	CutsceneBonk = { id = 0, find = "cartoon bonk", group = "Ui", volume = 0.65 },
-	CutsceneHonk = { id = 0, find = "car horn beep beep distant", group = "Ui", volume = 0.7 },
-	CutsceneRaspberry = { id = 0, find = "raspberry blow", group = "Ui", volume = 0.6 },
-	CutsceneMusicTakeoff = { id = 0, find = "heist overture pizzicato bells", group = "Music", volume = 0.55 },
-	CutsceneMusicKrampus = { id = 0, find = "comic spooky tuba creep", group = "Music", volume = 0.55 },
-	CutsceneMusicGetaway = { id = 0, find = "triumphant caper fanfare", group = "Music", volume = 0.55 },
-	CutsceneMusicSnatched = { id = 0, find = "slide whistle sting", group = "Music", volume = 0.55 },
-	CutsceneMusicLeftBehind = { id = 0, find = "sad trombone short", group = "Music", volume = 0.55 },
+	CutsceneGiddyup = { id = 90349951287982, find = "reins snap giddy up hooves", group = "Ui", volume = 0.75 },
+	CutsceneThump = { id = 100556334656882, find = "heavy landing thump", group = "Ui", volume = 0.7 },
+	CutsceneBells = { id = 97200000992781, find = "distant bells approaching heartbeat", group = "Ui", volume = 0.7 },
+	CutsceneClonk = { id = 132445915364990, find = "horns hit metal gate clonk", group = "Ui", volume = 0.75 },
+	CutsceneRoar = { id = 96187228588309, find = "goofy monster roar", group = "Ui", volume = 0.75 },
+	CutsceneStrain = { id = 74283549886584, find = "cartoon strain grunt", group = "Ui", volume = 0.6 },
+	CutsceneFlump = { id = 85511195489701, find = "belly flop into snow", group = "Ui", volume = 0.75 },
+	CutsceneFireworks = { id = 109975744914275, find = "fireworks whistle burst crackle", group = "Ui", volume = 0.7 },
+	CutsceneStamp = { id = 78994682624294, find = "rubber stamp ding", group = "Ui", volume = 0.7 },
+	CutsceneYoink = { id = 116483177192462, find = "slide whistle up", group = "Ui", volume = 0.6 },
+	CutsceneBonk = { id = 134355592844133, find = "cartoon bonk", group = "Ui", volume = 0.65 },
+	CutsceneHonk = { id = 83513324563804, find = "car horn beep beep distant", group = "Ui", volume = 0.7 },
+	CutsceneRaspberry = { id = 102071129137442, find = "raspberry blow", group = "Ui", volume = 0.6 },
+	CutsceneMusicTakeoff = { id = 77599959432521, find = "heist overture pizzicato bells", group = "Music", volume = 0.55 },
+	CutsceneMusicKrampus = { id = 104206400356788, find = "comic spooky tuba creep", group = "Music", volume = 0.55 },
+	CutsceneMusicGetaway = { id = 94956338149476, find = "triumphant caper fanfare", group = "Music", volume = 0.55 },
+	CutsceneMusicSnatched = { id = 118055443260956, find = "slide whistle sting", group = "Music", volume = 0.55 },
+	CutsceneMusicLeftBehind = { id = 81996971263690, find = "sad trombone short", group = "Music", volume = 0.55 },
 } :: { [string]: Def }
 
 Sounds.Groups = { "Sfx", "Music", "Ambience", "Ui" }
