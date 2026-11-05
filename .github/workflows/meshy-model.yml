@@ -8,7 +8,8 @@ name: Meshy model
 #   push to main changing art/meshy/<Name>.json -> runs for each changed spec
 #                                                  (only when the repo variable
 #                                                  MESHY_AUTO is true)
-#   Actions > Meshy model > Run workflow         -> runs for the name you type
+#   Actions > Meshy model > Run workflow         -> runs for the names you type
+#                                                  (one job, one approval PR)
 
 on:
   push:
@@ -17,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       model:
-        description: Spec name in art/meshy/ (e.g. Santa, SantaSack)
+        description: Spec names in art/meshy/, space-separated (e.g. Santa SantaSack)
         required: true
         default: Santa
       preview_only:
@@ -51,37 +52,52 @@ jobs:
           else
             names=$(git diff --name-only --diff-filter=AM "$BEFORE" "$GITHUB_SHA" -- 'art/meshy/*.json' | xargs -rn1 basename | sed 's/\.json$//')
           fi
+          keep=""
           for n in $names; do
             [[ "$n" =~ ^[A-Za-z0-9]+$ && -f "art/meshy/$n.json" ]] || { echo "::error::No spec art/meshy/$n.json"; exit 1; }
+            # Components (e.g. KrampusBasket) run with the model that includes them.
+            [ "$(jq -r '.component // false' "art/meshy/$n.json")" = "true" ] || keep="$keep $n"
           done
+          names="$keep"
           echo "models=$(printf '%s\n' $names | jq -Rsc 'split("\n") | map(select(length > 0))')" >> "$GITHUB_OUTPUT"
 
   model:
     needs: pick
     if: needs.pick.outputs.models != '[]'
     runs-on: ubuntu-latest
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        name: ${{ fromJson(needs.pick.outputs.models) }}
+    timeout-minutes: 120
     concurrency:
-      group: meshy-${{ matrix.name }}
+      group: meshy-models
       cancel-in-progress: false
+    env:
+      MODELS: ${{ join(fromJson(needs.pick.outputs.models), ' ') }}
     steps:
       - uses: actions/checkout@v4
+
+      # Specs with a "meshy" block reuse finished Meshy tasks (no credits);
+      # "include" components (e.g. KrampusBasket) are generated and uploaded too.
+      - name: Work out the Meshy runs (models + their components)
+        id: runs
+        run: |
+          runs=$(python3 tools/meshy/runs.py $MODELS)
+          echo "Runs: $runs"
+          echo "runs=$runs" >> "$GITHUB_OUTPUT"
 
       - name: Generate in Meshy
         env:
           MESHY_API_KEY: ${{ secrets.MESHY_API_KEY }}
-        run: python3 tools/meshy/generate.py "${{ matrix.name }}" ${{ inputs.preview_only && '--preview-only' || '' }}
+          RUNS: ${{ steps.runs.outputs.runs }}
+        run: |
+          for n in $RUNS; do
+            python3 tools/meshy/generate.py "$n" ${{ inputs.preview_only && '--preview-only' || '' }}
+          done
 
       - name: Keep the raw Meshy files (FBX, GLB, animations)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: meshy-${{ matrix.name }}-${{ github.run_id }}
-          path: build/meshy/${{ matrix.name }}
+          name: meshy-${{ github.run_id }}
+          path: build/meshy
           if-no-files-found: ignore
 
       - name: Upload to Roblox and download the import
@@ -90,7 +106,11 @@ jobs:
           ROBLOX_API_KEY: ${{ secrets.ROBLOX_API_KEY }}
           ROBLOX_USER_ID: ${{ vars.ROBLOX_USER_ID }}
           ROBLOX_GROUP_ID: ${{ vars.ROBLOX_GROUP_ID }}
-        run: python3 tools/meshy/upload.py "${{ matrix.name }}"
+          RUNS: ${{ steps.runs.outputs.runs }}
+        run: |
+          for n in $RUNS; do
+            python3 tools/meshy/upload.py "$n"
+          done
 
       - name: Install Rokit and the pinned tools
         if: ${{ !inputs.preview_only }}
@@ -109,11 +129,14 @@ jobs:
             sleep $((attempt * 10))
           done
 
-      - name: Build assets/models/${{ matrix.name }}.rbxm
+      - name: Build assets/models/<Name>.rbxm
         if: ${{ !inputs.preview_only }}
-        run: lune run tools/meshy/to_rbxm "${{ matrix.name }}"
+        run: |
+          for n in $MODELS; do
+            lune run tools/meshy/to_rbxm "$n"
+          done
 
-      - name: Check the deploy still builds with it
+      - name: Check the deploy still builds with them
         if: ${{ !inputs.preview_only }}
         run: lune run tools/deploy staging --dry-run
 
@@ -121,30 +144,45 @@ jobs:
         if: ${{ !inputs.preview_only }}
         id: stage
         env:
-          NAME: ${{ matrix.name }}
+          RUNS: ${{ steps.runs.outputs.runs }}
         run: |
-          src="build/meshy/$NAME"; dst="art/meshy/$NAME"
-          mkdir -p "$dst"
-          cp "$src"/preview.png "$src"/refined.png "$src"/meshy.json "$src"/roblox.json "$src"/summary.json "$dst"/
-          if [ -f "$src/rigged.glb" ]; then cp "$src/rigged.glb" "$dst/model.glb"; else cp "$src/game.glb" "$dst/model.glb"; fi
-          blob="https://github.com/$GITHUB_REPOSITORY/blob/meshy/$NAME/$dst"
+          branch="meshy/$(echo $MODELS | tr ' ' '-')"
+          [ ${#branch} -gt 60 ] && branch="meshy/run-${GITHUB_RUN_NUMBER}"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          echo "title=Approve models: $(echo $MODELS | sed 's/ /, /g')" >> "$GITHUB_OUTPUT"
+          total=0
           {
             echo "body<<EOF_BODY"
-            echo "Generated in Meshy from \`art/meshy/$NAME.json\` (run [#$GITHUB_RUN_NUMBER]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)) and imported into Roblox through Open Cloud."
+            echo "Generated in Meshy from \`art/meshy/\` (run [#$GITHUB_RUN_NUMBER]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)) and imported into Roblox through Open Cloud."
             echo
-            echo "**Merging this PR approves the final model.** The next deploy puts it in \`ServerStorage.Assets.$NAME\`. Close it to reject; re-run the workflow to try again."
+            echo "**Merging this PR approves the final models.** The next deploy puts them in \`ServerStorage.Assets\`. Close it to reject; re-run the workflow to try again."
             echo
-            echo "| Shape | Textured |"
-            echo "| --- | --- |"
-            echo "| ![preview]($blob/preview.png?raw=true) | ![refined]($blob/refined.png?raw=true) |"
+            echo "| Model | Shape | Textured |"
+            echo "| --- | --- | --- |"
+            for n in $RUNS; do
+              src="build/meshy/$n"; dst="art/meshy/$n"
+              mkdir -p "$dst"
+              cp "$src"/preview.png "$src"/refined.png "$src"/meshy.json "$src"/roblox.json "$dst"/
+              [ -f "$src/summary.json" ] && cp "$src/summary.json" "$dst"/
+              if [ -f "$src/rigged.glb" ]; then cp "$src/rigged.glb" "$dst/model.glb"; else cp "$src/game.glb" "$dst/model.glb"; fi
+              blob="https://github.com/$GITHUB_REPOSITORY/blob/$branch/$dst"
+              echo "| $n | ![preview]($blob/preview.png?raw=true) | ![refined]($blob/refined.png?raw=true) |"
+              total=$((total + $(jq .total_credits "$src/meshy.json")))
+            done
             echo
-            echo "Rotatable model: \`$dst/model.glb\` (open in any glTF viewer)."
+            echo "Rotatable models: \`art/meshy/<Name>/model.glb\` (open in any glTF viewer)."
             echo
-            echo '```json'
-            cat "$src/summary.json"
+            for n in $MODELS; do
+              echo "<details><summary>$n in Roblox</summary>"
+              echo
+              echo '```json'
+              cat "build/meshy/$n/summary.json"
+              echo
+              echo '```'
+              echo "</details>"
+            done
             echo
-            echo '```'
-            echo "Meshy credits used: $(jq .total_credits "$src/meshy.json"). Raw FBX, GLB and animations are in the run's artifacts."
+            echo "Meshy credits used by this run: $total. Raw FBX, GLB and animations are in the run's artifacts."
             echo "EOF_BODY"
           } >> "$GITHUB_OUTPUT"
 
@@ -152,13 +190,13 @@ jobs:
         if: ${{ !inputs.preview_only }}
         uses: peter-evans/create-pull-request@v7
         with:
-          branch: meshy/${{ matrix.name }}
+          branch: ${{ steps.stage.outputs.branch }}
           base: ${{ github.ref_name }}
           add-paths: |
-            assets/models/${{ matrix.name }}.rbxm
-            art/meshy/${{ matrix.name }}/**
-          commit-message: "Add Meshy model ${{ matrix.name }} (run ${{ github.run_number }})"
-          title: "Approve model: ${{ matrix.name }}"
+            assets/models/*.rbxm
+            art/meshy/**
+          commit-message: "Add Meshy models: ${{ env.MODELS }} (run ${{ github.run_number }})"
+          title: ${{ steps.stage.outputs.title }}
           body: ${{ steps.stage.outputs.body }}
           assignees: ${{ github.repository_owner }}
           delete-branch: true

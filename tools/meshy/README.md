@@ -50,7 +50,8 @@ itself with the `MESHY_API_KEY` repo secret.
 | I want to | Do |
 | --- | --- |
 | Make a newly approved model | Claude adds `art/meshy/<Name>.json` in a PR; merging it starts the run |
-| Re-roll a model I didn't like | Close its PR, Actions > Meshy model > Run workflow with the name |
+| Make several at once | Run workflow with the names space-separated (`Sleigh Reindeer Krampus`): one job, one approval PR |
+| Re-roll a model I didn't like | Remove the spec's `meshy` block, then Run workflow with the name |
 | Cheap shape check first | Run workflow with **Shape preview only** (no Roblox upload, no PR) |
 | Get the raw FBX/animations | The run's artifacts (`meshy-<Name>-<run>`) |
 
@@ -66,6 +67,18 @@ model's name in `ServerStorage.Assets`:
 | `pose_mode` | `a-pose` for characters, `""` for props |
 | `polycount` | Remesh target in triangles (Roblox caps a MeshPart at 20K) |
 | `rig` / `height_meters` | Humanoid auto-rig (characters only) |
+| `meshy` | Task ids of a finished Meshy run (`generate.py <Name> --record`). CI downloads those results instead of generating again, so a model Claude already made and checked costs no extra credits |
+| `component` | `true` for a mesh that only exists inside another model (`KrampusBasket`); it gets no `.rbxm` of its own |
+| `assemble` | How `to_rbxm.luau` turns the mesh into the part contract the game checks (`src/server/Assets.luau`): turn (`yaw`) and scale (`fit`) the mesh to the stand-in, add the named helper parts (seats, hitch, balls...), attachments, particles, a `humanoid` rig, and `include` component meshes. Positions are studs from the model's pivot, forward is -Z. Full field list at the top of `to_rbxm.luau` |
+
+Meshy's meshes face +Z (characters) or lie along X (the sleigh), so each
+spec's `yaw` turns them to the game's -Z forward. `tests/integration/ApprovedModelFiles.spec.luau`
+fails if a committed `.rbxm` loses a contract part, which would otherwise
+quietly put the greybox stand-in back in the live game.
+
+**Not Meshy models:** the house kit and Krampus's Lair are walk-in buildings
+with doors, stairs, fireplaces and hide spots, built per seed. A single Meshy
+mesh is a closed shell with no inside, so these stay on the hand-built kit.
 
 `Santa.json` and `SantaSack.json` are the approved 30 Oct 2026 prompts, split
 into shape and texture; the design is unchanged. The sack is a separate

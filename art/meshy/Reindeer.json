@@ -1,0 +1,32 @@
+{
+  "name": "Reindeer",
+  "approved": "1 Nov 2026",
+  "rig": false,
+  "pose_mode": "",
+  "polycount": 6000,
+  "shape_prompt": "Stylized 3D game character, chunky vinyl-toy style, smooth sculpted rounded forms. A chubby, grumpy cartoon reindeer, kid-friendly: round barrel body, short sturdy legs with round hooves, small fluffy tail. Round head with half-closed grumpy eyelids, heavy eyebrows, small frown, floppy ears, antlers with chunky rounded tines, the left antler snapped short with a sticking plaster. A harness around the chest with three sleigh bells. Standing on all four legs, facing forward, single animal, no sleigh, no base.",
+  "texture_prompt": "Bright saturated colours, smooth soft vinyl-toy finish. Warm brown fur, cream belly and cream muzzle, dark hooves, white fluffy tail, dark brown eyebrows, dark brown nose (not red), cream antlers, white sticking plaster, red leather harness with three shiny gold sleigh bells. No text, no logos.",
+  "assemble": {
+    "_note": "Faces +Z in Meshy; yaw 180 to face -Z. Pivot at the hooves, so it stands where the sleigh's Hitch (ground level) puts it.",
+    "mesh": {
+      "name": "Body",
+      "yaw": 180,
+      "fit": {
+        "axis": "Z",
+        "studs": 5
+      },
+      "bottom": [
+        0,
+        0,
+        0
+      ]
+    },
+    "primary": "Body",
+    "anchored": true
+  },
+  "meshy": {
+    "preview": "01a1ab06-cc26-7452-a8ef-ccd5a17551be",
+    "refine": "01a1ab07-5180-72be-8fca-9a1a9723d043",
+    "remesh": "01a1ab08-26c5-724e-b508-ca6c115548f8"
+  }
+}

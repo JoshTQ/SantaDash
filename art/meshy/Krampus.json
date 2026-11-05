@@ -1,0 +1,56 @@
+{
+  "name": "Krampus",
+  "approved": "1 Nov 2026",
+  "rig": true,
+  "pose_mode": "a-pose",
+  "polycount": 12000,
+  "height_meters": 3.4,
+  "shape_prompt": "Stylized 3D game character, chunky vinyl-toy style, smooth sculpted rounded forms, quirky proportions. A big, round, shaggy Krampus goat-monster as a funny cartoon villain, sly and scheming, kid-friendly, not scary. Pear-shaped body with smooth clumpy fur, round belly, short thick legs with round hooves. Round head with large curly ram horns with soft ridges, floppy goat ears, muzzle, round nose, narrow eyes, sharp V-shaped scowling eyebrows, sly wide grin with two small rounded fangs, curly twirled villain moustache, long pointed goatee. A strap across the chest with five jingle bells. Big furry hands with three rounded claws. Full body, standing, A-pose, arms slightly out, single character, no base, no basket, no props.",
+  "texture_prompt": "Bright saturated colours, smooth soft vinyl-toy finish, clean hand-painted look. Smooth clumpy dark chocolate-brown fur, tan belly and tan muzzle, round dark hooves, ivory curly horns, round dark nose, narrow glowing yellow-orange eyes, black V eyebrows, black curly moustache and black pointed goatee, white fangs. Red strap across the chest with five shiny gold jingle bells. Cream claws. No text, no logos.",
+  "assemble": {
+    "_note": "Faces +Z in Meshy; yaw 180 to face -Z. Root at the stand-in's spot (hip 3, feet 5.5 below the root centre), 11 studs tall; the basket hangs on his back (+Z).",
+    "mesh": {
+      "name": "Body",
+      "yaw": 180,
+      "fit": {
+        "axis": "Y",
+        "studs": 11
+      },
+      "bottom": [
+        0,
+        -5.5,
+        0
+      ]
+    },
+    "include": {
+      "Basket": {
+        "from": "KrampusBasket",
+        "yaw": 180,
+        "fit": {
+          "axis": "Y",
+          "studs": 4.5
+        },
+        "center": [
+          0,
+          0.8,
+          3.6
+        ]
+      }
+    },
+    "humanoid": {
+      "hip": 3,
+      "root": [
+        4,
+        5,
+        3
+      ]
+    }
+  },
+  "_history": "5 Nov: option A of three (first shape and texture; Meshy made the fur black). B = a cuter re-roll, C = A re-textured brown (lost the glowing eyes). Josh picks on the comparison page.",
+  "meshy": {
+    "preview": "01a1ab06-cc6f-730b-8bf8-6e33927970a3",
+    "refine": "01a1ab08-9914-7601-ba10-6dec3881c452",
+    "remesh": "01a1ab0c-1de1-7471-8c76-618836281d93",
+    "rig": "01a1ab0e-d3e9-7362-9a6e-896b1eeb8a57"
+  }
+}

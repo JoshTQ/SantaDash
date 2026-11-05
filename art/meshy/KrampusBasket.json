@@ -1,0 +1,15 @@
+{
+  "name": "KrampusBasket",
+  "approved": "1 Nov 2026",
+  "component": true,
+  "rig": false,
+  "pose_mode": "",
+  "polycount": 3000,
+  "shape_prompt": "Stylized 3D game accessory, chunky vinyl-toy style, smooth sculpted rounded forms. A tall, deep wicker backpack basket, like a grape-picker's back basket: taller than it is wide, rounded oval cross-section, slightly wider at the top, thick rolled rim, open top, no handle on top. Two shoulder straps on one flat side. Big enough to hold a person. Single object, empty, no character, no base.",
+  "texture_prompt": "Bright saturated colours, smooth soft vinyl-toy finish. Golden-tan woven wicker with a slightly darker thick rolled rim, worn brown leather shoulder straps. No text, no logos.",
+  "meshy": {
+    "preview": "01a1ab0f-d734-715c-b58e-fa60a9a00742",
+    "refine": "01a1ab10-d6d3-7449-b768-017725ec12ff",
+    "remesh": "01a1ab12-c587-7284-a3fb-15a364977ea4"
+  }
+}

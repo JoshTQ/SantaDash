@@ -5,5 +5,26 @@
   "pose_mode": "",
   "polycount": 4000,
   "shape_prompt": "Stylized 3D game accessory, chunky vinyl-toy style, smooth sculpted rounded forms. A burlap sack worn as a backpack: rounded and full with smooth sides, two shoulder straps with small rings, wide opening at the top gathered with thick rope, sewn-on patches, one small hole. Three wrapped presents with ribbons sticking up out of the top opening only. Single object, no character, no base.",
-  "texture_prompt": "Bright saturated colours, smooth soft vinyl-toy finish. Warm tan burlap with subtle weave, darker muted brown sewn-on patches, worn brown leather shoulder straps with small brass rings, thick beige rope. Presents: one blue with white ribbon, one yellow, one purple with yellow ribbon. No text, no logos."
+  "texture_prompt": "Bright saturated colours, smooth soft vinyl-toy finish. Warm tan burlap with subtle weave, darker muted brown sewn-on patches, worn brown leather shoulder straps with small brass rings, thick beige rope. Presents: one blue with white ribbon, one yellow, one purple with yellow ribbon. No text, no logos.",
+  "assemble": {
+    "mesh": {
+      "name": "Sack",
+      "fit": {
+        "axis": "Y",
+        "studs": 2.5
+      },
+      "bottom": [
+        0,
+        0,
+        0
+      ]
+    },
+    "primary": "Sack",
+    "anchored": true
+  },
+  "meshy": {
+    "preview": "01a1ab06-cc6b-7222-9317-9653b0676299",
+    "refine": "01a1ab07-77c5-7782-962d-f6e90e9c2354",
+    "remesh": "01a1ab08-7623-7372-8b57-6cc0e0e151f0"
+  }
 }

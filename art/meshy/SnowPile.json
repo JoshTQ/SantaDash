@@ -1,0 +1,168 @@
+{
+  "name": "SnowPile",
+  "approved": "1 Nov 2026",
+  "rig": false,
+  "pose_mode": "",
+  "polycount": 3000,
+  "shape_prompt": "Stylized 3D game prop, chunky vinyl-toy style, smooth sculpted rounded forms. A soft rounded lumpy snow drift mound, wide and low, with five shallow round dimples in its top and sides where snowballs sit. Single object, no base.",
+  "texture_prompt": "Bright saturated colours, smooth soft vinyl-toy finish. Bright white snow with soft pale blue shading in the hollows and dimples, a few tiny sparkly blue glints. No text, no logos.",
+  "assemble": {
+    "_note": "6 x 3 x 6 studs, pivot at the pile centre (the game places it 1.5 studs up). Balls are icy-blue spheres the game hides per grab; Glow is a pulsing disc; Sparkles carries the particles.",
+    "mesh": {
+      "name": "Drift",
+      "fit": {
+        "axis": "max",
+        "studs": 6
+      },
+      "bottom": [
+        0,
+        -1.5,
+        0
+      ]
+    },
+    "collide": true,
+    "parts": {
+      "Ball1": {
+        "shape": "Ball",
+        "size": [
+          1.2,
+          1.2,
+          1.2
+        ],
+        "at": [
+          0,
+          1.3,
+          0
+        ],
+        "color": [
+          175,
+          215,
+          255
+        ],
+        "material": "SmoothPlastic"
+      },
+      "Ball2": {
+        "shape": "Ball",
+        "size": [
+          1.2,
+          1.2,
+          1.2
+        ],
+        "at": [
+          1.7,
+          0.1,
+          0.9
+        ],
+        "color": [
+          175,
+          215,
+          255
+        ],
+        "material": "SmoothPlastic"
+      },
+      "Ball3": {
+        "shape": "Ball",
+        "size": [
+          1.2,
+          1.2,
+          1.2
+        ],
+        "at": [
+          -1.6,
+          0.0,
+          1.1
+        ],
+        "color": [
+          175,
+          215,
+          255
+        ],
+        "material": "SmoothPlastic"
+      },
+      "Ball4": {
+        "shape": "Ball",
+        "size": [
+          1.2,
+          1.2,
+          1.2
+        ],
+        "at": [
+          0.7,
+          0.3,
+          -1.7
+        ],
+        "color": [
+          175,
+          215,
+          255
+        ],
+        "material": "SmoothPlastic"
+      },
+      "Ball5": {
+        "shape": "Ball",
+        "size": [
+          1.2,
+          1.2,
+          1.2
+        ],
+        "at": [
+          -1.1,
+          0.6,
+          -1.0
+        ],
+        "color": [
+          175,
+          215,
+          255
+        ],
+        "material": "SmoothPlastic"
+      },
+      "Glow": {
+        "shape": "Cylinder",
+        "size": [
+          0.2,
+          7,
+          7
+        ],
+        "at": [
+          0,
+          -1.45,
+          0
+        ],
+        "color": [
+          90,
+          170,
+          255
+        ],
+        "material": "Neon",
+        "transparency": 0.6
+      }
+    },
+    "attachments": {
+      "Sparkles": {
+        "on": "Drift",
+        "at": [
+          0,
+          1.6,
+          0
+        ]
+      }
+    },
+    "particles": {
+      "on": "Sparkles",
+      "color": [
+        150,
+        210,
+        255
+      ],
+      "rate": 5
+    },
+    "primary": "Drift",
+    "anchored": true
+  },
+  "meshy": {
+    "preview": "01a1ab06-cc8a-7154-8ccf-fec7113d14a8",
+    "refine": "01a1ab07-50ea-74d8-a8c4-0e7113b2faaf",
+    "remesh": "01a1ab07-ff37-7643-8734-834a56afc70a"
+  }
+}
