@@ -95,8 +95,15 @@ These couldn't be checked without the keys, so watch the first run's log:
 | Roblox moderation holds the upload | The step waits up to 15 min, then fails | Re-run later |
 | Imported scale is off (FBX units) | `summary.json` `sizeStuds` | Scale in the spec/in `to_rbxm.luau` |
 
-**Playable Santa:** players are Roblox Humanoids. Turning a Meshy skeleton into
-a character that walks and plays Idle/Sneak/Grab/Cheer animations is a separate
-task (StarterCharacter + converting Meshy's animations to Roblox animation
-assets, which Open Cloud accepts as `.rbxm`). This pipeline gets the model into
-the game; that one makes it the player.
+**Playable Santa:** `Santa.json` assembles him as an R15 Humanoid rig with
+Idle, Walk, Sneak, Grab and Cheer from Meshy's animation library.
+`src/server/SantaCharacter.luau` makes him `StarterPlayer.StarterCharacter`
+at boot (with `SantaSack` welded to his back), and
+`src/client/SantaAnimate.client.luau` plays the clips on each player's own
+character (rules in `src/shared/SantaMoves.luau`). If the import loses his
+bones or clips, players keep their own Roblox avatars.
+
+Animation fields in a spec's `animations` block: `actions` (Meshy library
+ids), `meshy` (the finished animation task, so CI doesn't pay again), `clips`
+(game name to clip name in Meshy's GLB), `loop`, `fps`, and `trim`
+(`{"Grab": [0.5, 2.6]}` keeps only those seconds of a clip).
