@@ -31,6 +31,20 @@ PR and adds the model to the gallery once it's merged.
 | 4 | Repo > Settings > Secrets and variables > Actions > Variables | `ROBLOX_USER_ID` (your user id) if the game is on your account, or `ROBLOX_GROUP_ID` if a group owns it. Same owner as the experience, or the game can't load the meshes |
 | 5 | Repo > Settings > Actions > General | Tick **Allow GitHub Actions to create and approve pull requests** |
 
+## Meshy MCP server (for Claude sessions)
+
+`.mcp.json` at the repo root loads `@meshy-ai/meshy-mcp-server`, so Claude Code
+sessions on this repo can call Meshy directly (quick tests, re-rolls, checking
+credits). It reads the key from the `MESHY_API_KEY` environment variable; the
+key is never committed. CI doesn't use it: the workflow calls the Meshy API
+itself with the `MESHY_API_KEY` repo secret.
+
+| Where Claude runs | Where the key goes |
+| --- | --- |
+| Claude Code on the web / project threads | Cloud environment variable `MESHY_API_KEY` (Project settings > Cloud environment) |
+| Claude Code on your computer | `export MESHY_API_KEY=...` in your shell before `claude` |
+| Claude Desktop | `claude_desktop_config.json`, `env.MESHY_API_KEY` |
+
 ## Day to day
 
 | I want to | Do |
