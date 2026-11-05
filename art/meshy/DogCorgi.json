@@ -29,5 +29,10 @@
         3
       ]
     }
+  },
+  "meshy": {
+    "preview": "01a1ab31-f83a-73af-af3a-05f7bab0d196",
+    "refine": "01a1ab32-af26-72b3-854a-d5b74732d330",
+    "remesh": "01a1ab33-ad77-7716-8262-3ddf00c916c6"
   }
 }

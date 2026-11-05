@@ -5,7 +5,7 @@
   "pose_mode": "a-pose",
   "polycount": 8000,
   "height_meters": 1.0,
-  "shape_prompt": "Stylized 3D game character, chunky vinyl-toy style, smooth sculpted rounded forms, quirky proportions. A small cheerful wind-up toy elf helper, kid-friendly: round glossy body like a soft vinyl tin toy with a few small rivets and a dotted seam, a belt with a buckle, round bolt joints at the shoulders, short arms with mittens, striped legs, curly-toed shoes with little bells. Big round head with big shiny eyes, round cheeks, small nose, eager toothy grin, pointed elf ears. Floppy elf hat with a fur band and a bell on the tip. A big wind-up key on its back. Full body, standing, A-pose, arms slightly out, single character, no base, no props.",
+  "shape_prompt": "Stylized 3D game character, chunky vinyl-toy style, smooth sculpted rounded forms, quirky proportions. A small round wind-up tin toy elf, like an old clockwork robot toy shaped as an elf, kid-friendly: barrel-shaped tin body with rivets and a seam, a belt with a buckle, round bolt joints at the shoulders and hips, short stubby arms with mittens, short striped legs, curly-toed shoes. Big round head with big round eyes, eager toothy grin, pointed elf ears. Floppy elf hat with a bell on the tip. A big wind-up key sticking out of its back. No wings, no antennae. Full body, standing, A-pose, single character, no base, no props.",
   "texture_prompt": "Bright saturated colours, smooth soft vinyl-toy finish, clean hand-painted look. Glossy green painted tin body with gold rivets, brown belt with gold buckle, gold bolt joints, white mittens, red and white striped legs, green curly-toed shoes with gold bells. Shiny black eyes, rosy pink cheeks, peach skin. Red elf hat with white fur band and a gold bell. Brass wind-up key. No text, no logos.",
   "assemble": {
     "_note": "Stand-in: hip 1.2, root 2 x 1.6 x 1 at the pivot, feet 2 studs below it, about 5 studs tall. Faces +Z in Meshy; yaw 180.",
@@ -47,6 +47,14 @@
       "Idle",
       "Follow"
     ],
-    "fps": 15
+    "fps": 15,
+    "meshy": "01a1ab3b-355a-75c0-b8dc-d2b9dfdb2882"
+  },
+  "_history": "5 Nov: first try came out as a winged fairy with antennae (rejected before review); re-rolled with 'no wings'.",
+  "meshy": {
+    "preview": "01a1ab38-c0c9-75c5-9a68-110d51c1100b",
+    "refine": "01a1ab39-4773-7494-9c0b-afd238403f91",
+    "remesh": "01a1ab39-f4aa-7009-829f-53417f98b4a7",
+    "rig": "01a1ab3a-c9a8-76e7-bd65-3f85a3a02256"
   }
 }
