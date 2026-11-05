@@ -41,6 +41,9 @@ in the server's command bar, `require(game.ReplicatedStorage.Shared.Config).Run.
 | 9 | Press reset mid-flight | You respawn seated in the sleigh | |
 | 10 | Blizzard (set `Config.MapEvents.Chance = 1` before take-off) | Fog really closes in (you can't see the end of the street), snow falls, it clears after; snowballs splat your crewmate | The 4 Nov fog bug: Atmosphere overrode the fog |
 | 11 | Back to hub | Leaves the run, back in the lobby | |
+| 12 | **Playable Santa** (once `assets/models/Santa.rbxm` is in): spawn, stand, walk | You're the Meshy Santa with the sack on your back (not inside him, not floating); idle sways, walk legs match speed, feet on the ground | Bones, hip height and the sack offset (`SantaCharacter.SACK_OFFSET`) only show on a real client |
+| 13 | Santa: move during the first 45 s of a stop, then after the lights come on | Tiptoe (Sneak) first, normal walk after | |
+| 14 | Santa: grab a present; bank a sack at the sleigh | Bend-over grab; Victory cheer, also seen by the other player | Client-played tracks must replicate |
 
 ## 2. Phone (5 min)
 

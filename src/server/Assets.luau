@@ -4,6 +4,9 @@
 	when it isn't there yet. Names and required parts:
 
 	Krampus   Humanoid, HumanoidRootPart, part "Basket"
+	Santa     the player character (SantaCharacter.luau): Humanoid (R15),
+	          HumanoidRootPart, mesh "Body", Animations Idle/Walk/Sneak/Grab/Cheer
+	SantaSack PrimaryPart "Sack", welded to Santa's back
 	ElfA/ElfD Humanoid, HumanoidRootPart
 	Sleigh    PrimaryPart "Body", Seat1-Seat6, "Horn", "Lantern", "Hitch"
 	Reindeer  PrimaryPart "Body", Head, LegFL/LegFR/LegBL/LegBR on Motor6Ds

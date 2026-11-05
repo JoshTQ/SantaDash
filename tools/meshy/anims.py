@@ -107,7 +107,13 @@ def main():
         for c in n.get("children", []):
             parent[c] = i
     # studs per glTF unit: the model's fitted height over the rig's height
+    # (the mesh is in metres), times the scale of the nodes above the skeleton
+    # (Meshy's Armature is 0.01: bone offsets are in centimetres).
     scale = spec["assemble"]["mesh"]["fit"]["studs"] / spec.get("height_meters", 1.7)
+    above = next((parent.get(j) for j in joints if parent.get(j) not in joints), None)
+    while above is not None:
+        scale *= nodes[above].get("scale", (1, 1, 1))[1]
+        above = parent.get(above)
     fps = cfg.get("fps", 15)
     bones = {}
     for j in joints:
@@ -130,17 +136,22 @@ def main():
             times = accessor(s["input"])
             duration = max(duration, times[-1])
             tracks.setdefault(node, {})[ch["target"]["path"]] = (times, accessor(s["output"]))
+        # "trim": {"<game name>": [start, end]} keeps only that part of a clip
+        start, end = (cfg.get("trim") or {}).get(game_name, (0, duration))
+        start, end = max(0, start), min(duration, end)
+        duration = end - start
         frames = []
         count = max(2, int(round(duration * fps)) + 1)
         for k in range(count):
             t = min(duration, k / fps)
+            src = start + t
             poses = {}
             for node, tr in tracks.items():
                 n = nodes[node]
                 rest_r = tuple(n.get("rotation", (0, 0, 0, 1)))
                 rest_t = tuple(n.get("translation", (0, 0, 0)))
-                r = sample(*tr["rotation"], t, True) if "rotation" in tr else rest_r
-                p = sample(*tr["translation"], t, False) if "translation" in tr else rest_t
+                r = sample(*tr["rotation"], src, True) if "rotation" in tr else rest_r
+                p = sample(*tr["translation"], src, False) if "translation" in tr else rest_t
                 dq = qmul(qconj(rest_r), r)
                 dt = qrot(qconj(rest_r), tuple(a - b for a, b in zip(p, rest_t)))
                 if bones[n["name"]]["parent"] is None and not cfg.get("root_motion"):

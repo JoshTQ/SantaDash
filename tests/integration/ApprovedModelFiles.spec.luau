@@ -13,6 +13,12 @@ local DIR = "assets/models"
 
 -- name -> { primary = PrimaryPart name?, parts = required descendants }
 local CONTRACTS = {
+	Santa = {
+		primary = "HumanoidRootPart",
+		parts = { "Humanoid", "HumanoidRootPart", "Body", "Animations" },
+		clips = { "Idle", "Walk", "Sneak", "Grab", "Cheer" }, -- shared/SantaMoves.luau
+	},
+	SantaSack = { primary = "Sack", parts = { "Sack" } },
 	Krampus = {
 		primary = "HumanoidRootPart",
 		parts = { "Humanoid", "HumanoidRootPart", "Basket" },
