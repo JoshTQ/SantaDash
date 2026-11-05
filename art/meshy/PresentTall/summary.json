@@ -1,0 +1,22 @@
+{
+  "bones": 0,
+  "children": [
+    "Box"
+  ],
+  "imageAssetId": 120543067518378,
+  "meshParts": 1,
+  "meshStuds": [
+    0.6,
+    2,
+    0.9
+  ],
+  "modelAssetId": 130755697340999,
+  "name": "PresentTall",
+  "primaryPart": "Box",
+  "removed": 1,
+  "sizeStuds": [
+    0.6,
+    2,
+    0.9
+  ]
+}

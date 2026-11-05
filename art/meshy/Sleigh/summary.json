@@ -1,0 +1,32 @@
+{
+  "bones": 0,
+  "children": [
+    "Body",
+    "Hitch",
+    "Horn",
+    "Lantern",
+    "Seat1",
+    "Seat2",
+    "Seat3",
+    "Seat4",
+    "Seat5",
+    "Seat6",
+    "Shell"
+  ],
+  "imageAssetId": 114132061998102,
+  "meshParts": 1,
+  "meshStuds": [
+    6.9,
+    9.8,
+    14
+  ],
+  "modelAssetId": 85232126848758,
+  "name": "Sleigh",
+  "primaryPart": "Body",
+  "removed": 1,
+  "sizeStuds": [
+    6.9,
+    10.3,
+    14.7
+  ]
+}

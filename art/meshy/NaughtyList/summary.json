@@ -1,0 +1,24 @@
+{
+  "bones": 0,
+  "children": [
+    "Book",
+    "Chain",
+    "Lock"
+  ],
+  "imageAssetId": 77662357563979,
+  "meshParts": 1,
+  "meshStuds": [
+    2.2,
+    2,
+    3
+  ],
+  "modelAssetId": 123524114477305,
+  "name": "NaughtyList",
+  "primaryPart": "Book",
+  "removed": 1,
+  "sizeStuds": [
+    2.2,
+    2,
+    3
+  ]
+}

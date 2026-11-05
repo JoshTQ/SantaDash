@@ -1,0 +1,25 @@
+{
+  "bones": 23,
+  "children": [
+    "Animations",
+    "Body",
+    "Humanoid",
+    "HumanoidRootPart"
+  ],
+  "imageAssetId": 132342604562783,
+  "meshParts": 1,
+  "meshStuds": [
+    5.3,
+    5.5,
+    2.6
+  ],
+  "modelAssetId": 134330065288293,
+  "name": "Santa",
+  "primaryPart": "HumanoidRootPart",
+  "removed": 1,
+  "sizeStuds": [
+    5.3,
+    5.5,
+    2.6
+  ]
+}
