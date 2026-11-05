@@ -282,7 +282,8 @@ src/server/ElfBrain.luau      pure elf bot decisions
 src/server/Mover.luau         pathfinding for Krampus and elf bots
 src/server/Assets.luau        approved models from ServerStorage.Assets
 src/server/HouseKit.luau      houses, Lair and vault door from the approved models
-src/server/MapBuilder.luau    greybox houses, streets, sleigh, Krampus and elf stand-ins
+src/server/HouseBuilder.luau  the approved house kit (Candy + Alpine, 3 layouts) built from parts
+src/server/MapBuilder.luau    streets, sleigh, greybox fallbacks, Krampus and elf stand-ins
 src/server/Parts.luau         shared anchored-part helper for the builders
 src/server/Loot.luau          pure House Card rolls, stop plans, loot and results
 src/client/Hud.client.luau    timer, Jingle, sack, noise, bells, breath, wiggle, queue, results
