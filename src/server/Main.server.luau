@@ -12,12 +12,16 @@ local Handoff = require(ReplicatedStorage.Shared.Handoff)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Lobby = require(script.Parent.Lobby)
 local LobbyMap = require(script.Parent.LobbyMap)
+local Onboarding = require(script.Parent.Onboarding)
 local RunHost = require(script.Parent.RunHost)
 local SantaCharacter = require(script.Parent.SantaCharacter)
 
 Remotes.init()
 -- The Meshy Santa as everyone's character, before anyone spawns.
 SantaCharacter.install()
+-- First-time player tips. GREYBOX: memory only until the shared PlayerData
+-- module lands (store thread), then pass it here: Onboarding.start(PlayerData).
+Onboarding.start()
 
 -- Christmas Eve night, always (Josh, 2 Nov): a bright moon so kids can see,
 -- stars, and bloom so the Christmas lights glow. Lighting.Technology is

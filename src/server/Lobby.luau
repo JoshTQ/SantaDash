@@ -21,6 +21,7 @@ local CrewPacker = require(ReplicatedStorage.Shared.CrewPacker)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Util = require(ReplicatedStorage.Shared.Util)
 local Matchmaker = require(script.Parent.Matchmaker)
+local Onboarding = require(script.Parent.Onboarding)
 local Run = require(script.Parent.Run)
 local Station = require(script.Parent.Station)
 
@@ -151,6 +152,7 @@ end
 
 local stationHandlers = {
 	seated = function(bay, player: Player)
+		Onboarding.complete(player, "Board")
 		if bay.kind == "Public" and Matchmaker.enabled() then
 			Matchmaker.enqueue("Public", { player })
 		end
@@ -221,9 +223,42 @@ local function tick()
 	end
 end
 
+-- First-time players: a trail from the workshop to the Public bay.
+local function teachBoarding(hub, player: Player)
+	local publicBay = nil
+	for _, bay in hub.bays or {} do
+		if bay.kind == "Public" then
+			publicBay = bay
+			break
+		end
+	end
+	for _ = 1, 20 do -- tips progress loads in the background
+		if Onboarding.state(player) or player.Parent ~= Players then
+			break
+		end
+		task.wait(0.5)
+	end
+	if publicBay and not runOf[player] and not crewOf[player] then
+		Onboarding.teach(player, "Board", publicBay.zone.Position)
+	end
+end
+
 function Lobby.start(hub)
 	hud = Remotes.get("Hud")
 	hubSpawn = hub.spawn
+
+	local function watch(player: Player)
+		player.CharacterAdded:Connect(function()
+			task.spawn(teachBoarding, hub, player)
+		end)
+		if player.Character then
+			task.spawn(teachBoarding, hub, player)
+		end
+	end
+	Players.PlayerAdded:Connect(watch)
+	for _, player in Players:GetPlayers() do
+		watch(player)
+	end
 
 	Station.start(hub, stationHandlers)
 	if Matchmaker.enabled() then
