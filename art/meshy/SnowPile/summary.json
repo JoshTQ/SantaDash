@@ -1,0 +1,28 @@
+{
+  "bones": 0,
+  "children": [
+    "Ball1",
+    "Ball2",
+    "Ball3",
+    "Ball4",
+    "Ball5",
+    "Drift",
+    "Glow"
+  ],
+  "imageAssetId": 131760073900068,
+  "meshParts": 1,
+  "meshStuds": [
+    6,
+    2.9,
+    6
+  ],
+  "modelAssetId": 77228741966275,
+  "name": "SnowPile",
+  "primaryPart": "Drift",
+  "removed": 1,
+  "sizeStuds": [
+    7,
+    3.4,
+    7
+  ]
+}

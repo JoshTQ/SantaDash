@@ -1,0 +1,26 @@
+{
+  "bones": 24,
+  "children": [
+    "Animations",
+    "Basket",
+    "Body",
+    "Humanoid",
+    "HumanoidRootPart"
+  ],
+  "imageAssetId": 124442626237163,
+  "meshParts": 2,
+  "meshStuds": [
+    9.4,
+    11,
+    4.3
+  ],
+  "modelAssetId": 119895958354246,
+  "name": "Krampus",
+  "primaryPart": "HumanoidRootPart",
+  "removed": 2,
+  "sizeStuds": [
+    9.4,
+    11,
+    8.1
+  ]
+}

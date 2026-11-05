@@ -1,0 +1,25 @@
+{
+  "bones": 0,
+  "children": [
+    "Dial",
+    "Door",
+    "Frame",
+    "PricePlate"
+  ],
+  "imageAssetId": 111865278450202,
+  "meshParts": 2,
+  "meshStuds": [
+    11.5,
+    11,
+    1.8
+  ],
+  "modelAssetId": 130618814679574,
+  "name": "VaultDoor",
+  "primaryPart": "Frame",
+  "removed": 2,
+  "sizeStuds": [
+    11.5,
+    11,
+    2
+  ]
+}
