@@ -1,0 +1,41 @@
+{
+  "name": "SantaChrome",
+  "approved": "5 Nov 2026",
+  "rig": true,
+  "pose_mode": "a-pose",
+  "polycount": 10000,
+  "shape_prompt": "Stylized 3D game character, chunky vinyl-toy style, smooth sculpted rounded forms. The same short, round, grumpy Santa with a big belly and white beard, wearing an oversized shiny quilted puffer jacket with big rounded puffy bands, a bucket hat with a pompom, wraparound visor sunglasses, chunky platform sneakers and a small charm on the zip. Full body, A-pose, arms slightly out, single character, no base.",
+  "texture_prompt": "Silver-chrome puffer jacket with a holographic pink, blue and lilac shimmer, holographic bucket hat with a pink pompom, rainbow mirrored visor shades, hot-pink belt, white platform sneakers with sky-blue soles, rosy nose, white beard. Bright saturated colours, smooth vinyl-toy finish. No text, no logos.",
+  "height_meters": 1.5,
+  "assemble": {
+    "_note": "The player character (StarterCharacter). Faces +Z in Meshy; yaw 180 to face -Z. Root 2x2x1 at the pivot, hip 2, so feet are 3 studs below the root centre; 5.5 studs tall (a bit taller than a default avatar, he's round).",
+    "mesh": {
+      "name": "Body",
+      "yaw": 180,
+      "fit": {
+        "axis": "Y",
+        "studs": 5.5
+      },
+      "bottom": [
+        0,
+        -3,
+        0
+      ]
+    },
+    "humanoid": {
+      "hip": 2,
+      "root": [
+        2,
+        2,
+        1
+      ]
+    }
+  },
+  "_note": "Cosmetic suit (store item ChromeSuit), approved by Josh 5 Nov 2026. New shape on the Santa proportions, rigged as a humanoid; reuses Santa's animation clips.",
+  "meshy": {
+    "preview": "01a1ac5a-3686-7211-9852-58eac374578a",
+    "refine": "01a1ac5a-e6b6-7534-882a-4a59f44650b5",
+    "remesh": "01a1ac5b-c38b-71f2-ad05-65281b0cdf6d",
+    "rig": "01a1ac5d-12fa-7051-b42d-df1caea97879"
+  }
+}
