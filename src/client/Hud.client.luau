@@ -27,6 +27,12 @@ local WHITE = Color3.new(1, 1, 1)
 local RED = Color3.fromRGB(255, 80, 80)
 local GOLD = Color3.fromRGB(255, 200, 60)
 local HOUSE_STOPS = #Config.Run.StopKinds - 1
+local BREAKOUT_PRICE = 0
+for _, item in Config.Store.Items do
+	if item.id == "InstantBreakout" then
+		BREAKOUT_PRICE = item.price
+	end
+end
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "SleighHeistHud"
@@ -178,6 +184,18 @@ local unhideButton = button(
 		input:FireServer("Unhide")
 	end
 )
+-- Snatched: use an Instant Break-out (or buy one; the server checks the store rules).
+local breakoutButton = button(
+	krampusPanel,
+	"Break out",
+	UDim2.fromOffset(140, 50),
+	UDim2.new(1, -150, 0, 66),
+	function()
+		input:FireServer("Breakout")
+	end
+)
+breakoutButton.BackgroundColor3 = Color3.fromRGB(60, 140, 70)
+breakoutButton.Visible = false
 
 -- Bottom centre: sleigh queue.
 local queuePanel = panel(UDim2.fromOffset(380, 100), UDim2.new(0.5, 0, 1, -110), Vector2.new(0.5, 0))
@@ -335,7 +353,12 @@ end
 function handlers.Player(data)
 	setInRun(true)
 	jingleLabel.Text = "Jingle: " .. data.jingle
-	sackLabel.Text = string.format("Sack: %d/%d  (%d)", data.sackCount, Config.Sack.Capacity, data.sackValue)
+	sackLabel.Text = string.format(
+		"Sack: %d/%d  (%d)",
+		data.sackCount,
+		data.sackCapacity or Config.Sack.Capacity,
+		data.sackValue
+	)
 	bankedLabel.Text = "Banked in sleigh: " .. data.banked .. (if data.rush then "  · Rush" else "")
 end
 
@@ -359,6 +382,7 @@ end
 function handlers.Hide(data)
 	setTapMode(data.hidden)
 	unhideButton.Visible = true
+	breakoutButton.Visible = false
 	if data.hidden then
 		krampusLabel.Text = "Hiding! Tap to hold your breath"
 		setBar(krampusFill, data.breath, RED, Color3.fromRGB(120, 200, 255))
@@ -368,6 +392,16 @@ end
 function handlers.Captive(data)
 	setTapMode(data.captive)
 	unhideButton.Visible = false
+	if data.captive and data.breakout then
+		-- Only sent on the snatch itself; wiggle updates keep the button as is.
+		local offer = data.breakout
+		breakoutButton.Text = if offer.owned > 0
+			then string.format("Break out (%d left)", offer.owned)
+			else "Break out  R$" .. BREAKOUT_PRICE
+		breakoutButton.Visible = true
+	elseif not data.captive or data.wiggles == 0 then
+		breakoutButton.Visible = false
+	end
 	if data.captive then
 		krampusLabel.Text = "SNATCHED! Tap to wiggle free"
 		setBar(

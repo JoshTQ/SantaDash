@@ -5,7 +5,9 @@
 		Queue, QueueClear, Stop, Banner, Noise, Player, Results, RunEnd,
 		Krampus, KrampusTease, Hide, Captive, MapEvent, Weather, Snowballs, Splat, Cutscene
 	LeaveCrew (client -> server): leave the queue or the current run.
-	Input (client -> server): "Tap" (breath / wiggle), "Unhide" or "Throw" (snowball).
+	Input (client -> server): "Tap" (breath / wiggle), "Unhide", "Throw" (snowball)
+		or "Breakout" (use an Instant Break-out while snatched).
+	Store (both ways): see server/Store.luau.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -14,7 +16,7 @@ local RunService = game:GetService("RunService")
 local Remotes = {}
 
 local FOLDER_NAME = "Remotes"
-local NAMES = { "Hud", "LeaveCrew", "Input" }
+local NAMES = { "Hud", "LeaveCrew", "Input", "Store" }
 
 local function serverFolder(): Folder
 	local folder = ReplicatedStorage:FindFirstChild(FOLDER_NAME)

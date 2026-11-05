@@ -243,6 +243,7 @@ local EVENTS = {
 	Completed = true,
 	TeleportInitFailed = true,
 	RenderStepped = true,
+	PromptGamePassPurchaseFinished = true,
 }
 
 ----------------------------------------------------------------------------
