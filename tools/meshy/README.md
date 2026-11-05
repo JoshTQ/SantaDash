@@ -49,7 +49,7 @@ itself with the `MESHY_API_KEY` repo secret.
 
 | I want to | Do |
 | --- | --- |
-| Make a newly approved model | Claude adds `art/meshy/<Name>.json` in a PR; merging it starts the run |
+| Make a newly approved model | Claude adds `art/meshy/<Name>.json` in a PR; merging it starts the run if the repo variable `MESHY_AUTO` is `true`, otherwise Claude (or you) presses Run workflow |
 | Make several at once | Run workflow with the names space-separated (`Sleigh Reindeer Krampus`): one job, one approval PR |
 | Re-roll a model I didn't like | Remove the spec's `meshy` block, then Run workflow with the name |
 | Cheap shape check first | Run workflow with **Shape preview only** (no Roblox upload, no PR) |
