@@ -246,6 +246,9 @@ local EVENTS = {
 	PromptGamePassPurchaseFinished = true,
 	Error = true, -- ScriptContext
 	MessageOut = true, -- LogService
+	Ended = true, -- Sound
+	Played = true,
+	Loaded = true,
 }
 
 ----------------------------------------------------------------------------
@@ -694,6 +697,16 @@ end
 
 function Instance.SetNetworkOwner() end
 function Instance.Emit() end -- ParticleEmitter: no particles in a headless world
+-- Sound: a headless world is silent. Playing just flags IsPlaying (one-shots
+-- are cleaned up by their callers' timeouts).
+function Instance.Play(self)
+	props(self).IsPlaying = true
+end
+function Instance.Stop(self)
+	props(self).IsPlaying = false
+end
+Instance.Pause = Instance.Stop
+Instance.Resume = Instance.Play
 function Instance.SetNetworkOwnershipAuto() end
 function Instance.BreakJoints() end
 
