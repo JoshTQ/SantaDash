@@ -802,6 +802,7 @@ function LobbyMap.build(parent: Instance): Hub
 	buildPath(model)
 	local bays = buildStation(model, floorH)
 	Parts.settle(model)
+	model:SetAttribute("DetailRoot", true) -- clients drop far dressing (Shared.Detail)
 	model.Parent = parent
 	return {
 		model = model,
