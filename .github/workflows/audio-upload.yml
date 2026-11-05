@@ -67,9 +67,12 @@ jobs:
           done
           "$HOME/.rokit/bin/stylua" src/shared/Sounds.luau
 
-      # The repo doesn't let Actions open PRs, so this may only push the
-      # branch; open the PR from it by hand if so.
       - name: Open the PR with the new ids
+        id: pr
+        # Pushing the branch is the part that matters. If the repo setting
+        # "Allow GitHub Actions to create and approve pull requests" is off,
+        # opening the PR fails; the next step says where the branch is.
+        continue-on-error: true
         uses: peter-evans/create-pull-request@v7
         with:
           branch: audio/upload-${{ github.run_number }}
@@ -82,6 +85,10 @@ jobs:
             Roblox moderates each sound; one still in review plays once it's approved.
           assignees: ${{ github.repository_owner }}
           delete-branch: true
+
+      - name: Point to the branch if the PR couldn't be opened
+        if: steps.pr.outcome == 'failure'
+        run: echo "::warning::Pushed audio/upload-${{ github.run_number }} but couldn't open the PR (Settings > Actions > General > Allow GitHub Actions to create and approve pull requests). Open it from that branch."
 
       - name: Fail if any upload failed
         if: env.failed == 'true'

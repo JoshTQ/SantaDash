@@ -202,6 +202,11 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Open the approval PR
+        id: pr
+        # Pushing the branch is the part that matters. If the repo setting
+        # "Allow GitHub Actions to create and approve pull requests" is off,
+        # opening the PR fails; the next step says where the branch is.
+        continue-on-error: true
         if: ${{ !inputs.preview_only }}
         uses: peter-evans/create-pull-request@v7
         with:
@@ -215,3 +220,7 @@ jobs:
           body: ${{ steps.stage.outputs.body }}
           assignees: ${{ github.repository_owner }}
           delete-branch: true
+
+      - name: Point to the branch if the PR couldn't be opened
+        if: steps.pr.outcome == 'failure'
+        run: echo "::warning::Pushed ${{ steps.stage.outputs.branch }} but couldn't open the PR (Settings > Actions > General > Allow GitHub Actions to create and approve pull requests). Open it from that branch."
