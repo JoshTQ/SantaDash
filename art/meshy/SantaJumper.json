@@ -1,0 +1,42 @@
+{
+  "name": "SantaJumper",
+  "approved": "5 Nov 2026",
+  "rig": true,
+  "pose_mode": "a-pose",
+  "polycount": 10000,
+  "shape_prompt": "Stylized 3D game character, chunky vinyl-toy style, smooth sculpted rounded forms, soft simple shapes, quirky proportions. A scruffy, grumpy Santa Claus: short and round with a big pot belly, slightly hunched. Big head, furrowed bushy eyebrows, frowning grumpy face, round nose, messy uneven beard. Suit with a few sewn-on fabric patches with visible stitching, thick fur trim, belt with a crooked buckle. Floppy hat tilted sideways with a droopy tip and a fluffy pompom. Worn boots and mittens. Full body, standing, A-pose, arms slightly out from the body, hands separate from the belly, legs slightly apart, single character, no base, no props.",
+  "texture_prompt": "Bright saturated colours, smooth soft vinyl-toy finish, clean hand-painted look. Same grumpy round Santa wearing a lumpy hand-knitted ugly Christmas jumper, two sizes too big: bright green knit with chunky cream zig-zag bands across the chest and hem, two big blocky cream reindeer with shiny red button noses on the belly, cream snow dots. Red knitted sleeves and cuffs. Red knitted bobble hat with a green-and-cream zig-zag brim and a big cream pompom. Dark brown belt with a crooked gold buckle, red mittens, dark brown boots. Rosy nose and cheeks, white messy beard, bushy white eyebrows. Bold simple knit pattern with large shapes. No text, no logos.",
+  "height_meters": 1.5,
+  "assemble": {
+    "_note": "The player character (StarterCharacter). Faces +Z in Meshy; yaw 180 to face -Z. Root 2x2x1 at the pivot, hip 2, so feet are 3 studs below the root centre; 5.5 studs tall (a bit taller than a default avatar, he's round).",
+    "mesh": {
+      "name": "Body",
+      "yaw": 180,
+      "fit": {
+        "axis": "Y",
+        "studs": 5.5
+      },
+      "bottom": [
+        0,
+        -3,
+        0
+      ]
+    },
+    "humanoid": {
+      "hip": 2,
+      "root": [
+        2,
+        2,
+        1
+      ]
+    }
+  },
+  "_note": "Holiday Bundle suit (store item HolidaySuit). Approved by Josh 5 Nov 2026. Texture re-roll of the approved Santa preview (same shape); reuses Santa's animation clips, so no new animation task.",
+  "from_preview": "01a1ab06-cc73-75e1-b131-34ffc2b2cc5e",
+  "meshy": {
+    "preview": "01a1ab06-cc73-75e1-b131-34ffc2b2cc5e",
+    "refine": "01a1ac49-04ae-74de-b2d3-7a49afb99fb9",
+    "remesh": "01a1ac49-b8cc-756f-b401-9bbb1efb1858",
+    "rig": "01a1ac4b-0a3a-75dd-a6fc-314f8b39a61d"
+  }
+}
