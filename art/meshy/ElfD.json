@@ -47,6 +47,13 @@
       "Idle",
       "Follow"
     ],
-    "fps": 15
+    "fps": 15,
+    "meshy": "01a1ab38-c170-72f0-971c-5d704a642dbc"
+  },
+  "meshy": {
+    "preview": "01a1ab31-f830-718c-9488-1f72dd978fbd",
+    "refine": "01a1ab32-cd1d-718a-aee0-c7715d4b0ee2",
+    "remesh": "01a1ab33-a3ab-776a-96ee-9d753bda686f",
+    "rig": "01a1ab34-9e89-7621-b4d3-bb47d0f483e2"
   }
 }

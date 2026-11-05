@@ -23,5 +23,10 @@
     },
     "primary": "Box",
     "anchored": true
+  },
+  "meshy": {
+    "preview": "01a1ab31-f821-703d-8622-c0d2f6dbd61a",
+    "refine": "01a1ab32-7cee-7467-9124-876d87b6a593",
+    "remesh": "01a1ab33-2bdc-71cf-8e8f-37471b2c97d1"
   }
 }

@@ -48,5 +48,10 @@
     },
     "primary": "Book",
     "anchored": true
+  },
+  "meshy": {
+    "preview": "01a1ab31-f89c-761f-a891-520b35956fca",
+    "refine": "01a1ab32-a6ba-757f-b1aa-77a265c8560a",
+    "remesh": "01a1ab33-a552-71b4-bd57-b6ba8175f300"
   }
 }

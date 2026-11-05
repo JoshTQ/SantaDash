@@ -64,5 +64,10 @@
     },
     "primary": "Frame",
     "anchored": true
+  },
+  "meshy": {
+    "preview": "01a1ab31-f84e-7576-b574-6ffb6f6ba587",
+    "refine": "01a1ab32-a7bb-7259-a6f6-95a9423ea90e",
+    "remesh": "01a1ab33-7e7e-75e9-a81e-9c335823d144"
   }
 }

@@ -352,6 +352,9 @@ if plan.humanoid then
 		end
 	end
 	local humanoid = Instance.new("Humanoid")
+	-- R15: custom rigs ride on HipHeight (an R6 Humanoid ignores it and
+	-- looks for R6 legs), and the Animator drives the Motor6D/bone tree.
+	humanoid.RigType = Enum.HumanoidRigType.R15
 	humanoid.HipHeight = h.hip or 2
 	humanoid.RequiresNeck = false
 	humanoid.BreakJointsOnDeath = false
