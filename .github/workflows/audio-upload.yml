@@ -52,6 +52,23 @@ jobs:
           # Write whatever ids it got even if a later sound fails.
           python3 tools/audio/upload.py $KEYS || echo "failed=true" >> "$GITHUB_ENV"
 
+      # Longer ids push some lines past StyLua's width; CI checks formatting.
+      - name: Format Sounds.luau
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -sSf https://raw.githubusercontent.com/rojo-rbx/rokit/main/scripts/install.sh | bash
+          "$HOME/.rokit/bin/rokit" authenticate github --token "$GITHUB_TOKEN" || true
+          for attempt in 1 2 3; do
+            "$HOME/.rokit/bin/rokit" install --no-trust-check && break
+            [ "$attempt" = 3 ] && exit 1
+            sleep $((attempt * 10))
+          done
+          "$HOME/.rokit/bin/stylua" src/shared/Sounds.luau
+
+      # The repo doesn't let Actions open PRs, so this may only push the
+      # branch; open the PR from it by hand if so.
       - name: Open the PR with the new ids
         uses: peter-evans/create-pull-request@v7
         with:
