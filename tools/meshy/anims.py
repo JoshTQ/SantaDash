@@ -125,6 +125,11 @@ def main():
     for game_name, clip_name in cfg["clips"].items():
         anim = by_name.get(clip_name)
         if not anim:
+            # Meshy truncates some clip names in the GLB (Excited_Walk_Male ->
+            # Excited_Walk_M): take the one clip the name starts with.
+            close = [n for n in by_name if n and len(n) >= 8 and clip_name.startswith(n)]
+            anim = by_name[close[0]] if len(close) == 1 else None
+        if not anim:
             sys.exit(f"::error::{name}: no clip {clip_name!r} in anims.glb (has {sorted(by_name)})")
         tracks = {}
         duration = 0
