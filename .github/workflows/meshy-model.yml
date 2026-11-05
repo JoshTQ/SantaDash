@@ -100,18 +100,6 @@ jobs:
           path: build/meshy
           if-no-files-found: ignore
 
-      - name: Upload to Roblox and download the import
-        if: ${{ !inputs.preview_only }}
-        env:
-          ROBLOX_API_KEY: ${{ secrets.ROBLOX_API_KEY }}
-          ROBLOX_USER_ID: ${{ vars.ROBLOX_USER_ID }}
-          ROBLOX_GROUP_ID: ${{ vars.ROBLOX_GROUP_ID }}
-          RUNS: ${{ steps.runs.outputs.runs }}
-        run: |
-          for n in $RUNS; do
-            python3 tools/meshy/upload.py "$n"
-          done
-
       - name: Install Rokit and the pinned tools
         if: ${{ !inputs.preview_only }}
         env:
@@ -127,6 +115,33 @@ jobs:
             "$HOME/.rokit/bin/rokit" install --no-trust-check && break
             [ "$attempt" = 3 ] && exit 1
             sleep $((attempt * 10))
+          done
+
+      - name: Upload to Roblox and download the import
+        if: ${{ !inputs.preview_only }}
+        env:
+          ROBLOX_API_KEY: ${{ secrets.ROBLOX_API_KEY }}
+          ROBLOX_USER_ID: ${{ vars.ROBLOX_USER_ID }}
+          ROBLOX_GROUP_ID: ${{ vars.ROBLOX_GROUP_ID }}
+          RUNS: ${{ steps.runs.outputs.runs }}
+        run: |
+          for n in $RUNS; do
+            python3 tools/meshy/upload.py "$n"
+          done
+
+      - name: Turn Meshy's clips into Roblox animations and upload them
+        if: ${{ !inputs.preview_only }}
+        env:
+          ROBLOX_API_KEY: ${{ secrets.ROBLOX_API_KEY }}
+          ROBLOX_USER_ID: ${{ vars.ROBLOX_USER_ID }}
+          ROBLOX_GROUP_ID: ${{ vars.ROBLOX_GROUP_ID }}
+          RUNS: ${{ steps.runs.outputs.runs }}
+        run: |
+          for n in $RUNS; do
+            jq -e '.animations' "art/meshy/$n.json" > /dev/null || continue
+            python3 tools/meshy/anims.py "$n"
+            lune run tools/meshy/anim_rbxm "$n"
+            python3 tools/meshy/upload.py "$n" --animations
           done
 
       - name: Build assets/models/<Name>.rbxm

@@ -87,4 +87,24 @@ function KrampusBrain.wiggleNeeded(): number
 	return K.WiggleTaps
 end
 
+-- Which animation his state shows, falling back to what the rig has:
+-- "waiting" (warning hold / intro), "dizzy" (bells rung), "sniffing" (heading
+-- for the last noise), "moving" (chasing, wandering, carrying), "still".
+local CLIPS = {
+	waiting = { "Scheme", "Idle" },
+	dizzy = { "Dizzy", "Idle" },
+	sniffing = { "Sniff", "Tiptoe", "Idle" },
+	moving = { "Tiptoe", "Idle" },
+	still = { "Idle" },
+}
+
+function KrampusBrain.clipFor(state: string, has: (string) -> boolean): string?
+	for _, clip in CLIPS[state] or CLIPS.still do
+		if has(clip) then
+			return clip
+		end
+	end
+	return nil
+end
+
 return KrampusBrain

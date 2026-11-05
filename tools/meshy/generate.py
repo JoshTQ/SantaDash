@@ -151,6 +151,8 @@ def main():
             save(anims.get("walking_fbx_url"), f"{out}/anim_walk.fbx")
             save(anims.get("running_fbx_url"), f"{out}/anim_run.fbx")
 
+    if not args.preview_only and spec.get("animations") and ids.get("rig"):
+        ids["animations"] = animations(spec, ids["rig"], out, credits)
     json.dump({"tasks": ids, "credits": credits, "total_credits": sum(credits.values())},
               open(f"{out}/meshy.json", "w"), indent=2)
     print(f"Meshy credits used: {sum(credits.values())}")
@@ -184,9 +186,26 @@ def reuse(spec, out):
         anims = res.get("basic_animations") or {}
         save(anims.get("walking_fbx_url"), f"{out}/anim_walk.fbx")
         save(anims.get("running_fbx_url"), f"{out}/anim_run.fbx")
-    json.dump({"tasks": ids, "credits": {}, "total_credits": 0, "reused": True},
+    credits = {}
+    if spec.get("animations") and ids.get("rig"):
+        animations(spec, ids["rig"], out, credits)
+    json.dump({"tasks": ids, "credits": credits, "total_credits": sum(credits.values()), "reused": True},
               open(f"{out}/meshy.json", "w"), indent=2)
-    print("Meshy credits used: 0 (reused finished tasks)")
+    print(f"Meshy credits used: {sum(credits.values())} (reused finished tasks)")
+
+
+def animations(spec, rig_id, out, credits):
+    """Meshy animation-library clips on the rig, as one multi-clip GLB (3 credits a clip)."""
+    cfg = spec["animations"]
+    task = cfg.get("meshy")
+    if task:
+        a = call("GET", f"/v1/animations/{task}")
+    else:
+        task = call("POST", "/v1/animations", {"rig_task_id": rig_id, "action_ids": cfg["actions"]})["result"]
+        a = wait("/v1/animations", task, f"{len(cfg['actions'])} animations", credits)
+    if not save((a.get("result") or {}).get("animation_glb_url"), f"{out}/anims.glb"):
+        sys.exit("::error::Meshy animation task has no GLB (expired?); remove animations.meshy from the spec")
+    return task
 
 
 if __name__ == "__main__":

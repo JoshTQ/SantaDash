@@ -52,5 +52,31 @@
     "refine": "01a1ab15-4fe6-706f-9285-c12d01672bc5",
     "remesh": "01a1ab19-5d33-7667-a52a-b6f13867f5aa",
     "rig": "01a1ab1c-2080-7085-ac2b-89d8cbae158a"
+  },
+  "animations": {
+    "_note": "Meshy animation library clips on the rig (3 credits each). Keys are the names the game plays (src/server/Krampus.luau); values are the clip names in Meshy's GLB.",
+    "actions": [
+      0,
+      318,
+      559,
+      341,
+      276,
+      333
+    ],
+    "meshy": "01a1ab26-1d7e-74dc-bcb9-a9359fc4858c",
+    "clips": {
+      "Idle": "Idle",
+      "Scheme": "Scheming_Hand_Rub",
+      "Tiptoe": "Sneaky_Walk",
+      "Sniff": "Walk_Slowly_and_Look_Around",
+      "Snatch": "Male_Bend_Over_Pick_Up",
+      "Dizzy": "Look_Around_Dumbfounded"
+    },
+    "loop": [
+      "Idle",
+      "Tiptoe",
+      "Sniff"
+    ],
+    "fps": 15
   }
 }

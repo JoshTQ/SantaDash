@@ -20,6 +20,7 @@ local Util = require(ReplicatedStorage.Shared.Util)
 local KrampusBrain = require(script.Parent.KrampusBrain)
 local MapBuilder = require(script.Parent.MapBuilder)
 local Mover = require(script.Parent.Mover)
+local RigAnimator = require(script.Parent.RigAnimator)
 
 local K = Config.Krampus
 local TICK = 0.25
@@ -75,6 +76,8 @@ function Krampus.new(run, stop, holdSeconds: number?)
 	local t = Util.now()
 	self.stunnedUntil = t + (holdSeconds or K.WarningSeconds) -- stands still while the warning shows
 	self.lastBellAt = -math.huge
+	self.dizzyUntil = -math.huge
+	self.anim = RigAnimator.new(self.body.model) -- no-op on the stand-in
 	self.alive = true
 	-- His bells give him away: a 3D loop on his body that everyone nearby hears.
 	-- It goes when his model is destroyed.
@@ -190,6 +193,13 @@ end
 -- Behaviour
 ----------------------------------------------------------------------------
 
+function Krampus:_show(state: string)
+	local anim = self.anim
+	anim:play(KrampusBrain.clipFor(state, function(clip)
+		return anim:has(clip)
+	end))
+end
+
 function Krampus:_think(dt: number)
 	local run = self.run
 	local root = self.body.root
@@ -198,12 +208,14 @@ function Krampus:_think(dt: number)
 
 	if t < self.stunnedUntil then
 		self.mover:stop()
+		self:_show(if t < self.dizzyUntil then "dizzy" else "waiting")
 		return
 	end
 
 	if self.captive then
 		self.body.humanoid.WalkSpeed = K.CarrySpeed
 		self:_moveTo(self:_wanderGoal())
+		self:_show("moving")
 		return
 	end
 	self.body.humanoid.WalkSpeed = K.WalkSpeed
@@ -215,17 +227,21 @@ function Krampus:_think(dt: number)
 		else
 			self:_moveTo(target.position)
 		end
+		self:_show("moving")
 	elseif run.lastNoisePos then
 		self:_moveTo(run.lastNoisePos) -- sniffs toward the latest noise
 		SoundPlayer.at("KrampusSniff", root)
+		self:_show("sniffing")
 	else
 		self:_moveTo(self:_wanderGoal())
+		self:_show("moving")
 	end
 end
 
 function Krampus:_snatch(player: Player)
 	self.captive = player
 	self.wiggles = 0
+	self.anim:oneShot("Snatch", 2.5) -- the pick-up clip, sped up to a grab
 	self.run:onSnatched(player)
 end
 
@@ -270,6 +286,7 @@ function Krampus:_ringBells(player: Player)
 	end
 	self.lastBellAt = t
 	self.stunnedUntil = t + K.StunSeconds
+	self.dizzyUntil = self.stunnedUntil
 	-- He spins round to find the bells.
 	self.body.root.CFrame *= CFrame.Angles(0, math.pi, 0)
 	SoundPlayer.at("BellBonk", self.body.root)

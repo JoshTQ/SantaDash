@@ -1,0 +1,129 @@
+--[[
+	Builds one KeyframeSequence per clip from build/meshy/<Name>/anims.json
+	(tools/meshy/anims.py), ready to upload as Animation assets:
+
+	  lune run tools/meshy/anim_rbxm <Name>
+
+	  -> build/meshy/<Name>/anim_<Clip>.rbxm
+
+	Pose tree: HumanoidRootPart > <mesh part> > the bone hierarchy, the path the
+	Animator walks (to_rbxm joins the mesh to the root with a Motor6D). Bone
+	poses are offsets from the rest pose, as Bone.Transform expects.
+
+	Fails if the model Roblox imported has no bones or different bone names,
+	so a clip that can't play never gets uploaded.
+]]
+
+local fs = require("@lune/fs")
+local process = require("@lune/process")
+local roblox = require("@lune/roblox")
+local serde = require("@lune/serde")
+
+local Instance = roblox.Instance
+local CFrame = roblox.CFrame
+
+local function fail(message: string): never
+	print("::error::" .. message)
+	process.exit(1)
+	error(message)
+end
+
+local name = process.args[1]
+if not name or not string.match(name, "^%w+$") then
+	fail("usage: lune run tools/meshy/anim_rbxm <Name>")
+end
+local dir = "build/meshy/" .. name
+local spec = serde.decode("json", fs.readFile("art/meshy/" .. name .. ".json"))
+local meshName = spec.assemble and spec.assemble.mesh and spec.assemble.mesh.name or name
+local data = serde.decode("json", fs.readFile(dir .. "/anims.json"))
+
+-- The imported rig must have the bones the clips drive.
+local imported = {}
+if fs.isFile(dir .. "/imported.rbxm") then
+	for _, root in roblox.deserializeModel(fs.readFile(dir .. "/imported.rbxm")) do
+		for _, d in root:GetDescendants() do
+			if d:IsA("Bone") then
+				imported[d.Name] = true
+			end
+		end
+		if root:IsA("Bone") then
+			imported[root.Name] = true
+		end
+	end
+	local missing = {}
+	for bone in data.bones do
+		if not imported[bone] then
+			table.insert(missing, bone)
+		end
+	end
+	if next(imported) == nil then
+		fail(name .. ": Roblox imported the rig without bones, so the clips have nothing to move")
+	elseif #missing > 0 then
+		table.sort(missing)
+		fail(name .. ": imported rig lacks bones " .. table.concat(missing, ", "))
+	end
+else
+	print("(no imported.rbxm yet: skipping the bone check)")
+end
+
+local children: { [string]: { string } } = {}
+local roots = {}
+for bone, info in data.bones do
+	if info.parent then
+		children[info.parent] = children[info.parent] or {}
+		table.insert(children[info.parent], bone)
+	else
+		table.insert(roots, bone)
+	end
+end
+
+local function pose(poseName: string, cf, parent)
+	local p = Instance.new("Pose")
+	p.Name = poseName
+	p.CFrame = cf
+	p.Weight = 1
+	p.Parent = parent
+	return p
+end
+
+local written = {}
+for clipName, clip in data.clips do
+	local sequence = Instance.new("KeyframeSequence")
+	sequence.Name = clipName
+	sequence.Loop = clip.loop
+	sequence.Priority = if clip.loop
+		then roblox.Enum.AnimationPriority.Movement
+		else roblox.Enum.AnimationPriority.Action
+	for _, frame in clip.frames do
+		local keyframe = Instance.new("Keyframe")
+		keyframe.Time = frame.t
+		local rootPose = pose("HumanoidRootPart", CFrame.new(), keyframe)
+		local meshPose = pose(meshName, CFrame.new(), rootPose)
+		local function add(bone: string, parent)
+			local v = frame.poses[bone]
+			local cf = if v then CFrame.new(v[1], v[2], v[3], v[4], v[5], v[6], v[7]) else CFrame.new()
+			local p = pose(bone, cf, parent)
+			for _, child in children[bone] or {} do
+				add(child, p)
+			end
+		end
+		for _, bone in roots do
+			add(bone, meshPose)
+		end
+		keyframe.Parent = sequence
+	end
+	local file = dir .. "/anim_" .. clipName .. ".rbxm"
+	fs.writeFile(file, roblox.serializeModel({ sequence }))
+	table.insert(written, clipName)
+	print(
+		string.format(
+			"Wrote %s: %d keyframes, %.2fs, loop %s",
+			file,
+			#clip.frames,
+			clip.duration,
+			tostring(clip.loop)
+		)
+	)
+end
+table.sort(written)
+fs.writeFile(dir .. "/anims_built.json", serde.encode("json", written))

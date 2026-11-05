@@ -334,10 +334,21 @@ if plan.humanoid then
 			part.Anchored = false
 			part.Massless = true
 			part.CanCollide = false
-			local weld = Instance.new("WeldConstraint")
-			weld.Part0 = root
-			weld.Part1 = part
-			weld.Parent = part
+			if part == meshes[1] then
+				-- A Motor6D, not a weld: the Animator walks root > mesh > bones.
+				local motor = Instance.new("Motor6D")
+				motor.Name = "Root"
+				motor.Part0 = root
+				motor.Part1 = part
+				motor.C0 = root.CFrame:Inverse() * part.CFrame
+				motor.C1 = CFrame.new()
+				motor.Parent = part
+			else
+				local weld = Instance.new("WeldConstraint")
+				weld.Part0 = root
+				weld.Part1 = part
+				weld.Parent = part
+			end
 		end
 	end
 	local humanoid = Instance.new("Humanoid")
@@ -346,6 +357,7 @@ if plan.humanoid then
 	humanoid.BreakJointsOnDeath = false
 	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 	humanoid.Parent = model
+	Instance.new("Animator").Parent = humanoid
 	model.PrimaryPart = root
 	root.PivotOffset = CFrame.new()
 	primary = root
@@ -355,6 +367,24 @@ else
 			part.Anchored = plan.anchored ~= false
 		end
 	end
+end
+
+-- Animation assets uploaded by upload.py --animations, by the names the game plays.
+local uploaded = serde.decode("json", fs.readFile("build/meshy/" .. name .. "/roblox.json")).animations
+if spec.animations then
+	if not uploaded then
+		fail(name .. " has animations in its spec but none were uploaded (upload.py --animations)")
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = "Animations"
+	for clip, assetId in uploaded do
+		local animation = Instance.new("Animation")
+		animation.Name = clip
+		animation.AnimationId = "rbxassetid://" .. tostring(assetId)
+		animation:SetAttribute("Loop", table.find(spec.animations.loop or {}, clip) ~= nil)
+		animation.Parent = folder
+	end
+	folder.Parent = model
 end
 
 for _, instance in model:GetDescendants() do

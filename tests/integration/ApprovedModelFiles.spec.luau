@@ -13,7 +13,11 @@ local DIR = "assets/models"
 
 -- name -> { primary = PrimaryPart name?, parts = required descendants }
 local CONTRACTS = {
-	Krampus = { primary = "HumanoidRootPart", parts = { "Humanoid", "HumanoidRootPart", "Basket" } },
+	Krampus = {
+		primary = "HumanoidRootPart",
+		parts = { "Humanoid", "HumanoidRootPart", "Basket" },
+		clips = { "Idle", "Scheme", "Tiptoe", "Sniff", "Snatch", "Dizzy" }, -- KrampusBrain.clipFor
+	},
 	Sleigh = {
 		primary = "Body",
 		parts = { "Body", "Seat1", "Seat2", "Seat3", "Seat4", "Seat5", "Seat6", "Hitch", "Horn", "Lantern" },
@@ -94,6 +98,17 @@ describe("assets/models", function()
 						expect(model:FindFirstChild(part, true) and part).toBe(part)
 					end
 					expect(model.PrimaryPart.Name).toBe(contract.primary)
+				end)
+
+				it("names its animations after the clips the game plays", function()
+					local model = load(name)[1]
+					local folder = model:FindFirstChild("Animations")
+					for _, animation in folder and folder:GetChildren() or {} do
+						expect(animation.ClassName).toBe("Animation")
+						expect(table.find(contract.clips or {}, animation.Name) and animation.Name).toBe(
+							animation.Name
+						)
+					end
 				end)
 			end
 		end)
