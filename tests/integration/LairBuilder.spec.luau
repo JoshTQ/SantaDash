@@ -168,6 +168,13 @@ test("the built Lair is the finale's end house, with its chimney, hide spots and
 	expect(math.abs(spawn.X)).toBeLessThan(floor.Size.X / 2)
 	expect(math.abs(spawn.Z)).toBeLessThan(floor.Size.Z / 2)
 	expect(finale.krampusSpawn.Position.Y).toBeNear(floorTop + 6, 0.01)
+	-- Not on top of the chimney's way out, or the door (Josh, 5 Nov).
+	local flat = Vector3.new(1, 0, 1)
+	local entrance = (lair:FindFirstChild("Entrance") :: Model):FindFirstChild("Post").CFrame.Position
+	expect(((finale.krampusSpawn.Position - lairChimney.inside.Position) * flat).Magnitude).toBeGreaterThan(
+		24
+	)
+	expect(((finale.krampusSpawn.Position - entrance) * flat).Magnitude).toBeGreaterThan(24)
 
 	local lairHides = 0
 	for _, spot in finale.hideSpots do

@@ -650,6 +650,7 @@ function Run:_startKrampus(stop)
 		else Config.Krampus.WarningSeconds
 	self:_banner(nil, "KRAMPUS IS COMING!", hold)
 	self.krampus = Krampus.new(self, stop, hold)
+	self:_lairCue(stop, "BellsAt")
 	self:_send(nil, "Krampus", { model = self.krampus.body.model })
 	if introSeconds > 0 then
 		self.krampus:playIntro(introSeconds)
@@ -658,6 +659,18 @@ function Run:_startKrampus(stop)
 			nil,
 			{ anchor = stop.krampusSpawn, follow = self.krampus.body.model }
 		)
+	end
+end
+
+-- Cues the Lair's clockwork (LairAnimator.client, LairMotion): the cuckoo
+-- pops out on the horn, the seven bells light up when Krampus wakes.
+function Run:_lairCue(stop, attribute: string)
+	if not stop.plan.escapeMultiplier then
+		return
+	end
+	local lair = self.route.model:FindFirstChild("LairHouse", true)
+	if lair then
+		lair:SetAttribute(attribute, now())
 	end
 end
 
@@ -900,6 +913,7 @@ function Run:_playStop(stop): { Player }
 			enter = function()
 				local left = Config.Run.StopSeconds - Config.Run.HornAt
 				self:_banner(nil, "HONK! The sleigh leaves in " .. left .. " seconds!", 3)
+				self:_lairCue(stop, "CuckooAt")
 			end,
 		},
 	}

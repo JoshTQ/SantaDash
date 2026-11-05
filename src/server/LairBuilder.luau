@@ -210,8 +210,8 @@ end
 local bellCount = 0
 local function addBell(parent: Instance, frame: CFrame, s: number)
 	bellCount += 1
-	rod(parent, "BellStrap", pt(frame, { 0, 0, 0 }), pt(frame, { 0, -0.5, 0 }), 0.02, TRIM)
-	ball(
+	-- The strap and lip ride on the bell part, so LairAnimator swings all three.
+	local bell = ball(
 		parent,
 		"Bell" .. bellCount,
 		at(frame, 0, -0.65, 0),
@@ -219,7 +219,8 @@ local function addBell(parent: Instance, frame: CFrame, s: number)
 		GOLD,
 		{ material = Enum.Material.Metal }
 	)
-	cyl(parent, "BellLip", at(frame, 0, -0.75, 0), 0.24 * s, 0.06, GOLD, { material = Enum.Material.Metal })
+	rod(bell, "BellStrap", pt(frame, { 0, 0, 0 }), pt(frame, { 0, -0.5, 0 }), 0.02, TRIM)
+	cyl(bell, "BellLip", at(frame, 0, -0.75, 0), 0.24 * s, 0.06, GOLD, { material = Enum.Material.Metal })
 end
 
 local function outside(model: Model)
@@ -367,6 +368,20 @@ local function outside(model: Model)
 	block(model, "CuckooBox", cuckoo, 1.4, 1.2, 0.5, IRON, { solid = true })
 	block(model, "CuckooDoor", at(cuckoo, -0.34, 0, 0.28), 0.68, 1.1, 0.08, WOODD)
 	block(model, "CuckooDoorR", at(cuckoo, 0.34, 0, 0.28), 0.68, 1.1, 0.08, WOODD)
+	-- The little Krampus on a spring, hidden inside until the horn (LairAnimator).
+	local fig = ball(model, "CuckooKrampus", at(cuckoo, 0, 0, -0.1), 0.3, hex(0x7A4A2C), { transparency = 1 })
+	for _, k in { -1, 1 } do
+		path(fig, "CuckooHorn", cuckoo, {
+			{ k * 0.17, 0.2, -0.1 },
+			{ k * 0.38, 0.38, -0.15 },
+			{ k * 0.34, 0.53, -0.05 },
+		}, 0.06, hex(0xF1DDB8), { transparency = 1 })
+		ball(fig, "CuckooEye", at(cuckoo, k * 0.11, 0.07, 0.16), 0.06, hex(0xFFB43D), {
+			material = Enum.Material.Neon,
+			transparency = 1,
+		})
+	end
+	ball(fig, "CuckooMuzzle", at(cuckoo, 0, -0.09, 0.13), 0.14, hex(0xECC8A0), { transparency = 1 })
 
 	-- Pinecone clock weights on chains.
 	for i, x in { -2.4, 2.4 } do
@@ -429,7 +444,7 @@ LairBuilder.PresentSpots = {
 	{ 2.0, 0.4 },
 	{ -1.0, 1.8 },
 	{ 1.0, 1.6 },
-	{ -2.6, -1.4 },
+	{ -2.9, 1.0 },
 	{ 2.6, -1.3 },
 	{ -2.3, 3.2 },
 	{ 1.8, 3.2 },
@@ -637,9 +652,11 @@ local function inside(model: Model)
 	for _, x in { -2.2, 0, 2.2 } do
 		addBell(model, at(root, x, WALL_TOP - 0.3, 0.8), 1.2)
 	end
-	block(model, "KrampusSpawn", at(root, 3.6, 0.92, 1.45), 0.8, 0.02, 1.6, TRIM, { transparency = 1 })
+	-- Back left, guarding the List: about 30 studs from both the door and the
+	-- chimney's way out (Josh, 5 Nov: not right on top of the chimney landing).
+	block(model, "KrampusSpawn", at(root, -2.4, 0.92, -2.65), 0.8, 0.02, 1.6, TRIM, { transparency = 1 })
 	for _, p in { { 0, 0 }, { 0.4, 0.5 }, { 0, 1.0 }, { 0.4, 1.5 } } do
-		cyl(decor, "HoofPrint", at(root, 3.4 + p[1], 0.91, 2.2 - p[2]), 0.15, 0.02, TRIM)
+		cyl(decor, "HoofPrint", at(root, -2.6 + p[1], 0.91, -1.9 - p[2]), 0.15, 0.02, TRIM)
 	end
 
 	-- Dark inner panelling.
@@ -658,6 +675,7 @@ local function inside(model: Model)
 		}
 	do
 		local gear = folder(decor, "Gear" .. i)
+		gear:SetAttribute("Radius", g[3])
 		local centre = at(root, g[1] :: number, g[2] :: number, -D / 2 + 0.7)
 		local rad, col = g[3] :: number, g[4] :: Color3
 		cyl(gear, "Disc", centre * CFrame.Angles(PI / 2, 0, 0), rad, 0.18, col)
