@@ -1,0 +1,66 @@
+name: Audio upload
+
+# Uploads assets/audio/*.ogg to Roblox through Open Cloud (tools/audio/upload.py)
+# and opens a pull request that writes the new asset ids into
+# src/shared/Sounds.luau. Merging it ships the sounds with the next deploy.
+# Sounds that already have an id are skipped, so re-running after a failure
+# or a moderation rejection only uploads what's missing.
+#
+#   Actions > Audio upload > Run workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      keys:
+        description: Sound keys to upload, space-separated (empty = every sound without an id)
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: audio-upload
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Upload to Roblox
+        env:
+          ROBLOX_API_KEY: ${{ secrets.ROBLOX_API_KEY }}
+          ROBLOX_USER_ID: ${{ vars.ROBLOX_USER_ID }}
+          ROBLOX_GROUP_ID: ${{ vars.ROBLOX_GROUP_ID }}
+          KEYS: ${{ inputs.keys }}
+        run: |
+          if [ -z "$ROBLOX_API_KEY" ] || { [ -z "$ROBLOX_USER_ID" ] && [ -z "$ROBLOX_GROUP_ID" ]; }; then
+            echo "::error::Needs the ROBLOX_API_KEY secret and the ROBLOX_USER_ID (or ROBLOX_GROUP_ID) variable"
+            exit 1
+          fi
+          # Write whatever ids it got even if a later sound fails.
+          python3 tools/audio/upload.py $KEYS || echo "failed=true" >> "$GITHUB_ENV"
+
+      - name: Open the PR with the new ids
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: audio/upload-${{ github.run_number }}
+          base: ${{ github.ref_name }}
+          add-paths: src/shared/Sounds.luau
+          commit-message: "Add Roblox audio ids (run ${{ github.run_number }})"
+          title: "Audio: Roblox asset ids (run ${{ github.run_number }})"
+          body: |
+            Asset ids from [Audio upload run ${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}).
+            Roblox moderates each sound; one still in review plays once it's approved.
+          assignees: ${{ github.repository_owner }}
+          delete-branch: true
+
+      - name: Fail if any upload failed
+        if: env.failed == 'true'
+        run: |
+          echo "::error::Some sounds didn't upload; see the Upload step. Re-run to retry only those."
+          exit 1
