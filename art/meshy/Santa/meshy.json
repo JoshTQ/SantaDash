@@ -1,0 +1,11 @@
+{
+  "tasks": {
+    "preview": "01a1ab06-cc73-75e1-b131-34ffc2b2cc5e",
+    "refine": "01a1ab07-7a15-72b3-afb9-6eba70cb2457",
+    "remesh": "01a1ab08-2930-725e-b879-2b0292131223",
+    "rig": "01a1ab09-240d-77a5-8982-91259d760e46"
+  },
+  "credits": {},
+  "total_credits": 0,
+  "reused": true
+}

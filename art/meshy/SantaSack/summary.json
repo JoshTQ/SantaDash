@@ -1,0 +1,22 @@
+{
+  "bones": 0,
+  "children": [
+    "Sack"
+  ],
+  "imageAssetId": 108099939188028,
+  "meshParts": 1,
+  "meshStuds": [
+    1.7,
+    2.5,
+    1.9
+  ],
+  "modelAssetId": 123912544847654,
+  "name": "SantaSack",
+  "primaryPart": "Sack",
+  "removed": 1,
+  "sizeStuds": [
+    1.7,
+    2.5,
+    1.9
+  ]
+}

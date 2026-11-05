@@ -1,0 +1,22 @@
+{
+  "bones": 0,
+  "children": [
+    "Body"
+  ],
+  "imageAssetId": 135699153621108,
+  "meshParts": 1,
+  "meshStuds": [
+    2.4,
+    5.1,
+    5
+  ],
+  "modelAssetId": 108713441368858,
+  "name": "Reindeer",
+  "primaryPart": "Body",
+  "removed": 1,
+  "sizeStuds": [
+    2.4,
+    5.1,
+    5
+  ]
+}

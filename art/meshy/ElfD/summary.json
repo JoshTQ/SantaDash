@@ -1,0 +1,25 @@
+{
+  "bones": 23,
+  "children": [
+    "Animations",
+    "Body",
+    "Humanoid",
+    "HumanoidRootPart"
+  ],
+  "imageAssetId": 110540562364690,
+  "meshParts": 1,
+  "meshStuds": [
+    2.9,
+    5,
+    1.8
+  ],
+  "modelAssetId": 102770940178309,
+  "name": "ElfD",
+  "primaryPart": "HumanoidRootPart",
+  "removed": 1,
+  "sizeStuds": [
+    2.9,
+    5,
+    1.8
+  ]
+}

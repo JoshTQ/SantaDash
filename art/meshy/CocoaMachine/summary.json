@@ -1,0 +1,22 @@
+{
+  "bones": 0,
+  "children": [
+    "Body"
+  ],
+  "imageAssetId": 138065269853419,
+  "meshParts": 1,
+  "meshStuds": [
+    5.6,
+    8,
+    5.6
+  ],
+  "modelAssetId": 132289727235492,
+  "name": "CocoaMachine",
+  "primaryPart": "Body",
+  "removed": 1,
+  "sizeStuds": [
+    5.6,
+    8,
+    5.6
+  ]
+}
