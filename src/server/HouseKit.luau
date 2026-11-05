@@ -216,17 +216,20 @@ function HouseKit.build(ctx: Context): CFrame?
 			inside = toward(fireplace.CFrame.Position, centre, 5, floorTop + 3),
 			roof = chimneyTop.CFrame + Vector3.new(0, chimneyTop.Size.Y / 2 + 3, 0),
 		})
-		-- Ladder up the side so the chimney can be reached from the street.
-		local height = top - ctx.cframe.Position.Y
-		h.newPart(
-			model,
-			"Ladder",
-			Vector3.new(2, height, 2),
-			ctx.cframe * CFrame.new(floor.Size.X / 2 + 1, height / 2, -floor.Size.Z / 4),
-			Color3.fromRGB(110, 80, 60),
-			nil,
-			"TrussPart"
-		)
+		-- Ladder up the side so the chimney can be reached from the street
+		-- (unless the model brings its own, like the Lair's up to its eaves).
+		if not HouseKit.find(model, "Ladder") then
+			local height = top - ctx.cframe.Position.Y
+			h.newPart(
+				model,
+				"Ladder",
+				Vector3.new(2, height, 2),
+				ctx.cframe * CFrame.new(floor.Size.X / 2 + 1, height / 2, -floor.Size.Z / 4),
+				Color3.fromRGB(110, 80, 60),
+				nil,
+				"TrussPart"
+			)
+		end
 	end
 
 	-- Hide spots: the house Wardrobe, or the Lair's HideSpot1/HideSpot2.
