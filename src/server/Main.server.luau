@@ -20,8 +20,12 @@ local Skins = require(script.Parent.Skins)
 local Store = require(script.Parent.Store)
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local Telemetry = require(script.Parent.Telemetry)
 
 Remotes.init()
+local isRunPlace = Handoff.isRunPlace(game.PlaceId, workspace:GetAttribute("RunPlace"))
+-- Crash and error analytics first, so anything below that breaks is counted.
+Telemetry.start(if isRunPlace then "Run" else "Lobby", Remotes.get("ClientError"))
 -- The Meshy Santa as everyone's character, before anyone spawns.
 SantaCharacter.install()
 -- First-time player tips, saved in the shared player data (data.tutorial).
@@ -58,7 +62,6 @@ effect(
 	{ Saturation = 0.12, Contrast = 0.06, TintColor = Color3.fromRGB(235, 240, 255) }
 )
 
-local isRunPlace = Handoff.isRunPlace(game.PlaceId, workspace:GetAttribute("RunPlace"))
 -- Saved data and the store, in both places. Runs happen here if this is the
 -- run place, or while the places aren't published (single server).
 PlayerData.start()

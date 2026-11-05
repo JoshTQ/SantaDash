@@ -10,6 +10,7 @@
 		"Breakout" (use an Instant Break-out while snatched), or
 		"TipsReady" / "TipsOff" (first-time tips).
 	Store (both ways): see server/Store.luau.
+	ClientError (client -> server): a client script error, for Telemetry.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -18,7 +19,7 @@ local RunService = game:GetService("RunService")
 local Remotes = {}
 
 local FOLDER_NAME = "Remotes"
-local NAMES = { "Hud", "LeaveCrew", "Input", "Store" }
+local NAMES = { "Hud", "LeaveCrew", "Input", "Store", "ClientError" }
 
 local function serverFolder(): Folder
 	local folder = ReplicatedStorage:FindFirstChild(FOLDER_NAME)

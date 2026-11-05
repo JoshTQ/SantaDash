@@ -70,6 +70,22 @@ Config.Matchmaking = {
 	PublicWaitSeconds = 12, -- a crew leaves part-full once its oldest rider waited this long (bots fill)
 	PartyFillSeconds = 8, -- a Party group waits this long for randoms to top it up
 	LocalFallbackSeconds = 25, -- no crew by then (MemoryStore down): leave with whoever is on this server
+	-- Roblox's cloud calls fail now and then (throttling, flood limits):
+	-- MemoryStore, MessagingService and teleports are tried this many times,
+	-- waiting RetryBackoffSeconds, then twice that, between tries.
+	Attempts = 3,
+	RetryBackoffSeconds = 1,
+}
+
+-- Crash and error analytics (server/Telemetry.luau): script errors (server
+-- and client), warnings and matchmaking events are counted per server and
+-- sent to Roblox's Custom Events (Creator Dashboard > Analytics) every
+-- FlushSeconds. No names or chat text are ever sent.
+Config.Telemetry = {
+	FlushSeconds = 60,
+	SignatureLength = 90, -- characters kept from an error message
+	MaxSignaturesPerFlush = 25, -- the rest are counted as "Other"
+	ClientErrorsPerPlayer = 20, -- reports accepted per player per server
 }
 
 Config.Player = {

@@ -74,15 +74,23 @@ function Cloud.new(headless, options: Options?)
 	self.nextGuid = 0
 	self.nextJob = 0
 	self.accounts = {} -- [userId] = name
-	-- Set these to break the cloud on purpose.
+	-- Set these to break the cloud on purpose: true = always fails, a
+	-- number n = the next n calls fail (a hiccup), then it works again.
 	self.faults = {
 		memoryStore = false, -- every queue call errors
+		queueRemove = false, -- only queue RemoveAsync errors (the batch stays hidden, then comes back)
 		publish = false, -- PublishAsync errors
 		subscribe = false, -- SubscribeAsync errors
 		reserve = false, -- ReserveServer errors
 		teleport = false, -- TeleportAsync errors
 		teleportInit = false, -- TeleportAsync accepts, then TeleportInitFailed fires
 	}
+	-- Random hiccups: [fault name] = chance (0-1) that any one call fails,
+	-- drawn from cloud.rng so a seed repeats exactly (fault soak).
+	self.flaky = {}
+	self.rng = Cloud.random(1)
+	-- Calls made to each cloud service, for request budgets (load tests).
+	self.calls = { memoryStore = 0, publish = 0, reserve = 0, teleport = 0 }
 	return self
 end
 
@@ -95,6 +103,36 @@ function Cloud:_queue(name: string)
 		self.queues[name] = q
 	end
 	return q
+end
+
+-- A tiny seeded generator (Lune has no Random outside game code):
+-- rng:NextNumber() in [0, 1), rng:NextInteger(a, b).
+function Cloud.random(seed: number)
+	local state = (math.floor(seed) % 2147483646) + 1
+	local rng = {}
+	function rng:NextNumber(): number
+		state = (state * 48271) % 2147483647
+		return (state - 1) / 2147483646
+	end
+	function rng:NextInteger(a: number, b: number): number
+		return a + math.floor(self:NextNumber() * (b - a + 1))
+	end
+	return rng
+end
+
+-- Whether the next call of this kind fails (see faults and flaky).
+function Cloud:_fails(name: string): boolean
+	local f = self.faults[name]
+	if type(f) == "number" then
+		if f > 0 then
+			self.faults[name] = f - 1
+			return true
+		end
+	elseif f then
+		return true
+	end
+	local chance = self.flaky[name]
+	return chance ~= nil and self.rng:NextNumber() < chance
 end
 
 -- Tickets visible in a queue right now (for assertions).
@@ -114,7 +152,7 @@ function Cloud:_install(world, kind: string)
 	local server = { world = world, kind = kind }
 
 	local function fault(name: string)
-		if cloud.faults[name] then
+		if cloud:_fails(name) then
 			error(name .. " is down (cloud fault)", 3)
 		end
 	end
@@ -136,6 +174,7 @@ function Cloud:_install(world, kind: string)
 		local handle = engine.Instance.new("MemoryStoreQueue")
 		handle.Name = name
 		handle.AddAsync = function(_, value, expiration: number, priority: number?)
+			cloud.calls.memoryStore += 1
 			fault("memoryStore")
 			table.insert(q.items, {
 				value = copy(value),
@@ -145,6 +184,7 @@ function Cloud:_install(world, kind: string)
 			})
 		end
 		handle.ReadAsync = function(_, count: number, allOrNothing: boolean, _wait: number)
+			cloud.calls.memoryStore += 1
 			fault("memoryStore")
 			local picked, values = {}, {}
 			for _, item in q.items do
@@ -178,7 +218,9 @@ function Cloud:_install(world, kind: string)
 			return values, readId
 		end
 		handle.RemoveAsync = function(_, readId: string)
+			cloud.calls.memoryStore += 1
 			fault("memoryStore")
+			fault("queueRemove")
 			local picked = q.reads[readId]
 			q.reads[readId] = nil
 			for _, item in picked or {} do
@@ -189,6 +231,7 @@ function Cloud:_install(world, kind: string)
 			end
 		end
 		handle.GetSizeAsync = function()
+			cloud.calls.memoryStore += 1
 			fault("memoryStore")
 			return #cloud:queued(name)
 		end
@@ -202,11 +245,13 @@ function Cloud:_install(world, kind: string)
 		local handle = engine.Instance.new("MemoryStoreSortedMap")
 		handle.Name = name
 		handle.SetAsync = function(_, key: string, value, expiration: number)
+			cloud.calls.memoryStore += 1
 			fault("memoryStore")
 			map[key] = { value = copy(value), expiresAt = cloud.now + expiration }
 			return true
 		end
 		handle.GetAsync = function(_, key: string)
+			cloud.calls.memoryStore += 1
 			fault("memoryStore")
 			local entry = map[key]
 			if entry and entry.expiresAt > cloud.now then
@@ -215,10 +260,12 @@ function Cloud:_install(world, kind: string)
 			return nil
 		end
 		handle.RemoveAsync = function(_, key: string)
+			cloud.calls.memoryStore += 1
 			fault("memoryStore")
 			map[key] = nil
 		end
 		handle.GetRangeAsync = function(_, direction, count: number)
+			cloud.calls.memoryStore += 1
 			fault("memoryStore")
 			local keys = {}
 			for key, entry in map do
@@ -245,6 +292,7 @@ function Cloud:_install(world, kind: string)
 
 	local messaging = engine:service("MessagingService")
 	messaging.PublishAsync = function(_, topic: string, message)
+		cloud.calls.publish += 1
 		fault("publish")
 		table.insert(cloud.published, { topic = topic, data = copy(message), from = world })
 		for _, sub in table.clone(cloud.subscribers[topic] or {}) do
@@ -268,6 +316,7 @@ function Cloud:_install(world, kind: string)
 
 	local teleport = engine:service("TeleportService")
 	teleport.ReserveServer = function(_, placeId: number)
+		cloud.calls.reserve += 1
 		fault("reserve")
 		assert(placeId == Cloud.RunPlace, "ReserveServer for an unknown place " .. tostring(placeId))
 		local code = "code-" .. tostring(#cloud.reservations + 1)
@@ -275,6 +324,7 @@ function Cloud:_install(world, kind: string)
 		return code, "private-" .. code
 	end
 	teleport.TeleportAsync = function(_, placeId: number, players, options)
+		cloud.calls.teleport += 1
 		fault("teleport")
 		assert(
 			placeId == Cloud.RunPlace or placeId == Cloud.LobbyPlace,
@@ -298,7 +348,7 @@ function Cloud:_install(world, kind: string)
 		end
 		local record = { from = world, placeId = placeId, code = code, names = names, data = copy(data) }
 		table.insert(cloud.teleports, record)
-		if cloud.faults.teleportInit then
+		if cloud:_fails("teleportInit") then
 			for _, player in players do
 				engine:delay(Cloud.LATENCY, function()
 					teleport.TeleportInitFailed:Fire(player, Enum.TeleportResult.Failure, "cloud fault")
