@@ -52,6 +52,7 @@ local IDS = {
 	TwoXLoot = 101,
 	BiggerSack2 = 102,
 	FastSneak = 103,
+	SharkySuit = 205,
 }
 
 -- options: { storeFails, policy = table | false (lookup errors), ownsPass, saved, before(Config) }
@@ -364,6 +365,53 @@ describe("the store", function()
 			market.PromptGamePassPurchaseFinished:Fire(me, IDS.BiggerSack2, false)
 			world.wait(0.1)
 			expect(mods.Store.owned(me).BiggerSack2).toBeNil()
+		end)
+	end)
+end)
+
+describe("Santa suits", function()
+	local function suits(engine, me)
+		local byId = {}
+		for _, row in lastCatalog(engine, me).skins do
+			byId[row.id] = row
+		end
+		return byId
+	end
+
+	it("wears only unlocked suits, from the first minute, and saves the choice", function()
+		local world, engine, me, mods, ds = boot({
+			before = function(Config)
+				for _, item in Config.Store.Items do
+					if item.id == "SharkySuit" then
+						item.ready = true
+					end
+				end
+			end,
+		})
+		world.run(function()
+			mods.PlayerData.waitFor(me, 5)
+			local store = mods.Remotes.get("Store")
+			store:FireServer("Open")
+			world.wait(0.1)
+			local before = suits(engine, me)
+			expect(before.Classic.equipped).toBe(true)
+			expect(before.SharkySuit.unlocked).toBe(false)
+
+			-- A modified client can't wear a locked suit.
+			store:FireServer("Equip", "SharkySuit")
+			store:FireServer("Equip", { "junk" })
+			world.wait(0.1)
+			expect(mods.PlayerData.get(me).skin).toBe("Classic")
+
+			expect(mods.Store.processReceipt(receipt(me, IDS.SharkySuit, "s1"))).toBe(Granted)
+			expect(suits(engine, me).SharkySuit.unlocked).toBe(true)
+			store:FireServer("Equip", "SharkySuit") -- inside the first 3 minutes: not a purchase
+			world.wait(0.1)
+			local after = suits(engine, me)
+			expect(after.SharkySuit.equipped).toBe(true)
+			expect(after.Classic.equipped).toBe(false)
+			expect(mods.PlayerData.saveNow(me)).toBe(true)
+			expect(ds.saved.p_77.data.skin).toBe("SharkySuit")
 		end)
 	end)
 end)

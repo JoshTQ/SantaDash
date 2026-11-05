@@ -18,7 +18,8 @@ local SantaMoves = require(ReplicatedStorage.Shared.SantaMoves)
 local player = Players.LocalPlayer
 local FADE = 0.2
 
-local function attach(character: Model)
+local attach
+function attach(character: Model)
 	if character:GetAttribute(SantaMoves.SANTA_ATTRIBUTE) ~= true then
 		return
 	end
@@ -95,11 +96,29 @@ local function attach(character: Model)
 		end
 	end)
 
-	character.AncestryChanged:Connect(function(_, parent)
+	local reattach: RBXScriptConnection
+	local gone: RBXScriptConnection
+	local function stop()
+		stepped:Disconnect()
+		moved:Disconnect()
+		childAdded:Disconnect()
+		reattach:Disconnect()
+		gone:Disconnect()
+		for _, track in tracks do
+			track:Stop(0)
+		end
+	end
+	-- A new suit (server/Skins.luau swaps the "Body" mesh and its bones):
+	-- reload the clips so they drive the new bones.
+	reattach = character.ChildAdded:Connect(function(child)
+		if child.Name == "Body" then
+			stop()
+			task.defer(attach, character)
+		end
+	end)
+	gone = character.AncestryChanged:Connect(function(_, parent)
 		if not parent then
-			stepped:Disconnect()
-			moved:Disconnect()
-			childAdded:Disconnect()
+			stop()
 		end
 	end)
 end

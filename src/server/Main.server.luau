@@ -15,6 +15,7 @@ local LobbyMap = require(script.Parent.LobbyMap)
 local PlayerData = require(script.Parent.PlayerData)
 local RunHost = require(script.Parent.RunHost)
 local SantaCharacter = require(script.Parent.SantaCharacter)
+local Skins = require(script.Parent.Skins)
 local Store = require(script.Parent.Store)
 
 local Config = require(ReplicatedStorage.Shared.Config)
@@ -59,6 +60,7 @@ local isRunPlace = Handoff.isRunPlace(game.PlaceId, workspace:GetAttribute("RunP
 -- run place, or while the places aren't published (single server).
 PlayerData.start()
 Store.start({ runServer = isRunPlace or Config.Places.Run == 0 })
+Skins.start() -- each player's chosen Santa suit
 
 local hub = LobbyMap.build(workspace)
 if isRunPlace then

@@ -2,6 +2,8 @@
 	Greybox store panel: a Shop button and a list of what the server says this
 	player may buy (server/Store.luau decides; this only shows it). Paid
 	random items list their normal and boosted odds before the Buy button.
+	At the top, "Santa suits": every suit, with Wear on the unlocked ones
+	(server/Skins.luau puts it on) and how to get the locked ones.
 	Plain frames, no art.
 ]]
 
@@ -92,6 +94,7 @@ list.CanvasSize = UDim2.new()
 list.Parent = panel
 local layout = Instance.new("UIListLayout")
 layout.Padding = UDim.new(0, 8)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
 layout.Parent = list
 
 local shopButton = text(gui, "TextButton", {
@@ -182,6 +185,60 @@ local function card(item, order: number)
 	end
 end
 
+-- One row per suit: Wear / Wearing when unlocked, how to get it when not.
+local function suitRow(skin, order: number)
+	local frame = Instance.new("Frame")
+	frame.Size = UDim2.new(1, -12, 0, 48)
+	frame.BackgroundColor3 = if skin.equipped then Color3.fromRGB(70, 60, 30) else Color3.fromRGB(40, 48, 80)
+	frame.LayoutOrder = order
+	frame.Parent = list
+	corner(frame)
+	text(frame, "TextLabel", {
+		Size = UDim2.new(1, -130, 0, 24),
+		Position = UDim2.fromOffset(10, 2),
+		Text = skin.name,
+		TextSize = 20,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	})
+	text(frame, "TextLabel", {
+		Size = UDim2.new(1, -130, 0, 20),
+		Position = UDim2.fromOffset(10, 25),
+		Text = if skin.unlocked then "Unlocked" else (skin.howTo or "Locked"),
+		TextSize = 15,
+		TextColor3 = if skin.unlocked then GOLD else Color3.fromRGB(190, 190, 205),
+		TextXAlignment = Enum.TextXAlignment.Left,
+	})
+	if skin.unlocked then
+		local wear = text(frame, "TextButton", {
+			Size = UDim2.fromOffset(104, 36),
+			Position = UDim2.new(1, -114, 0, 6),
+			Text = if skin.equipped then "Wearing" else "Wear",
+			BackgroundTransparency = 0,
+			BackgroundColor3 = if skin.equipped
+				then Color3.fromRGB(90, 90, 100)
+				else Color3.fromRGB(60, 140, 70),
+			AutoButtonColor = not skin.equipped,
+		})
+		corner(wear)
+		wear.Activated:Connect(function()
+			if not skin.equipped then
+				store:FireServer("Equip", skin.id)
+			end
+		end)
+	end
+end
+
+local function heading(label: string, order: number)
+	local t = text(list, "TextLabel", {
+		Size = UDim2.new(1, -12, 0, 28),
+		Text = label,
+		TextSize = 22,
+		TextColor3 = GOLD,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	})
+	t.LayoutOrder = order
+end
+
 local function render(snapshot)
 	clearList()
 	if snapshot.loading then
@@ -196,6 +253,15 @@ local function render(snapshot)
 		table.insert(bits, "Blessed by " .. snapshot.blessing.by .. "!")
 	end
 	status.Text = table.concat(bits, "   ")
+	-- Suits first (LayoutOrder 0-99), then what's on sale (100+).
+	local skins = snapshot.skins or {}
+	if #skins > 0 then
+		heading("Santa suits", 0)
+		for i, skin in skins do
+			suitRow(skin, i)
+		end
+		heading("On sale", 99)
+	end
 	if (snapshot.opensIn or 0) > 0 then
 		local m, s = snapshot.opensIn // 60, snapshot.opensIn % 60
 		text(list, "TextLabel", {
@@ -203,10 +269,14 @@ local function render(snapshot)
 			Text = string.format("The shop opens in %d:%02d. Go grab some presents first!", m, s),
 		})
 	elseif #snapshot.items == 0 then
-		text(list, "TextLabel", { Size = UDim2.new(1, -12, 0, 60), Text = "Nothing on sale right now." })
+		text(list, "TextLabel", {
+			Size = UDim2.new(1, -12, 0, 60),
+			Text = "Nothing on sale right now.",
+			LayoutOrder = 100,
+		})
 	end
 	for i, item in snapshot.items do
-		card(item, i)
+		card(item, 100 + i)
 	end
 end
 

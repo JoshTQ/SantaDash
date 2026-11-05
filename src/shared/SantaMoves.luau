@@ -30,6 +30,7 @@ SantaMoves.ONE_SHOTS = {
 SantaMoves.SNEAK_ATTRIBUTE = "Sneaking"
 SantaMoves.MOVE_ATTRIBUTE = "SantaMove"
 SantaMoves.SANTA_ATTRIBUTE = "IsSanta"
+SantaMoves.SKIN_ATTRIBUTE = "SantaSkin" -- the suit he wears (Config.Skins id, server/Skins.luau)
 
 -- Below this ground speed (studs/s) Santa stands still: idle.
 SantaMoves.MOVING = 0.5

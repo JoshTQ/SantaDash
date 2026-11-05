@@ -11,7 +11,8 @@
 	  * Passes are checked with UserOwnsGamePassAsync when a player joins, so
 	    passes bought on the website count too.
 
-	Remote "Store" (client -> server): ("Open") for the catalog, ("Buy", id).
+	Remote "Store" (client -> server): ("Open") for the catalog, ("Buy", id),
+	("Equip", suitId) to wear an unlocked Santa suit (server/Skins.luau).
 	Remote "Store" (server -> client): ("Catalog", snapshot), ("Notice", text).
 	Instant Break-out is used through the Run's Input remote ("Breakout").
 ]]
@@ -23,8 +24,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local SkinRules = require(ReplicatedStorage.Shared.SkinRules)
 local StoreRules = require(ReplicatedStorage.Shared.StoreRules)
 local PlayerData = require(script.Parent.PlayerData)
+local Skins = require(script.Parent.Skins)
 
 local Store = {}
 
@@ -152,6 +155,7 @@ function Store.snapshot(player: Player): any
 		opensIn = math.max(0, math.ceil(Config.Store.NoPromptSeconds - data.playSeconds)),
 		saving = ctx.saving,
 		blessing = if blessing then { by = blessing.by, endsAt = blessing.endsAt } else nil,
+		skins = Skins.list(player),
 	}
 end
 
@@ -296,6 +300,9 @@ function Store.start(options: { runServer: boolean }?)
 	state.started = true
 	state.runServer = if options then options.runServer else true
 	local problems = StoreRules.validate(Config.Store.Items)
+	for _, problem in SkinRules.validate(Config.Store.Items) do
+		table.insert(problems, problem)
+	end
 	for _, problem in problems do
 		warn("[Store] catalog problem:", problem)
 	end
@@ -321,6 +328,15 @@ function Store.start(options: { runServer: boolean }?)
 			Store.sendCatalog(player)
 		elseif action == "Buy" and type(id) == "string" then
 			Store.prompt(player, id)
+		elseif action == "Equip" then
+			local ok, why = Skins.equip(player, id)
+			if ok then
+				local skin = SkinRules.get(id)
+				notice(player, "You're wearing " .. (if skin then skin.name else "it") .. "!")
+			elseif why == "locked" then
+				notice(player, "You haven't unlocked that suit yet.")
+			end
+			Store.sendCatalog(player)
 		end
 	end)
 

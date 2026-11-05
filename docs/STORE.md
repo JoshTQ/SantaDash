@@ -29,8 +29,27 @@ Server: `src/server/Store.luau`. Saved data: `src/server/PlayerData.luau`
 | Lucky Sack | 29 | Hidden until presents have rarities (Grotto unwrap) |
 | Naughty Pass | 399 | Hidden until pass tiers exist |
 | VIP Grotto | 299 | Hidden until the Grotto exists; gold sleigh needs art approval |
-| Holiday Bundle (Dec 6 - Jan 5) | 199 | Hidden until its suit passes art approval |
-| Christmas Eve Suit (Dec 20 - Jan 5) | 149 | Hidden until art approval |
+| Holiday Bundle (Ugly Jumper suit + 2,500 Coal + Blessing, Dec 6 - Jan 5) | 199 | Art approved; hidden until the suit model is imported |
+| Christmas Eve Suit (Midnight Frost, Dec 20 - Jan 5) | 149 | Art approved; hidden until imported |
+| Sharky Claus suit (year-round) | 149 | Art approved; hidden until imported |
+| Chrome Puffer suit (year-round) | 149 | Art approved; hidden until imported |
+
+## Santa suits
+
+Everyone has Classic Santa for free. The other suits unlock through the store
+items above (`grants.cosmetic` = the suit id in `Config.Skins`). The Shop panel
+lists every suit at the top: unlocked ones have a **Wear** button, locked ones
+say how to get them. Wearing a suit isn't a purchase, so it works from the
+first minute.
+
+- The choice is saved as `skin` in PlayerData. A refunded suit falls back to Classic.
+- `server/Skins.luau` swaps only Santa's `Body` mesh (all suits share his rig), so
+  the clips, sack and Humanoid stay. It works mid-run, with no respawn.
+- Each suit adds a trail while moving and a sparkle burst on Cheer
+  (`client/SkinEffects.client.luau`). Phones get half the particles.
+- A suit whose model isn't in ServerStorage.Assets yet (SantaJumper, SantaFrost,
+  SantaShark, SantaChrome) shows as Classic until the Meshy import runs.
+- To put a suit on sale: import its model, set `ready = true` and its `assetId`.
 
 ## Going live (Josh)
 

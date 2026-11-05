@@ -458,7 +458,7 @@ Config.Store = {
 			grants = { coal = 2500, blessing = true, cosmetic = "HolidaySuit" },
 			from = "2026-12-06",
 			to = "2027-01-05",
-			ready = false, -- suit needs art approval (4 options, Josh picks)
+			ready = false, -- suit art approved (Ugly Jumper); waits for the Meshy import
 		},
 		{
 			id = "ChristmasEveSuit",
@@ -471,9 +471,86 @@ Config.Store = {
 			grants = { cosmetic = "ChristmasEveSuit" },
 			from = "2026-12-20",
 			to = "2027-01-05",
-			ready = false, -- needs art approval
+			ready = false, -- art approved (Midnight Frost); waits for the Meshy import
+		},
+		{
+			id = "SharkySuit",
+			kind = "Product",
+			assetId = 0,
+			price = 149,
+			once = true,
+			name = "Sharky Claus",
+			blurb = "Santa in a shark costume. Leaves bubbles behind; his Cheer goes chomp-chomp.",
+			grants = { cosmetic = "SharkySuit" },
+			ready = false, -- art approved; waits for the Meshy import
+		},
+		{
+			id = "ChromeSuit",
+			kind = "Product",
+			assetId = 0,
+			price = 149,
+			once = true,
+			name = "Chrome Puffer",
+			blurb = "A shiny silver puffer that glints as you run; his Cheer pops a rainbow.",
+			grants = { cosmetic = "ChromeSuit" },
+			ready = false, -- art approved; waits for the Meshy import
 		},
 	},
+}
+
+--[[
+	Santa suits (skins). The id is the key in PlayerData's owned table, so a
+	store item's grants.cosmetic unlocks it; "free" suits everyone has.
+	model: the ServerStorage.Assets model whose "Body" mesh replaces the
+	classic Santa's (same rig, so every clip still plays). nil = classic.
+	Effects are cosmetic only: a trail while moving and a burst on Cheer,
+	trimmed on phones (client/SkinEffects.client.luau).
+]]
+Config.Skins = {
+	Default = "Classic",
+	List = {
+		{ id = "Classic", name = "Classic Santa", free = true },
+		{
+			id = "HolidaySuit",
+			name = "Ugly Jumper",
+			model = "SantaJumper",
+			howTo = "In the Holiday Bundle (Dec 6 to Jan 5)",
+			trail = { Color3.fromRGB(220, 40, 50), Color3.fromRGB(40, 150, 80) },
+			cheer = { colors = { Color3.fromRGB(255, 255, 255), Color3.fromRGB(220, 40, 50) }, count = 24 },
+		},
+		{
+			id = "ChristmasEveSuit",
+			name = "Midnight Frost",
+			model = "SantaFrost",
+			howTo = "On sale Dec 20 to Jan 5",
+			trail = { Color3.fromRGB(190, 230, 255), Color3.fromRGB(120, 160, 255) },
+			cheer = { colors = { Color3.fromRGB(124, 245, 208), Color3.fromRGB(176, 124, 255) }, count = 30 },
+		},
+		{
+			id = "SharkySuit",
+			name = "Sharky Claus",
+			model = "SantaShark",
+			howTo = "Sharky Claus in the shop",
+			trail = { Color3.fromRGB(170, 220, 255), Color3.fromRGB(58, 123, 213) },
+			cheer = { colors = { Color3.fromRGB(255, 255, 255), Color3.fromRGB(170, 220, 255) }, count = 20 },
+		},
+		{
+			id = "ChromeSuit",
+			name = "Chrome Puffer",
+			model = "SantaChrome",
+			howTo = "Chrome Puffer in the shop",
+			trail = { Color3.fromRGB(230, 235, 250), Color3.fromRGB(255, 78, 138) },
+			cheer = {
+				colors = {
+					Color3.fromRGB(255, 78, 138),
+					Color3.fromRGB(255, 184, 74),
+					Color3.fromRGB(74, 184, 255),
+				},
+				count = 28,
+			},
+		},
+	},
+	PhoneEffectScale = 0.5, -- phones get half the particles and a shorter trail
 }
 
 Config.Map = {
