@@ -52,3 +52,5 @@ globals:
     any: true
   warn:
     any: true
+  UserSettings:
+    any: true
