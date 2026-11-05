@@ -29,6 +29,7 @@ local MapEventBrain = require(script.Parent.MapEventBrain)
 local MapEvents = require(script.Parent.MapEvents)
 local MapFeatures = require(script.Parent.MapFeatures)
 local HouseKit = require(script.Parent.HouseKit)
+local LairBuilder = require(script.Parent.LairBuilder)
 
 local now, rootOf, humanoidOf = Util.now, Util.rootOf, Util.humanoidOf
 
@@ -95,7 +96,9 @@ function Run.new(
 		cocoa = Assets.clone("CocoaMachine", { "Body", "BuyPrompt" }),
 		houseKit = {
 			houses = HouseKit.variants(Assets.folder()),
-			lair = Assets.clone("KrampusLair", { "Floor", "ListPedestal", "KrampusSpawn" }),
+			-- The approved Cuckoo Clock Den, built from parts unless Assets has a KrampusLair.
+			lair = Assets.clone("KrampusLair", { "Floor", "ListPedestal", "KrampusSpawn" })
+				or LairBuilder.template(),
 			vaultDoor = Assets.clone("VaultDoor", { "Frame", "Door" }),
 		},
 		presents = HouseKit.presentVariants(Assets.folder()),
