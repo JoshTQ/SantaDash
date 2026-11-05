@@ -1,0 +1,38 @@
+{
+  "name": "DogTin",
+  "approved": "1 Nov 2026",
+  "rig": false,
+  "pose_mode": "",
+  "polycount": 6000,
+  "shape_prompt": "Stylized 3D game character, chunky vinyl-toy style, smooth sculpted rounded forms, quirky proportions. A cute wind-up tin toy dachshund: a long sausage-shaped tin body with a stripe and rivets, six toy wheels with hubs, a big wind-up key on its back, a boxy tin head with big round eyes and floppy ears, a small siren light on its head, a springy tail with a ball on the end. Kid-friendly, single object, no base.",
+  "texture_prompt": "Bright saturated colours, smooth soft vinyl-toy finish, clean hand-painted look. Glossy blue tin body with a yellow stripe and silver rivets, GUARD painted on the side, red wheels with yellow hubs, brass wind-up key, blue tin head with big round black eyes and navy floppy ears, red and blue siren light, red ball on the tail.",
+  "assemble": {
+    "_note": "Stand-in root 2 x 2 x 3 at the pivot, 1.5 studs above the ground; CanalTown anchors and moves it. Faces -Z (yaw set from the render).",
+    "mesh": {
+      "name": "Body",
+      "yaw": 180,
+      "fit": {
+        "axis": "Z",
+        "studs": 4.6
+      },
+      "bottom": [
+        0,
+        -1.5,
+        0
+      ]
+    },
+    "humanoid": {
+      "hip": 0.5,
+      "root": [
+        2,
+        2,
+        3
+      ]
+    }
+  },
+  "meshy": {
+    "preview": "01a1ab31-f845-7364-85b2-37dd957c9b32",
+    "refine": "01a1ab32-7e63-768a-9677-c55d61e9dc7f",
+    "remesh": "01a1ab33-2a67-7693-ae11-490848450a29"
+  }
+}

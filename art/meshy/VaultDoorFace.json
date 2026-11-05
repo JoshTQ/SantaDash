@@ -1,0 +1,15 @@
+{
+  "name": "VaultDoorFace",
+  "approved": "1 Nov 2026",
+  "component": true,
+  "rig": false,
+  "pose_mode": "",
+  "polycount": 3000,
+  "shape_prompt": "Stylized 3D game prop, chunky vinyl-toy style, smooth sculpted rounded forms, quirky proportions. A thick round vault door disc, like a giant coin, its front face shaped like a clock face with twelve raised hour dots, two raised clock hands as the dial and a round knob in the centre, chunky rounded rim. Front view, single object, no base.",
+  "texture_prompt": "Bright saturated colours, smooth soft vinyl-toy finish, clean hand-painted look. Cream clock face, dark brown hour dots and clock hands, shiny gold centre knob, steel-blue rim. No text, no logos.",
+  "meshy": {
+    "preview": "01a1ab31-f825-75f0-88e7-e7da4b6cb91d",
+    "refine": "01a1ab32-a40c-7244-a51d-5443b56637d3",
+    "remesh": "01a1ab33-7961-7162-a432-06158238a54c"
+  }
+}

@@ -1,0 +1,161 @@
+{
+  "name": "Sleigh",
+  "approved": "1 Nov 2026",
+  "rig": false,
+  "pose_mode": "",
+  "polycount": 10000,
+  "shape_prompt": "Stylized 3D game prop, chunky vinyl-toy style, smooth sculpted rounded forms. A beat-up old Christmas sleigh for six riders: classic curved sleigh body with a high back and a tall curled front, sewn-on fabric patches with visible stitching, one small crack, crooked trim along the top edges and a belt line. Three rows of two cushioned seats inside, open top. Metal runners that curl up at the front, with short struts. A bulb horn on the front curl, a small dented lantern on a bent pole at the back, two sacks strapped behind the back seat. No reindeer, no characters, no base.",
+  "texture_prompt": "Bright saturated colours, smooth soft vinyl-toy finish, clean hand-painted look. Faded glossy red paint with darker muted red sewn-on patches, crooked brass trim and brass belt line, green cushioned seats, silver-blue metal runners, brass bulb horn with a black rubber bulb, dented brass lantern with a warm yellow glow, tan burlap sacks. No text, no logos.",
+  "assemble": {
+    "_note": "Meshy's sleigh is long on X with its tall curled front at +X; yaw 90 turns that to -Z (game forward). Deck centre = pivot; the mesh stands on its runners at y -1.3, like the stand-in.",
+    "mesh": {
+      "name": "Shell",
+      "yaw": 90,
+      "fit": {
+        "axis": "Z",
+        "studs": 14
+      },
+      "bottom": [
+        0,
+        -1.3,
+        0
+      ]
+    },
+    "collide": true,
+    "parts": {
+      "Body": {
+        "size": [
+          6,
+          1,
+          12
+        ],
+        "at": [
+          0,
+          0,
+          0
+        ]
+      },
+      "Seat1": {
+        "class": "Seat",
+        "size": [
+          2,
+          1,
+          2
+        ],
+        "at": [
+          -1.6,
+          4.2,
+          -3.5
+        ]
+      },
+      "Seat2": {
+        "class": "Seat",
+        "size": [
+          2,
+          1,
+          2
+        ],
+        "at": [
+          1.6,
+          4.2,
+          -3.5
+        ]
+      },
+      "Seat3": {
+        "class": "Seat",
+        "size": [
+          2,
+          1,
+          2
+        ],
+        "at": [
+          -1.6,
+          4.2,
+          0
+        ]
+      },
+      "Seat4": {
+        "class": "Seat",
+        "size": [
+          2,
+          1,
+          2
+        ],
+        "at": [
+          1.6,
+          4.2,
+          0
+        ]
+      },
+      "Seat5": {
+        "class": "Seat",
+        "size": [
+          2,
+          1,
+          2
+        ],
+        "at": [
+          -1.6,
+          4.2,
+          3.5
+        ]
+      },
+      "Seat6": {
+        "class": "Seat",
+        "size": [
+          2,
+          1,
+          2
+        ],
+        "at": [
+          1.6,
+          4.2,
+          3.5
+        ]
+      },
+      "Hitch": {
+        "size": [
+          1,
+          1,
+          1
+        ],
+        "at": [
+          0,
+          -1.3,
+          -7.2
+        ]
+      },
+      "Horn": {
+        "size": [
+          1,
+          1,
+          1
+        ],
+        "at": [
+          0,
+          6,
+          -6.5
+        ]
+      },
+      "Lantern": {
+        "size": [
+          1,
+          1,
+          1
+        ],
+        "at": [
+          0,
+          7,
+          6.5
+        ]
+      }
+    },
+    "primary": "Body",
+    "anchored": true
+  },
+  "meshy": {
+    "preview": "01a1ab06-cc3a-72d0-8f27-1d9dec2b841e",
+    "refine": "01a1ab07-76ad-7053-9b1f-1df6f0cbdc0e",
+    "remesh": "01a1ab08-4c5d-716d-9cbd-7df211044bcb"
+  }
+}

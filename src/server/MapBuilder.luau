@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Maps = require(ReplicatedStorage.Shared.Maps)
+local HouseBuilder = require(script.Parent.HouseBuilder)
 local HouseKit = require(script.Parent.HouseKit)
 local MapFeatures = require(script.Parent.MapFeatures)
 local Parts = require(script.Parent.Parts)
@@ -219,8 +220,10 @@ export type Stop = {
 
 export type Door = { door: BasePart, prompt: ProximityPrompt, closed: CFrame, open: boolean }
 
--- Approved house models (see HouseKit); empty/nil = greybox blocks.
-export type Kit = { houses: { Model }, lair: Model?, vaultDoor: Model? }
+-- Approved house models (see HouseKit). With no House models in Assets,
+-- street and vault houses are built from the approved kit by HouseBuilder;
+-- greybox = true keeps the old blocks (tests of the greybox fallback).
+export type Kit = { houses: { Model }, lair: Model?, vaultDoor: Model?, greybox: boolean? }
 
 -- Approved present models for the route being built (buildRoute sets these).
 local presentKit: { variants: { Model }, naughtyList: Model? } = { variants = {} }
@@ -288,6 +291,11 @@ local function buildHouse(
 		elseif plan.typeName == "Lair" then kit.lair
 		elseif plan.locked then nil
 		else HouseKit.pick(kit.houses, rng, plan)
+	local owned = false
+	if not template and plan.typeName ~= "Lair" and not (kit and kit.greybox) then
+		template = HouseBuilder.forPlan(rng, plan, HouseKit.HouseTypeSign)
+		owned = true
+	end
 	if template then
 		return HouseKit.build({
 			parent = parent,
@@ -297,6 +305,8 @@ local function buildHouse(
 			cframe = cframe,
 			label = labelText,
 			template = template,
+			owned = owned,
+			vaultDoor = kit and kit.vaultDoor,
 			helpers = {
 				newPart = newPart,
 				addPrompt = addPrompt,

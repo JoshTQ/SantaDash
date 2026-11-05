@@ -1,0 +1,82 @@
+{
+  "name": "Krampus",
+  "approved": "1 Nov 2026",
+  "rig": true,
+  "pose_mode": "a-pose",
+  "polycount": 12000,
+  "height_meters": 3.4,
+  "shape_prompt": "Stylized 3D game character, chunky vinyl-toy style, smooth sculpted rounded forms, quirky proportions. A big, round, shaggy Krampus goat-monster as a funny cartoon villain, sly and scheming, kid-friendly, not scary. Pear-shaped body with smooth clumpy fur, round belly, short thick legs with round hooves. Round head with large curly ram horns with soft ridges, floppy goat ears, muzzle, round nose, narrow eyes, sharp V-shaped scowling eyebrows, sly wide grin with two small rounded fangs, curly twirled villain moustache, long pointed goatee. A strap across the chest with five jingle bells. Big furry hands with three rounded claws. Full body, standing, A-pose, arms slightly out, single character, no base, no basket, no props.",
+  "texture_prompt": "Bright saturated colours, smooth soft vinyl-toy finish, clean hand-painted look. Warm dark chocolate-brown fur (brown, not black), light tan belly and tan muzzle, dark brown hooves, ivory curly horns, round dark nose, narrow glowing yellow-orange eyes, black V eyebrows, glossy black curly moustache and black pointed goatee, white fangs. Bright red strap across the chest with five shiny gold jingle bells. Cream claws. No text, no logos.",
+  "assemble": {
+    "_note": "Faces +Z in Meshy; yaw 180 to face -Z. Root at the stand-in's spot (hip 3, feet 5.5 below the root centre), 11 studs tall; the basket hangs on his back (+Z).",
+    "mesh": {
+      "name": "Body",
+      "yaw": 180,
+      "fit": {
+        "axis": "Y",
+        "studs": 11
+      },
+      "bottom": [
+        0,
+        -5.5,
+        0
+      ]
+    },
+    "include": {
+      "Basket": {
+        "from": "KrampusBasket",
+        "yaw": 180,
+        "fit": {
+          "axis": "Y",
+          "studs": 4.5
+        },
+        "center": [
+          0,
+          0.8,
+          3.6
+        ]
+      }
+    },
+    "humanoid": {
+      "hip": 3,
+      "root": [
+        4,
+        5,
+        3
+      ]
+    }
+  },
+  "_history": "5 Nov: Josh picked option C of three: the first Meshy shape (scheming grin) re-textured in brown. A = same shape in black, B = a cuter re-roll.",
+  "meshy": {
+    "preview": "01a1ab06-cc6f-730b-8bf8-6e33927970a3",
+    "refine": "01a1ab15-4fe6-706f-9285-c12d01672bc5",
+    "remesh": "01a1ab19-5d33-7667-a52a-b6f13867f5aa",
+    "rig": "01a1ab1c-2080-7085-ac2b-89d8cbae158a"
+  },
+  "animations": {
+    "_note": "Meshy animation library clips on the rig (3 credits each). Keys are the names the game plays (src/server/Krampus.luau); values are the clip names in Meshy's GLB.",
+    "actions": [
+      0,
+      318,
+      559,
+      341,
+      276,
+      333
+    ],
+    "meshy": "01a1ab26-1d7e-74dc-bcb9-a9359fc4858c",
+    "clips": {
+      "Idle": "Idle",
+      "Scheme": "Scheming_Hand_Rub",
+      "Tiptoe": "Sneaky_Walk",
+      "Sniff": "Walk_Slowly_and_Look_Around",
+      "Snatch": "Male_Bend_Over_Pick_Up",
+      "Dizzy": "Look_Around_Dumbfounded"
+    },
+    "loop": [
+      "Idle",
+      "Tiptoe",
+      "Sniff"
+    ],
+    "fps": 15
+  }
+}

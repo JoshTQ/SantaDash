@@ -4,6 +4,7 @@ imported, ready for tools/meshy/to_rbxm.luau.
 
     ROBLOX_API_KEY=... ROBLOX_USER_ID=... python3 tools/meshy/upload.py Santa
     ROBLOX_API_KEY=... ROBLOX_GROUP_ID=... python3 tools/meshy/upload.py Santa
+    ... python3 tools/meshy/upload.py Krampus --animations   (after anim_rbxm.luau)
 
 Reads build/meshy/<Name>/ (from generate.py) and:
 1. uploads color.png as an Image asset (its id becomes MeshPart.TextureID);
@@ -106,15 +107,30 @@ def download(asset_id):
         time.sleep(15)
 
 
+def upload_animations(creator, name, out):
+    """Upload anim_<Clip>.rbxm (tools/meshy/anim_rbxm.luau) as Animation assets."""
+    built = json.load(open(f"{out}/anims_built.json"))
+    ids = json.load(open(f"{out}/roblox.json"))
+    ids["animations"] = {}
+    for clip in built:
+        ids["animations"][clip] = upload(creator, "Animation", f"{name} {clip}", f"{out}/anim_{clip}.rbxm", "model/x-rbxm")
+    json.dump(ids, open(f"{out}/roblox.json", "w"), indent=2)
+
+
 def main():
-    if len(sys.argv) != 2:
-        sys.exit("usage: upload.py <Name>")
-    name = sys.argv[1]
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    if len(args) != 1:
+        sys.exit("usage: upload.py <Name> [--animations]")
+    name = args[0]
     user_id, group_id = os.environ.get("ROBLOX_USER_ID"), os.environ.get("ROBLOX_GROUP_ID")
     if not KEY or bool(user_id) == bool(group_id):
         sys.exit("::error::Set ROBLOX_API_KEY and exactly one of ROBLOX_USER_ID or ROBLOX_GROUP_ID")
     creator = {"groupId": str(group_id)} if group_id else {"userId": str(user_id)}
     out = os.path.join(ROOT, "build", "meshy", name)
+    if "--animations" in sys.argv:
+        print(f"== Uploading {name}'s animations to Roblox ==")
+        upload_animations(creator, name, out)
+        return
     model = next((p for p in (f"{out}/rigged.fbx", f"{out}/game.fbx") if os.path.isfile(p)), None)
     if not model or not os.path.isfile(f"{out}/color.png"):
         sys.exit(f"::error::Run tools/meshy/generate.py {name} first (needs color.png and an .fbx)")

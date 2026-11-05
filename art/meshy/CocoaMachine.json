@@ -1,0 +1,43 @@
+{
+  "name": "CocoaMachine",
+  "approved": "1 Nov 2026",
+  "rig": false,
+  "pose_mode": "",
+  "polycount": 6000,
+  "shape_prompt": "Stylized 3D game prop, chunky vinyl-toy style, smooth sculpted rounded forms. A small painted wooden hot cocoa booth like a toy-workshop kiosk: box-shaped wooden body with corner posts, a gable roof with puffy snow trim, a front window showing a big mug with steam, a sign board above the window, a dispenser slot with a cup tray, round bulbs along the eaves and a mug-shaped sign on the roof ridge. Single object, no base.",
+  "texture_prompt": "Bright saturated colours, smooth soft vinyl-toy finish, clean hand-painted look. Honey-coloured wood body with dark brown corner posts, red roof with white snow trim, big green mug with red and white candy-cane stripes and white steam, red sign board, silver dispenser with a cup tray, multicoloured glowing bulbs, glowing golden mug sign on the roof. No text, no logos.",
+  "assemble": {
+    "_note": "Window faces +Z in Meshy; yaw 180 to face -Z. About the stand-in's 7 studs tall; Run stands it on the street by its bounding box.",
+    "mesh": {
+      "name": "Body",
+      "yaw": 180,
+      "fit": {
+        "axis": "Y",
+        "studs": 8
+      },
+      "bottom": [
+        0,
+        -3.5,
+        0
+      ]
+    },
+    "collide": true,
+    "attachments": {
+      "BuyPrompt": {
+        "on": "Body",
+        "at": [
+          0,
+          -0.5,
+          -3.2
+        ]
+      }
+    },
+    "primary": "Body",
+    "anchored": true
+  },
+  "meshy": {
+    "preview": "01a1ab06-cc6a-7536-b411-9d879780df57",
+    "refine": "01a1ab07-a0c4-71cc-bf7b-ebe946f3bb48",
+    "remesh": "01a1ab08-a584-7031-9f1c-9205af7f9f89"
+  }
+}

@@ -86,3 +86,35 @@ test("tapping refills breath but never past full", function()
 	expect(Brain.tapBreath(0.99)).toBe(1)
 	expect(Brain.tapBreath(1)).toBe(1)
 end)
+
+describe("clipFor (Meshy animations)", function()
+	local function rig(clips)
+		local set = {}
+		for _, c in clips do
+			set[c] = true
+		end
+		return function(name)
+			return set[name] == true
+		end
+	end
+	local full = rig({ "Idle", "Scheme", "Tiptoe", "Sniff", "Snatch", "Dizzy" })
+
+	it("maps each state to its clip", function()
+		expect(Brain.clipFor("waiting", full)).toBe("Scheme")
+		expect(Brain.clipFor("dizzy", full)).toBe("Dizzy")
+		expect(Brain.clipFor("sniffing", full)).toBe("Sniff")
+		expect(Brain.clipFor("moving", full)).toBe("Tiptoe")
+		expect(Brain.clipFor("still", full)).toBe("Idle")
+	end)
+
+	it("falls back to what the rig has", function()
+		local some = rig({ "Idle", "Tiptoe" })
+		expect(Brain.clipFor("sniffing", some)).toBe("Tiptoe")
+		expect(Brain.clipFor("dizzy", some)).toBe("Idle")
+		expect(Brain.clipFor("unknown", some)).toBe("Idle")
+	end)
+
+	it("is nil on the stand-in (no clips)", function()
+		expect(Brain.clipFor("moving", rig({}))).toBeNil()
+	end)
+end)

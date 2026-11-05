@@ -13,8 +13,11 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Lobby = require(script.Parent.Lobby)
 local LobbyMap = require(script.Parent.LobbyMap)
 local RunHost = require(script.Parent.RunHost)
+local SantaCharacter = require(script.Parent.SantaCharacter)
 
 Remotes.init()
+-- The Meshy Santa as everyone's character, before anyone spawns.
+SantaCharacter.install()
 
 -- Christmas Eve night, always (Josh, 2 Nov): a bright moon so kids can see,
 -- stars, and bloom so the Christmas lights glow. Lighting.Technology is

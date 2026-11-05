@@ -6,5 +6,69 @@
   "polycount": 10000,
   "shape_prompt": "Stylized 3D game character, chunky vinyl-toy style, smooth sculpted rounded forms, soft simple shapes, quirky proportions. A scruffy, grumpy Santa Claus: short and round with a big pot belly, slightly hunched. Big head, furrowed bushy eyebrows, frowning grumpy face, round nose, messy uneven beard. Suit with a few sewn-on fabric patches with visible stitching, thick fur trim, belt with a crooked buckle. Floppy hat tilted sideways with a droopy tip and a fluffy pompom. Worn boots and mittens. Full body, standing, A-pose, arms slightly out from the body, hands separate from the belly, legs slightly apart, single character, no base, no props.",
   "texture_prompt": "Bright saturated colours, smooth soft vinyl-toy finish, clean hand-painted look. Faded red suit with a few darker muted red and brown fabric patches with visible stitching (patches must not look like presents). Off-white fur trim, slightly grubby. Black belt with a crooked gold buckle. Rosy round nose and rosy cheeks, grey-white messy beard and bushy grey eyebrows. Floppy red hat with off-white fur band and white pompom. Worn brown boots and brown mittens. No text, no logos.",
-  "height_meters": 1.5
+  "height_meters": 1.5,
+  "assemble": {
+    "_note": "The player character (StarterCharacter). Faces +Z in Meshy; yaw 180 to face -Z. Root 2x2x1 at the pivot, hip 2, so feet are 3 studs below the root centre; 5.5 studs tall (a bit taller than a default avatar, he's round).",
+    "mesh": {
+      "name": "Body",
+      "yaw": 180,
+      "fit": {
+        "axis": "Y",
+        "studs": 5.5
+      },
+      "bottom": [
+        0,
+        -3,
+        0
+      ]
+    },
+    "humanoid": {
+      "hip": 2,
+      "root": [
+        2,
+        2,
+        1
+      ]
+    }
+  },
+  "meshy": {
+    "preview": "01a1ab06-cc73-75e1-b131-34ffc2b2cc5e",
+    "refine": "01a1ab07-7a15-72b3-afb9-6eba70cb2457",
+    "remesh": "01a1ab08-2930-725e-b879-2b0292131223",
+    "rig": "01a1ab09-240d-77a5-8982-91259d760e46"
+  },
+  "animations": {
+    "_note": "Meshy animation library clips on Santa's rig (3 credits each). Keys are the names the game plays (src/client/SantaAnimate.client.luau, src/shared/SantaMoves.luau); values are the clip names in Meshy's GLB.",
+    "actions": [
+      0,
+      30,
+      559,
+      276,
+      59
+    ],
+    "meshy": "01a1ab32-9624-770e-a74d-7342b1bcbec6",
+    "clips": {
+      "Idle": "Idle",
+      "Walk": "Casual_Walk",
+      "Sneak": "Sneaky_Walk",
+      "Grab": "Male_Bend_Over_Pick_Up",
+      "Cheer": "Victory_Cheer"
+    },
+    "loop": [
+      "Idle",
+      "Walk",
+      "Sneak"
+    ],
+    "fps": 15,
+    "trim": {
+      "Grab": [
+        0.5,
+        2.6
+      ],
+      "Cheer": [
+        0,
+        3.2
+      ]
+    }
+  }
 }

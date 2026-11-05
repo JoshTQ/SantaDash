@@ -171,6 +171,11 @@ describe("a run with every approved model", function()
 				world.wait(0.5)
 			end
 			expect(run.krampus.body.model.Name).toBe("Krampus")
+			if run.stopIndex == stops then
+				-- He wakes in his Lair: the bells light up (LairAnimator.client).
+				local lair = model:FindFirstChild("LairHouse", true)
+				expect(lair:GetAttribute("BellsAt")).never.toBeNil()
+			end
 			while not finished do
 				world.wait(1)
 			end

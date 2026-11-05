@@ -1,7 +1,9 @@
 --[[
 	Builds houses from the approved models (contracts from the models thread,
-	1 Nov 2026) instead of greybox blocks. MapBuilder calls this when
-	ServerStorage.Assets has the model, and falls back to blocks otherwise.
+	1 Nov 2026) instead of greybox blocks. MapBuilder calls this with a
+	ServerStorage.Assets model when there is one; street and vault houses
+	otherwise come from HouseBuilder (the approved kit built from parts).
+	A locked house's front Door becomes its vault door.
 
 	House        Floor (PrimaryPart), TypeSign, Chimney, ChimneyTop, Fireplace,
 	             Wardrobe, FrontDoor > Door, PresentSpawn1-8 (parts or
@@ -148,6 +150,8 @@ export type Context = {
 	cframe: CFrame, -- house centre on the ground, LookVector out of the front door
 	label: string,
 	template: Model,
+	owned: boolean?, -- template is a fresh model (HouseBuilder) to use as is, not clone
+	vaultDoor: Model?, -- approved VaultDoor for a locked house (plan.locked)
 	helpers: Helpers,
 }
 
@@ -155,12 +159,14 @@ export type Context = {
 function HouseKit.build(ctx: Context): CFrame?
 	local plan, stop, rng, h = ctx.plan, ctx.stop, ctx.rng, ctx.helpers
 	local houseType = Config.Houses.Types[plan.typeName]
-	local model = ctx.template:Clone()
+	local model = if ctx.owned then ctx.template else ctx.template:Clone()
 	model.Name = plan.typeName .. "House"
 	local floor = (model.PrimaryPart or HouseKit.find(model, "Floor")) :: BasePart
 	HouseKit.place(model, ctx.cframe * CFrame.new(0, floor.Size.Y / 2, 0))
 	model:SetAttribute("HouseType", HouseKit.HouseTypeSign[plan.typeName] or plan.typeName)
-	model:SetAttribute("Seed", rng:NextInteger(1, 2 ^ 30))
+	if not ctx.owned then
+		model:SetAttribute("Seed", rng:NextInteger(1, 2 ^ 30))
+	end
 
 	local centre = floor.CFrame.Position
 	local floorTop = centre.Y + floor.Size.Y / 2
@@ -195,7 +201,27 @@ function HouseKit.build(ctx: Context): CFrame?
 	-- Front door: Run swings it open and shut from this prompt.
 	local frontDoor = HouseKit.find(model, "FrontDoor")
 	local door = frontDoor and frontDoor:FindFirstChild("Door", true)
-	if door and door:IsA("BasePart") then
+	if door and door:IsA("BasePart") and plan.locked then
+		-- The vault house: its front door is the vault door, opened for the crew
+		-- by a Jingle buy (Run._buyVault), never by hand.
+		local vault = ctx.vaultDoor
+			and HouseKit.placeVaultDoor(
+				model,
+				ctx.vaultDoor,
+				door.CFrame * CFrame.new(0, -door.Size.Y / 2, 0)
+			)
+		if vault then
+			door:Destroy()
+		else
+			vault = door
+			door.Name = "VaultDoor"
+			door.Color = Color3.fromRGB(255, 200, 60)
+			door.Material = Enum.Material.Neon
+		end
+		stop.vaultDoor = vault
+		stop.vaultPrompt =
+			h.addPrompt(vault :: BasePart, "Open vault", Config.Buys.VaultDoor.Cost .. " Jingle", 0.5)
+	elseif door and door:IsA("BasePart") then
 		local prompt = door:FindFirstChildOfClass("ProximityPrompt") or h.addPrompt(door, "Open", "Door")
 		table.insert(stop.doors, { door = door, prompt = prompt, closed = door.CFrame, open = false })
 	end
@@ -216,17 +242,20 @@ function HouseKit.build(ctx: Context): CFrame?
 			inside = toward(fireplace.CFrame.Position, centre, 5, floorTop + 3),
 			roof = chimneyTop.CFrame + Vector3.new(0, chimneyTop.Size.Y / 2 + 3, 0),
 		})
-		-- Ladder up the side so the chimney can be reached from the street.
-		local height = top - ctx.cframe.Position.Y
-		h.newPart(
-			model,
-			"Ladder",
-			Vector3.new(2, height, 2),
-			ctx.cframe * CFrame.new(floor.Size.X / 2 + 1, height / 2, -floor.Size.Z / 4),
-			Color3.fromRGB(110, 80, 60),
-			nil,
-			"TrussPart"
-		)
+		-- Ladder up the side so the chimney can be reached from the street
+		-- (unless the model brings its own, like the Lair's up to its eaves).
+		if not HouseKit.find(model, "Ladder") then
+			local height = top - ctx.cframe.Position.Y
+			h.newPart(
+				model,
+				"Ladder",
+				Vector3.new(2, height, 2),
+				ctx.cframe * CFrame.new(floor.Size.X / 2 + 1, height / 2, -floor.Size.Z / 4),
+				Color3.fromRGB(110, 80, 60),
+				nil,
+				"TrussPart"
+			)
+		end
 	end
 
 	-- Hide spots: the house Wardrobe, or the Lair's HideSpot1/HideSpot2.

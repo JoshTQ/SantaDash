@@ -1,0 +1,32 @@
+{
+  "name": "PresentTall",
+  "approved": "1 Nov 2026",
+  "rig": false,
+  "pose_mode": "",
+  "polycount": 2500,
+  "folder": "Presents",
+  "shape_prompt": "Stylized 3D game prop, chunky vinyl-toy style, smooth sculpted rounded forms, quirky proportions. A tall wrapped Christmas present box, twice as tall as wide, puffy rounded edges, a ribbon crossing over the top and down every side, and a floppy bow with long curly tails on top. Single object, no base.",
+  "texture_prompt": "Bright saturated colours, smooth soft vinyl-toy finish, clean hand-painted look. Bright teal wrapping paper with white candy-cane stripes, pink ribbon and bow. No text, no logos.",
+  "assemble": {
+    "_note": "placePresent scales by the Box's largest side, so the size here only sets proportions.",
+    "mesh": {
+      "name": "Box",
+      "fit": {
+        "axis": "max",
+        "studs": 2
+      },
+      "bottom": [
+        0,
+        0,
+        0
+      ]
+    },
+    "primary": "Box",
+    "anchored": true
+  },
+  "meshy": {
+    "preview": "01a1ab31-f821-703d-8622-c0d2f6dbd61a",
+    "refine": "01a1ab32-7cee-7467-9124-876d87b6a593",
+    "remesh": "01a1ab33-2bdc-71cf-8e8f-37471b2c97d1"
+  }
+}

@@ -15,6 +15,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Cutscenes = require(ReplicatedStorage.Shared.Cutscenes)
 local Maps = require(ReplicatedStorage.Shared.Maps)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local SantaMoves = require(ReplicatedStorage.Shared.SantaMoves)
 local SleighFlight = require(ReplicatedStorage.Shared.SleighFlight)
 local SoundPlayer = require(ReplicatedStorage.Shared.SoundPlayer)
 local Util = require(ReplicatedStorage.Shared.Util)
@@ -28,7 +29,9 @@ local MapBuilder = require(script.Parent.MapBuilder)
 local MapEventBrain = require(script.Parent.MapEventBrain)
 local MapEvents = require(script.Parent.MapEvents)
 local MapFeatures = require(script.Parent.MapFeatures)
+local SantaCharacter = require(script.Parent.SantaCharacter)
 local HouseKit = require(script.Parent.HouseKit)
+local LairBuilder = require(script.Parent.LairBuilder)
 
 local now, rootOf, humanoidOf = Util.now, Util.rootOf, Util.humanoidOf
 
@@ -95,7 +98,9 @@ function Run.new(
 		cocoa = Assets.clone("CocoaMachine", { "Body", "BuyPrompt" }),
 		houseKit = {
 			houses = HouseKit.variants(Assets.folder()),
-			lair = Assets.clone("KrampusLair", { "Floor", "ListPedestal", "KrampusSpawn" }),
+			-- The approved Cuckoo Clock Den, built from parts unless Assets has a KrampusLair.
+			lair = Assets.clone("KrampusLair", { "Floor", "ListPedestal", "KrampusSpawn" })
+				or LairBuilder.template(),
 			vaultDoor = Assets.clone("VaultDoor", { "Frame", "Door" }),
 		},
 		presents = HouseKit.presentVariants(Assets.folder()),
@@ -184,6 +189,9 @@ end
 
 function Run:_sendStop()
 	local stop = self.route.stops[self.stopIndex]
+	for _, player in self.order do
+		SantaCharacter.setSneaking(player, self.phase == "Sneak") -- Santas tiptoe
+	end
 	self:_send(nil, "Stop", {
 		stop = self.stopIndex,
 		isFinale = stop ~= nil and stop.plan.escapeMultiplier ~= nil,
@@ -277,6 +285,7 @@ function Run:_applyPerks(player: Player)
 end
 
 function Run:_resetCharacter(player: Player)
+	SantaCharacter.setSneaking(player, false)
 	local humanoid = humanoidOf(player)
 	if humanoid then
 		humanoid.WalkSpeed = Config.Player.WalkSpeed
@@ -360,7 +369,11 @@ function Run:_grab(player: Player, present)
 	local st = self:_free(player)
 	local root = rootOf(player)
 	if st and root then
+		local before = st.sackCount
 		self:_collect(player, st, present, root.Position)
+		if st.sackCount > before then
+			SantaMoves.play(player.Character, "Grab")
+		end
 	end
 end
 
@@ -647,6 +660,7 @@ function Run:_startKrampus(stop)
 		else Config.Krampus.WarningSeconds
 	self:_banner(nil, "KRAMPUS IS COMING!", hold)
 	self.krampus = Krampus.new(self, stop, hold)
+	self:_lairCue(stop, "BellsAt")
 	self:_send(nil, "Krampus", { model = self.krampus.body.model })
 	if introSeconds > 0 then
 		self.krampus:playIntro(introSeconds)
@@ -655,6 +669,18 @@ function Run:_startKrampus(stop)
 			nil,
 			{ anchor = stop.krampusSpawn, follow = self.krampus.body.model }
 		)
+	end
+end
+
+-- Cues the Lair's clockwork (LairAnimator.client, LairMotion): the cuckoo
+-- pops out on the horn, the seven bells light up when Krampus wakes.
+function Run:_lairCue(stop, attribute: string)
+	if not stop.plan.escapeMultiplier then
+		return
+	end
+	local lair = self.route.model:FindFirstChild("LairHouse", true)
+	if lair then
+		lair:SetAttribute(attribute, now())
 	end
 end
 
@@ -897,6 +923,7 @@ function Run:_playStop(stop): { Player }
 			enter = function()
 				local left = Config.Run.StopSeconds - Config.Run.HornAt
 				self:_banner(nil, "HONK! The sleigh leaves in " .. left .. " seconds!", 3)
+				self:_lairCue(stop, "CuckooAt")
 			end,
 		},
 	}
@@ -958,6 +985,7 @@ function Run:_playStop(stop): { Player }
 			table.insert(aboard, player)
 			if st.sackCount > 0 then
 				self:_sfx(player, "Bank")
+				SantaMoves.play(player.Character, "Cheer")
 			end
 			Loot.bank(st, plan.escapeMultiplier)
 			self:_sendPlayer(player)
@@ -1074,6 +1102,11 @@ function Run:_main()
 			rows = Loot.results(entries),
 			endsAt = now() + Config.Run.ResultsSeconds + Config.Run.RequeueSeconds,
 		})
+		for player, st in self.players do
+			if st.banked > 0 then
+				SantaMoves.play(player.Character, "Cheer") -- got away with it
+			end
+		end
 		task.wait(Config.Run.ResultsSeconds)
 	end
 end

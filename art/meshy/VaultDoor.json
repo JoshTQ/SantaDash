@@ -1,0 +1,73 @@
+{
+  "name": "VaultDoor",
+  "approved": "1 Nov 2026",
+  "rig": false,
+  "pose_mode": "",
+  "polycount": 4000,
+  "shape_prompt": "Stylized 3D game prop, chunky vinyl-toy style, smooth sculpted rounded forms, quirky proportions. A square chunky stone wall panel with a big round hole in the middle, framed by a thick round metal ring studded with eight big round rivets, and a small rectangular plate under the ring. The hole is empty. Front view, flat back, single object, no base.",
+  "texture_prompt": "Bright saturated colours, smooth soft vinyl-toy finish, clean hand-painted look. Light warm grey stone blocks, steel-blue metal ring with shiny gold rivets, navy plate with a gold border. No text, no logos.",
+  "assemble": {
+    "_note": "Goes in the Vault end house doorway (gap about 5.8 x 10.8 in the house kit): HouseKit.placeVaultDoor puts the Frame's centre half its height above the doorway floor, front -Z. Frame = stone wall + ring (Meshy, yaw 180 to face -Z), Door = the clock-face disc (component VaultDoorFace) that Run swings on its left edge. Dial and PricePlate are helper parts.",
+    "mesh": {
+      "name": "Frame",
+      "yaw": 180,
+      "fit": {
+        "axis": "Y",
+        "studs": 11
+      },
+      "center": [
+        0,
+        0,
+        0
+      ]
+    },
+    "include": {
+      "Door": {
+        "from": "VaultDoorFace",
+        "yaw": 180,
+        "fit": {
+          "axis": "Y",
+          "studs": 5.4
+        },
+        "center": [
+          0,
+          0.5,
+          -0.4
+        ]
+      }
+    },
+    "parts": {
+      "Dial": {
+        "size": [
+          1,
+          1,
+          0.3
+        ],
+        "at": [
+          0,
+          0.5,
+          -0.9
+        ]
+      },
+      "PricePlate": {
+        "size": [
+          3,
+          1,
+          0.3
+        ],
+        "at": [
+          0,
+          -4.3,
+          -0.6
+        ]
+      }
+    },
+    "primary": "Frame",
+    "anchored": true
+  },
+  "meshy": {
+    "preview": "01a1ab31-f84e-7576-b574-6ffb6f6ba587",
+    "refine": "01a1ab32-a7bb-7259-a6f6-95a9423ea90e",
+    "remesh": "01a1ab33-7e7e-75e9-a81e-9c335823d144"
+  }
+}

@@ -16,7 +16,7 @@ stand-in (a model missing a required part is skipped with a warning):
 | `Reindeer` | PrimaryPart `Body`, `Head`, four legs on Motor6Ds | None (two hitched in front of the sleigh) |
 | `ElfA`, `ElfD` | `Humanoid`, `HumanoidRootPart` | Green and red block elves |
 | `House` (any number, or an `Assets.Houses` folder) | `Floor`, `TypeSign`, `ChimneyTop`, `Fireplace`, `Wardrobe`, `FrontDoor` > `Door`, `PresentSpawn1`-`8`; attribute `Style` | Block houses. Any style anywhere; the Far ring prefers `Style = "alpine"` |
-| `KrampusLair` | `Floor`, `ListPedestal`, `KrampusSpawn`, `HideSpot1`-`2` | Block Lair |
+| `KrampusLair` | `Floor`, `ListPedestal`, `KrampusSpawn`, `HideSpot1`-`2` (optional: `Fireplace` + `ChimneyTop`, its own `Ladder`, `PresentSpawn1`-`8`) | The approved Cuckoo Clock Den built from parts (`src/server/LairBuilder.luau`) |
 | `VaultDoor` | `Frame`, `Door` (hinged on its left edge) | Gold block door |
 | `CocoaMachine` | `Body`, `BuyPrompt` attachment | Brown block |
 | `DogCorgi`, `DogTin` | `Humanoid`, `HumanoidRootPart` (anchored and moved along the patrol) | Block dogs |
@@ -282,7 +282,8 @@ src/server/ElfBrain.luau      pure elf bot decisions
 src/server/Mover.luau         pathfinding for Krampus and elf bots
 src/server/Assets.luau        approved models from ServerStorage.Assets
 src/server/HouseKit.luau      houses, Lair and vault door from the approved models
-src/server/MapBuilder.luau    greybox houses, streets, sleigh, Krampus and elf stand-ins
+src/server/HouseBuilder.luau  the approved house kit (Candy + Alpine, 3 layouts) built from parts
+src/server/MapBuilder.luau    streets, sleigh, greybox fallbacks, Krampus and elf stand-ins
 src/server/Parts.luau         shared anchored-part helper for the builders
 src/server/Loot.luau          pure House Card rolls, stop plans, loot and results
 src/client/Hud.client.luau    timer, Jingle, sack, noise, bells, breath, wiggle, queue, results
