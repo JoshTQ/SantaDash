@@ -158,6 +158,16 @@ Config.Houses = {
 	ThreatLootBonus = 0.25,
 	PresentsPerHouse = { Near = 5, Mid = 4, Far = 4 },
 	HideSpots = 1, -- wardrobes per house, unless the type says otherwise
+	-- Secret rooms in the Room Mix houses (Josh, 6 Nov 2026: "2-3 houses out
+	-- of 5"). Never the landing house, the vault or the Lair. A bookcase, a rug
+	-- over a trapdoor or a ceiling hatch hides a room with a Big present; it
+	-- twinkles when you're near and glows gold once someone finds it.
+	Secret = {
+		Chance = 0.5, -- per robbable house: 2-3 houses in every 5
+		PresentSize = 2, -- the Big size: worth 4 normal presents
+		FinderJingle = 100,
+		SearchSeconds = 1, -- hold Search on the bookcase / rug / hatch
+	},
 }
 
 -- Present value follows the size-squared rule: value = BaseValue * size^2.

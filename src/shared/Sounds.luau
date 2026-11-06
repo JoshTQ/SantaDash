@@ -321,6 +321,25 @@ Sounds.Defs = {
 		range = { 8, 60 },
 		looped = true,
 	},
+	-- Secret rooms (Room Mix houses): a soft bell twinkle that loops at the
+	-- bookcase / rug / hatch, heard from the next room, and a chime when found.
+	SecretHum = {
+		id = 72124849536326, -- the single sleigh-bell jingle, pitched up and looped
+		find = "music box twinkle loop",
+		group = "Sfx",
+		volume = 0.35,
+		pitch = { 1.3, 1.45 },
+		range = { 4, 26 },
+		looped = true,
+	},
+	SecretFound = {
+		id = 133896540097512, -- the boost hoops' magic chime
+		find = "magic sparkle reveal chime",
+		group = "Sfx",
+		volume = 0.7,
+		pitch = { 1.1, 1.1 },
+		range = { 10, 90 },
+	},
 	PolisherScoop = {
 		id = 134317366455068,
 		find = "cartoon whoosh",
