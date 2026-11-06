@@ -16,6 +16,7 @@ local HouseBuilder = require(script.Parent.HouseBuilder)
 local HouseKit = require(script.Parent.HouseKit)
 local MapFeatures = require(script.Parent.MapFeatures)
 local Parts = require(script.Parent.Parts)
+local Wardrobe = require(script.Parent.Wardrobe)
 
 local MapBuilder = {}
 
@@ -269,6 +270,7 @@ export type Stop = {
 	chimneys: { Chimney },
 	hideSpots: { HideSpot },
 	cocoaPrompt: ProximityPrompt,
+	wardrobePrompts: { [string]: ProximityPrompt }, -- server/Wardrobe stand, empty while off
 	vaultPrompt: ProximityPrompt?,
 	vaultDoor: BasePart?,
 	krampusSpawn: CFrame,
@@ -688,6 +690,10 @@ local function buildStop(
 		)
 		stop.cocoaPrompt = addPrompt(machine, "Buy perk", "Peppermint Rush", 0.5)
 	end
+
+	-- Wardrobe stand (warm gear) beside the cocoa machine; off until approved.
+	stop.wardrobePrompts =
+		Wardrobe.build(model, machineAt * CFrame.new(Config.Wardrobe.StandOffset), newPart, addPrompt)
 
 	for _, feature in mapDef.features do
 		local entry = MapFeatures[feature.kind]

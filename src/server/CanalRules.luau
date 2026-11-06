@@ -12,12 +12,20 @@ local CanalRules = {}
 
 -- WalkSpeed for a Santa: a hoop boost beats skating, skating beats walking,
 -- and nothing ever slows a Santa below their own speed (Peppermint Rush).
-function CanalRules.walkSpeed(base: number, onIce: boolean, boosted: boolean): number
+-- Boots (Config.Boots) bring their own skate and hoop speeds; they never
+-- make you slower than skating without them.
+function CanalRules.walkSpeed(
+	base: number,
+	onIce: boolean,
+	boosted: boolean,
+	skate: number?,
+	hoop: number?
+): number
 	local C = Config.Canal
 	if boosted then
-		return math.max(base, C.HoopSpeed)
+		return math.max(base, C.HoopSpeed, hoop or 0)
 	elseif onIce then
-		return math.max(base, C.SkateSpeed)
+		return math.max(base, C.SkateSpeed, skate or 0)
 	end
 	return base
 end
@@ -46,7 +54,12 @@ function CanalRules.segments(from: number, to: number): { Segment }
 	return list
 end
 
-export type Floe = { x: number, z: number, sizeX: number, sizeZ: number }
+-- A floe is one big disc of ice and sometimes a smaller lobe poking out
+-- toward a corner of its cell, so floes are round and lumpy, never a grid
+-- of rectangles (Josh's playtest, 6 Nov 2026). x, z is the main disc's
+-- centre; sizeX, sizeZ the floe's footprint.
+export type Disc = { x: number, z: number, r: number }
+export type Floe = { x: number, z: number, sizeX: number, sizeZ: number, discs: { Disc } }
 export type Keepout = { x: number, z: number, radius: number?, halfX: number?, halfZ: number? }
 
 local function blocked(x: number, z: number, reach: number, keepouts: { Keepout }): boolean
@@ -63,23 +76,43 @@ local function blocked(x: number, z: number, reach: number, keepouts: { Keepout 
 	return false
 end
 
--- Floes covering a sheet of ice sizeX by sizeZ (centred on 0, 0), on a
--- jittered grid with gaps a Santa can hop, leaving keepouts (an island, a
--- bridge) clear. Positions are relative to the sheet's centre.
+-- Floes covering a sheet of ice sizeX by sizeZ (centred on 0, 0), one per
+-- cell of a jittered grid, leaving keepouts (an island, a bridge) clear.
+-- Each floe stays inside its cell less half a gap, so neighbours are always
+-- at least Config.Canal.FloeGap[1] apart, and the biggest gap between two
+-- main discs stays a hop. Positions are relative to the sheet's centre.
 function CanalRules.floeLayout(sizeX: number, sizeZ: number, rng: Random, keepouts: { Keepout }?): { Floe }
-	local cell = Config.Canal.FloeCell
+	local C = Config.Canal
+	local cell = C.FloeCell
 	local floes = {}
 	local nx = math.max(1, math.floor(sizeX / cell))
 	local nz = math.max(1, math.floor(sizeZ / cell))
 	local pitchX, pitchZ = sizeX / nx, sizeZ / nz
 	for i = 1, nx do
 		for j = 1, nz do
-			local sx = pitchX - rng:NextNumber(3, 4)
-			local sz = pitchZ - rng:NextNumber(3, 4)
-			local x = -sizeX / 2 + (i - 0.5) * pitchX + rng:NextNumber(-0.5, 0.5)
-			local z = -sizeZ / 2 + (j - 0.5) * pitchZ + rng:NextNumber(-0.5, 0.5)
-			if not blocked(x, z, math.max(sx, sz) / 2, keepouts or {}) then
-				table.insert(floes, { x = x, z = z, sizeX = sx, sizeZ = sz })
+			local gap = rng:NextNumber(C.FloeGap[1], C.FloeGap[2])
+			local jx, jz = rng:NextNumber(-0.5, 0.5), rng:NextNumber(-0.5, 0.5)
+			-- half the square this floe may fill, after the gap and the jitter
+			local room = math.min(pitchX, pitchZ) / 2 - gap / 2 - 0.5
+			local x = -sizeX / 2 + (i - 0.5) * pitchX + jx
+			local z = -sizeZ / 2 + (j - 0.5) * pitchZ + jz
+			local r0 = room * rng:NextNumber(C.FloeRadius[1], C.FloeRadius[2])
+			local discs = { { x = x, z = z, r = r0 } }
+			local minX, maxX, minZ, maxZ = x - r0, x + r0, z - r0, z + r0
+			if rng:NextNumber() < C.FloeLobeChance then
+				local rl = r0 * rng:NextNumber(0.45, 0.65)
+				local a = (rng:NextInteger(0, 3) + 0.5) * math.pi / 2 + rng:NextNumber(-0.35, 0.35)
+				local ca, sa = math.cos(a), math.sin(a)
+				-- as far toward the corner as the square allows
+				local d = (room - rl) / math.max(math.abs(ca), math.abs(sa))
+				local lx, lz = x + ca * d, z + sa * d
+				table.insert(discs, { x = lx, z = lz, r = rl })
+				minX, maxX = math.min(minX, lx - rl), math.max(maxX, lx + rl)
+				minZ, maxZ = math.min(minZ, lz - rl), math.max(maxZ, lz + rl)
+			end
+			local reach = math.max(maxX - minX, maxZ - minZ) / 2
+			if not blocked((minX + maxX) / 2, (minZ + maxZ) / 2, reach, keepouts or {}) then
+				table.insert(floes, { x = x, z = z, sizeX = maxX - minX, sizeZ = maxZ - minZ, discs = discs })
 			end
 		end
 	end
@@ -230,7 +263,8 @@ function CanalRules.inReach(root: Vector3, at: Vector3, radius: number): boolean
 	return flat < radius and rise > -H.Below and rise < H.Above
 end
 
-export type Box = { cframe: CFrame, size: Vector3 }
+-- radius: a round floe (a flat cylinder), measured by flat distance.
+export type Box = { cframe: CFrame, size: Vector3, radius: number? }
 
 -- Is a Santa whose root is at `root` standing in the water of a broken ice
 -- zone (not on one of its floes, not mid-hop above it)? Polled by the server,
@@ -247,12 +281,20 @@ function CanalRules.inWater(zone: Box, floes: { Box }, root: Vector3, standHeigh
 		return false -- jumping between floes, or nowhere near the water
 	end
 	for _, floe in floes do
-		local q = floe.cframe:PointToObjectSpace(root)
-		if
-			math.abs(q.X) < floe.size.X / 2 + C.FloeEdgeGrace
-			and math.abs(q.Z) < floe.size.Z / 2 + C.FloeEdgeGrace
-		then
-			return false
+		if floe.radius then
+			local c = floe.cframe.Position
+			local dx, dz = root.X - c.X, root.Z - c.Z
+			if dx * dx + dz * dz < (floe.radius + C.FloeEdgeGrace) ^ 2 then
+				return false
+			end
+		else
+			local q = floe.cframe:PointToObjectSpace(root)
+			if
+				math.abs(q.X) < floe.size.X / 2 + C.FloeEdgeGrace
+				and math.abs(q.Z) < floe.size.Z / 2 + C.FloeEdgeGrace
+			then
+				return false
+			end
 		end
 	end
 	return true
