@@ -4,7 +4,7 @@
 	default; PlayerDefaults.reconcile fills them into older saves.
 
 	Owners: store thread (playSeconds, coal, owned, receipts, inventory),
-	tutorial thread (tutorial). skin: shared/SkinRules.luau.
+	tutorial thread (tutorial). skin: shared/SkinRules.luau. boots: shared/BootRules.luau.
 ]]
 
 local PlayerDefaults = {}
@@ -20,6 +20,7 @@ function PlayerDefaults.new()
 		receipts = {}, -- recent ProcessReceipt PurchaseIds, oldest first (capped)
 		inventory = {}, -- [itemId] = count: consumables such as InstantBreakout
 		skin = "Classic", -- the Santa suit the player wears (Config.Skins)
+		boots = "", -- the boots the player wears (Config.Boots id), "" for none
 		tutorial = {
 			done = {}, -- [lessonId] = true
 			tipsOff = false, -- the player's "no more tips" switch

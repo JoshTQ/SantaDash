@@ -17,6 +17,7 @@ export type Candidate = {
 	hidden: boolean,
 	captive: boolean,
 	aboard: boolean,
+	inWater: boolean?, -- swimming or frozen in the Lair lake: Krampus never swims
 	ignoreUntil: number?,
 }
 
@@ -42,11 +43,12 @@ function KrampusBrain.shouldTease(stopIndex: number, elapsed: number): boolean
 	return K.TeaseEnabled and stopIndex >= K.TeaseFrom and elapsed >= K.TeaseAt
 end
 
--- Nearest Santa he can sense: not hidden, not in his basket, not on the sleigh.
+-- Nearest Santa he can sense: not hidden, not in his basket, not on the
+-- sleigh, not in the water.
 function KrampusBrain.pickTarget(from: Vector3, candidates: { Candidate }, now: number): Candidate?
 	local best, bestDistance = nil, K.SenseRange
 	for _, c in candidates do
-		if not (c.hidden or c.captive or c.aboard) and now >= (c.ignoreUntil or 0) then
+		if not (c.hidden or c.captive or c.aboard or c.inWater) and now >= (c.ignoreUntil or 0) then
 			local distance = (c.position - from).Magnitude
 			if distance <= bestDistance then
 				best, bestDistance = c, distance

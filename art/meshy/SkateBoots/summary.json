@@ -1,0 +1,24 @@
+{
+  "bones": 0,
+  "children": [
+    "LeftBoot",
+    "RightBoot",
+    "Root"
+  ],
+  "imageAssetId": 104849074770600,
+  "meshParts": 2,
+  "meshStuds": [
+    2.7,
+    2.9,
+    1.6
+  ],
+  "modelAssetId": 91137738405302,
+  "name": "SkateBoots",
+  "primaryPart": "Root",
+  "removed": 2,
+  "sizeStuds": [
+    3.8,
+    3.8,
+    1.6
+  ]
+}

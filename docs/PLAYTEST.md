@@ -36,7 +36,10 @@ in the server's command bar, `require(game.ReplicatedStorage.Shared.Config).Run.
 | 4 | Stand on a garden wall or roof above a dog's path | No bumps | Height check |
 | 5 | Skate on a canal, fly through a gold **hoop** | Faster on ice (24), much faster for 1.5 s after a hoop (40), back to 16 on snow | FloorMaterial on a client-owned body |
 | 6 | Stop 2: stand in the **ice polisher**'s path | WHOOSH, you land by a snowbank | |
-| 7 | Stop 3, after the stomp: hop floe to floe; then step into the water and **keep walking** | Splash back onto a floe every time you touch water, including when you keep walking on it (the old bug let you stroll across) | Real jumping and landing |
+| 7 | Stop 3, after the stomp: hop the round floes; then drop into the water and **swim** | The lake ice vanishes and leaves water; you swim (no snap back onto a floe), with a BODY HEAT meter under the timer that empties in ~10 s. You can climb out onto a floe, the island's shore ice and the bridge | Terrain water and Roblox's swimming only exist in a real engine |
+| 7b | Keep swimming until the meter empties; then stand on the island by the fire pots | FROZEN SOLID: an ice cube for 3 s, then you're on the bridge or the island, slow for 4 s. By the fires the meter refills in about 1.5 s. Krampus walks the shore but never follows you in | |
+| 7d | Buy all four warm-gear pieces at the Wardrobe rack by the cocoa machine, then try each suit | Scarf on the neck, mittens on both hands, Duckie Ring round the hips, bottle on the chest, following the animations on every suit (needs the boots PR #39 for the gear to show). Note any suit that needs a nudge in `Config.Gear.SuitNudge` | Bones only move on a real client |
+| 7c | Swimming look | Santa paddles with his Walk clip (no Swim clip yet). Note if it looks silly enough to need a Meshy Swim clip | |
 | 8 | Player 2: get snatched; player 1 rings the bells from behind | Captive rides in the basket, drops behind Krampus, can walk off | |
 | 9 | Press reset mid-flight | You respawn seated in the sleigh | |
 | 10 | Blizzard (set `Config.MapEvents.Chance = 1` before take-off) | Fog really closes in (you can't see the end of the street), snow falls, it clears after; snowballs splat your crewmate | The 4 Nov fog bug: Atmosphere overrode the fog |
@@ -46,6 +49,8 @@ in the server's command bar, `require(game.ReplicatedStorage.Shared.Config).Run.
 | 14 | Santa: grab a present; bank a sack at the sleigh | Bend-over grab; Victory cheer, also seen by the other player | Client-played tracks must replicate |
 | 15 | **First-time tips** (fresh account, or Studio): spawn in the workshop | A gold tip card ("Follow the trail to a sleigh!"), a gold trail and ring on the Public bay, and a "First heist!" tag over your Santa that your friend can see | The trail is a client Beam; only a real client shows it |
 | 16 | Tips: play the first run | One tip at a time, never over a cutscene: sneak (trail to the nearest door), grab, carry, lights on, horn (trail back to the ring), banked, Lair, Krampus, done. The tag goes after the run | |
+| 18 | **Boots** (once `SkateBoots` is imported and `ready`): give yourself Coal in the command bar, buy Blade Skates in the shop, then change suits | Boots stay on both feet, follow the legs when walking and cheering, and fit every suit (watch Chrome Puffer's chunky legs) | Bone-following only shows on a real client. Nudge with `Config.Gear.SuitNudge` |
+| 19 | Boots: skate a canal and a hoop, next to a friend without boots | 36 on ice (friend 30) and 48 after a hoop. A gold scratch trail shows only on ice | |
 | 17 | Tips: second run on the same account; then press X on a tip on another account | No repeats. X hides the card and trail and no tips come back | Saved only once the store thread's PlayerData is plugged in; until then progress resets when the server restarts |
 
 ## 2. Phone (5 min)
@@ -65,6 +70,7 @@ Staging.
 | 8 | Level of detail: ride the sleigh from Stop 1 to Stop 2 | Stop 1's bulbs and trim fade out behind you and Stop 2 is fully dressed before you land. No hole in the street, no tree popping in right next to you |
 | 9 | Level of detail on/off: in the Studio command bar run `workspace:SetAttribute("DetailOff", true)`, then `nil` | With it off the frame rate drops at Stop 1 (that's what the culler saves). If a part you can see up close vanishes with it on, note its name |
 | 10 | Respawn or get snatched by Krampus | Nothing missing under your feet when you land (a camera jump brings everything near back that frame) |
+| 11 | The Lair lake: swim | The water surface sits just under the floes and the island ice (no gap you can see under them), no frame hitch when the lake fills on landing |
 
 ## 3. Lobby to Run place (Staging only)
 

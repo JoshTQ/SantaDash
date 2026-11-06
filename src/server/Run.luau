@@ -36,7 +36,10 @@ local SantaCharacter = require(script.Parent.SantaCharacter)
 local HouseKit = require(script.Parent.HouseKit)
 local LairBuilder = require(script.Parent.LairBuilder)
 local Store = require(script.Parent.Store)
+local ServerWardrobe = require(script.Parent.Wardrobe)
 local StoreRules = require(ReplicatedStorage.Shared.StoreRules)
+local Wardrobe = require(ReplicatedStorage.Shared.Wardrobe)
+local BodyHeat = require(ReplicatedStorage.Shared.BodyHeat)
 
 local now, rootOf, humanoidOf = Util.now, Util.rootOf, Util.humanoidOf
 
@@ -49,6 +52,10 @@ type PlayerState = Loot.PlayerState & {
 	breath: number,
 	lastTapAt: number,
 	characterConnection: RBXScriptConnection,
+	wardrobe: { [string]: boolean }, -- warm gear owned this run (shared/Wardrobe)
+	swimming: boolean?, -- in the Lair lake's water (server/Swimming)
+	frozen: boolean?, -- stuck in an ice cube after running out of body heat
+	soggyUntil: number?, -- slow after thawing
 }
 
 local TICK = 0.25
@@ -244,6 +251,7 @@ function Run:_addPlayer(player: Player)
 	st.captive = false
 	st.breath = 1
 	st.lastTapAt = 0
+	st.wardrobe = {}
 	-- Respawns (reset button, falling off the map) put you back on the sleigh.
 	st.characterConnection = player.CharacterAdded:Connect(function(character)
 		character:WaitForChild("HumanoidRootPart", 5)
@@ -256,6 +264,7 @@ function Run:_addPlayer(player: Player)
 				self.krampus:release()
 			end
 			self:_applyPerks(player)
+			ServerWardrobe.dress(player, st.wardrobe) -- warm gear survives a respawn
 			local root = character:FindFirstChild("HumanoidRootPart")
 			if self.flightSeats and root then
 				-- Mid-flight: ride the rest of the way in a seat, not fall off.
@@ -305,6 +314,12 @@ function Run:baseWalkSpeed(st: PlayerState): number
 	if st.fastSneak and self.phase == "Sneak" then
 		speed += Config.Store.FastSneakBonus
 	end
+	if st.swimming then
+		speed += Wardrobe.swimSpeed(st.wardrobe)
+	end
+	if (st.soggyUntil or 0) > now() then
+		speed = math.min(speed, Config.BodyHeat.SoggyWalkSpeed)
+	end
 	return speed
 end
 
@@ -318,6 +333,9 @@ end
 
 function Run:_resetCharacter(player: Player)
 	SantaCharacter.setSneaking(player, false)
+	player:SetAttribute(BodyHeat.ATTRIBUTE, nil)
+	player:SetAttribute(BodyHeat.FROZEN_ATTRIBUTE, nil)
+	ServerWardrobe.undress(player) -- warm gear is for this run only
 	local humanoid = humanoidOf(player)
 	if humanoid then
 		humanoid.WalkSpeed = Config.Player.WalkSpeed
@@ -331,7 +349,7 @@ end
 -- The state of a Santa who is free to act (not snatched, not in a wardrobe).
 function Run:_free(player: Player): PlayerState?
 	local st = self.players[player]
-	if st and not st.captive and not st.hidden and not self.ended then
+	if st and not st.captive and not st.hidden and not st.frozen and not self.ended then
 		return st
 	end
 	return nil
@@ -358,6 +376,11 @@ function Run:_wirePrompts()
 		on(stop.cocoaPrompt, function(player)
 			self:_buyPeppermintRush(player)
 		end)
+		for id, prompt in stop.wardrobePrompts or {} do
+			on(prompt, function(player)
+				ServerWardrobe.buy(self, player, id)
+			end)
+		end
 		if stop.vaultPrompt then
 			on(stop.vaultPrompt, function(player)
 				self:_buyVault(player, stop)
@@ -688,6 +711,7 @@ function Run:krampusCandidates(ignore: { [Player]: number }): { KrampusBrain.Can
 				hidden = st.hidden ~= nil,
 				captive = st.captive,
 				aboard = MapBuilder.isAboard(self.deck, root.Position),
+				inWater = st.swimming == true or st.frozen == true,
 				ignoreUntil = ignore[player],
 			})
 		end
