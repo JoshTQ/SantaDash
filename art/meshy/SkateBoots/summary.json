@@ -5,19 +5,19 @@
     "RightBoot",
     "Root"
   ],
-  "imageAssetId": 104849074770600,
+  "imageAssetId": 137408115587789,
   "meshParts": 2,
   "meshStuds": [
-    2.7,
-    2.9,
+    0.9,
+    1.7,
     1.6
   ],
-  "modelAssetId": 91137738405302,
+  "modelAssetId": 89221429072903,
   "name": "SkateBoots",
   "primaryPart": "Root",
   "removed": 2,
   "sizeStuds": [
-    3.8,
+    2,
     3.8,
     1.6
   ]

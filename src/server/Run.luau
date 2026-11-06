@@ -19,6 +19,7 @@ local SantaMoves = require(ReplicatedStorage.Shared.SantaMoves)
 local SleighFlight = require(ReplicatedStorage.Shared.SleighFlight)
 local SoundPlayer = require(ReplicatedStorage.Shared.SoundPlayer)
 local Util = require(ReplicatedStorage.Shared.Util)
+local AlarmDogs = require(script.Parent.AlarmDogs)
 local Assets = require(script.Parent.Assets)
 local ElfBot = require(script.Parent.ElfBot)
 local ElfBrain = require(script.Parent.ElfBrain)
@@ -29,6 +30,7 @@ local MapBuilder = require(script.Parent.MapBuilder)
 local MapEventBrain = require(script.Parent.MapEventBrain)
 local MapEvents = require(script.Parent.MapEvents)
 local MapFeatures = require(script.Parent.MapFeatures)
+local NoiseAlarm = require(script.Parent.NoiseAlarm)
 local Onboarding = require(script.Parent.Onboarding)
 local SantaCharacter = require(script.Parent.SantaCharacter)
 local HouseKit = require(script.Parent.HouseKit)
@@ -219,6 +221,12 @@ function Run:_sendStop()
 		isFinale = stop ~= nil and stop.plan.escapeMultiplier ~= nil,
 		phase = self.phase,
 		departAt = self.times.departAt,
+		-- What a full noise meter brings here (the HUD says so under the meter).
+		noiseThreat = if stop == nil
+			then nil
+			elseif NoiseAlarm.applies(self.stopIndex, stop.plan.kindName) then "dogs"
+			elseif self.stopIndex >= Config.Krampus.NoiseArrivalFrom then "krampus"
+			else nil,
 	})
 end
 
@@ -1044,6 +1052,23 @@ function Run:_playStop(stop): { Player }
 	self:_startSnores(stop)
 	self:_teachLanding(stop)
 
+	-- The horn: at HornAt, or early when a full noise meter sets off the alarm
+	-- (NoiseAlarm). It sounds once per stop and only ever brings departure closer.
+	local hornSounded = false
+	local function soundHorn(banner: string?)
+		if hornSounded then
+			return
+		end
+		hornSounded = true
+		self.times.departAt = NoiseAlarm.departAt(now(), self.times.departAt)
+		local left = math.max(0, math.ceil(self.times.departAt - now()))
+		self:_banner(nil, (banner or "HONK! The sleigh leaves in %d seconds!"):format(left), 3)
+		self:_lairCue(stop, "CuckooAt")
+		Onboarding.teachAll(self.order, "Horn", function()
+			return stop.deckCFrame.Position
+		end)
+	end
+
 	-- Timed phases, entered in order once their time has passed.
 	local phases = {
 		{
@@ -1054,7 +1079,9 @@ function Run:_playStop(stop): { Player }
 					light.Enabled = true
 				end
 				self:_wakeParents(stop)
-				self:_banner(nil, "Lights on! Everyone's awake. The NOISE meter is filling up!", 3)
+				if not hornSounded then -- the alarm horn's countdown banner wins
+					self:_banner(nil, "Lights on! Everyone's awake. The NOISE meter is filling up!", 3)
+				end
 				Onboarding.teachAll(self.order, "LightsOn")
 			end,
 		},
@@ -1062,12 +1089,7 @@ function Run:_playStop(stop): { Player }
 			at = t0 + Config.Run.HornAt,
 			phase = "Horn",
 			enter = function()
-				local left = Config.Run.StopSeconds - Config.Run.HornAt
-				self:_banner(nil, "HONK! The sleigh leaves in " .. left .. " seconds!", 3)
-				self:_lairCue(stop, "CuckooAt")
-				Onboarding.teachAll(self.order, "Horn", function()
-					return stop.deckCFrame.Position
-				end)
+				soundHorn()
 			end,
 		},
 	}
@@ -1079,6 +1101,7 @@ function Run:_playStop(stop): { Player }
 	end)
 	local nextPhase = 1
 	local teased = false
+	local alarmed = false
 
 	while true do
 		task.wait(TICK)
@@ -1089,7 +1112,9 @@ function Run:_playStop(stop): { Player }
 		while phases[nextPhase] and t >= phases[nextPhase].at do
 			local p = phases[nextPhase]
 			nextPhase += 1
-			self.phase = p.phase or self.phase -- map event phases keep the stop's phase
+			-- Map event phases keep the stop's phase, and an early alarm horn
+			-- isn't undone by the lights coming on afterwards.
+			self.phase = if p.phase then NoiseAlarm.nextPhase(self.phase, p.phase) else self.phase
 			p.enter()
 			if p.phase then
 				self:_sendStop()
@@ -1097,6 +1122,22 @@ function Run:_playStop(stop): { Player }
 		end
 		if self.phase ~= "Sneak" then
 			self:_addNoise(Config.Noise.LightsOnPerSecond * TICK)
+		end
+		if self.noiseFull and not alarmed and NoiseAlarm.applies(plan.index, plan.kindName) then
+			alarmed = true
+			local ok, cleanup = pcall(AlarmDogs.start, self, stop)
+			if ok then
+				table.insert(self.featureCleanups, cleanup)
+			else
+				warn("[Run] alarm dogs failed to start: " .. tostring(cleanup))
+			end
+			if hornSounded then
+				self:_banner(nil, "TOO NOISY! Security dogs are loose!", 3)
+			else
+				soundHorn("TOO NOISY! Security dogs are loose, and the sleigh leaves in %d seconds!")
+				self.phase = "Horn"
+				self:_sendStop()
+			end
 		end
 		if not self.krampus then
 			if KrampusBrain.shouldArrive(plan.index, plan.kindName, t - t0, self.noiseFull) then

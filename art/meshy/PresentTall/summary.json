@@ -3,14 +3,14 @@
   "children": [
     "Box"
   ],
-  "imageAssetId": 120543067518378,
+  "imageAssetId": 88885061755676,
   "meshParts": 1,
   "meshStuds": [
     0.6,
     2,
     0.9
   ],
-  "modelAssetId": 130755697340999,
+  "modelAssetId": 91305450738183,
   "name": "PresentTall",
   "primaryPart": "Box",
   "removed": 1,

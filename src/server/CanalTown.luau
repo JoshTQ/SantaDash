@@ -28,8 +28,7 @@ local Util = require(ReplicatedStorage.Shared.Util)
 local Assets = require(script.Parent.Assets)
 local CanalRules = require(script.Parent.CanalRules)
 local Boots = require(script.Parent.Boots)
-local Knockback = require(script.Parent.Knockback)
-local Loot = require(script.Parent.Loot)
+local DogBump = require(script.Parent.DogBump)
 local Swimming = require(script.Parent.Swimming)
 
 local C = Config.Canal
@@ -1032,7 +1031,6 @@ function ChristmasMarket.start(ctx)
 		return nil
 	end
 	local dogs = {}
-	local dropped = {}
 	for _, spec in stop.canal.dogs do
 		local model = Assets.clone(spec.kind, { "Humanoid", "HumanoidRootPart" }) or standInDog(spec.kind)
 		for _, p in model:GetDescendants() do
@@ -1055,38 +1053,7 @@ function ChristmasMarket.start(ctx)
 		})
 	end
 
-	local function dropPresent(player: Player, at: Vector3, value: number)
-		local box = Instance.new("Part")
-		box.Name = "DroppedPresent"
-		box.Size = Vector3.one * 1.8
-		box.CFrame = CFrame.new(at + Vector3.new(0, 0.9, 0))
-		box.Color = Color3.fromRGB(230, 50, 60)
-		box.Anchored = true
-		local prompt = Instance.new("ProximityPrompt")
-		prompt.ActionText = "Grab"
-		prompt.ObjectText = "Present"
-		prompt.HoldDuration = Config.Presents.GrabHoldSeconds
-		prompt.MaxActivationDistance = 10
-		prompt.RequiresLineOfSight = false
-		prompt.Parent = box
-		local model = Instance.new("Model")
-		model.Name = "DroppedPresent"
-		box.Parent = model
-		model.PrimaryPart = box
-		model.Parent = run.route.model
-		-- ringMultiplier 0 and regrab: picking a present back up earns no
-		-- Jingle and doesn't count as another grab on the results screen.
-		local present = {
-			model = model,
-			prompt = prompt,
-			plan = { size = 1, value = value, ringMultiplier = 0, threats = 0, regrab = true },
-		}
-		prompt.Triggered:Connect(function(by)
-			run:_grab(by, present)
-		end)
-		table.insert(dropped, model)
-		run:_banner(player, "WOOF! A corgi knocked a present out of your sack. Grab it back!", 2.5)
-	end
+	local dropper = DogBump.dropper(run, run.route.model)
 
 	local connection = RunService.Heartbeat:Connect(function(dt)
 		local t = Util.now()
@@ -1118,30 +1085,18 @@ function ChristmasMarket.start(ctx)
 				if (dog.hitAt[player] or 0) + C.Dogs.CorgiCooldown < t then
 					if CanalRules.inReach(root.CFrame.Position, pos, C.Dogs.HitRadius) then
 						dog.hitAt[player] = t
-						local push = Knockback.velocity(offset, facing, C.Dogs.Knockback)
-						local away = Vector3.new(push.X, 0, push.Z).Unit
-						Knockback.apply(root, push)
-						SoundPlayer.at(if corgi then "CorgiWoof" else "TinDogBonk", dog.emitter or at)
-						if corgi then
-							local st = run.players[player]
-							local value = Loot.dropOne(st)
-							if value then
-								run:_sendPlayer(player)
-								dropPresent(
-									player,
-									root.CFrame.Position + away * 6 - Vector3.new(0, 2.5, 0),
-									value
-								)
-							else
-								run:_banner(
-									player,
-									"WOOF! The corgi bumped you. Your sack is empty, lucky!",
-									2
-								)
-							end
-						else
-							dog.pausedUntil = t + C.Dogs.TinWindDown
-							run:_banner(player, "BONK! The tin dog winds down... sneak past now!", 2)
+						local pause = DogBump.hit(
+							run,
+							dropper,
+							dog.spec.kind,
+							player,
+							root,
+							pos,
+							facing,
+							dog.emitter or at
+						)
+						if pause > 0 then
+							dog.pausedUntil = t + pause
 						end
 					end
 				end
@@ -1154,9 +1109,7 @@ function ChristmasMarket.start(ctx)
 		for _, dog in dogs do
 			dog.model:Destroy()
 		end
-		for _, model in dropped do
-			model:Destroy()
-		end
+		dropper.cleanup()
 	end
 end
 

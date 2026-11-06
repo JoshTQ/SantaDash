@@ -5,14 +5,14 @@
     "Humanoid",
     "HumanoidRootPart"
   ],
-  "imageAssetId": 117061296021664,
+  "imageAssetId": 83499841420157,
   "meshParts": 1,
   "meshStuds": [
     2.1,
     2.4,
     4.6
   ],
-  "modelAssetId": 96290151455771,
+  "modelAssetId": 88665432879238,
   "name": "DogTin",
   "primaryPart": "HumanoidRootPart",
   "removed": 1,
