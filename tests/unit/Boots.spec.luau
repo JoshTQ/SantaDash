@@ -65,17 +65,18 @@ local function character()
 end
 
 describe("Boots.apply", function()
-	local boot
+	local boot, was
 	beforeEach(function()
 		services.ServerStorage:ClearAllChildren()
 		rig("Santa").Parent = assetsFolder()
 		rig("SantaShark").Parent = assetsFolder()
 		skates().Parent = assetsFolder()
 		boot = BootRules.get("SkateBoots")
+		was = boot.ready
 		boot.ready = true
 	end)
 	afterEach(function()
-		boot.ready = false
+		boot.ready = was
 	end)
 
 	it("puts one pair on, with speeds and a trail that shows only on ice", function()

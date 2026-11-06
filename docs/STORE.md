@@ -67,8 +67,8 @@ hoops 48 instead of 40) and a gold scratch trail under the blades. They're kept 
 - A Robux style (`style = true, base = "SkateBoots"`) is cosmetic only: it
   gives no speed unless you own the Coal boots too. That rules out pay-to-win.
   No styles yet. They're planned after Meshy's credits reset on Dec 5.
-- `ready = false` until Josh approves the 3D preview and the `SkateBoots`
-  model (LeftBoot + RightBoot, each with `FollowBone`) is imported.
+- Approved 6 Nov and made in Meshy (`assets/models/SkateBoots.rbxm`:
+  LeftBoot and RightBoot, each with `FollowBone`), so the boots are on sale.
 
 ## Going live (Josh)
 
