@@ -195,15 +195,22 @@ describe("ice rink polisher", function()
 end)
 
 describe("floe hop", function()
-	local function waterPoint(CanalRules, zone, standHeight: number): Vector3
+	local function boxesOf(world, zone)
+		local CanalTown = world.load("ServerScriptService.Server.CanalTown")
 		local boxes = {}
 		for _, floe in zone:FindFirstChild("Floes"):GetChildren() do
-			table.insert(boxes, { cframe = floe.CFrame, size = floe.Size })
+			table.insert(boxes, CanalTown.floeBox(floe))
 		end
+		return boxes
+	end
+
+	local function waterPoint(world, CanalRules, zone, standHeight: number): Vector3
+		local boxes = boxesOf(world, zone)
 		local box = { cframe = zone.CFrame, size = zone.Size }
 		local top = zone.CFrame.Position.Y + zone.Size.Y / 2
-		for x = -100, 100, 1.5 do
-			for z = -150, 150, 1.5 do
+		local hx, hz = zone.Size.X / 2 - 1, zone.Size.Z / 2 - 1
+		for x = -math.min(hx, 100), math.min(hx, 100), 1.5 do
+			for z = -math.min(hz, 150), math.min(hz, 150), 1.5 do
 				local p = (zone.CFrame * CFrame.new(x, 0, z)).Position
 				p = Vector3.new(p.X, top + standHeight, p.Z)
 				if CanalRules.inWater(box, boxes, p, standHeight) then
@@ -211,44 +218,52 @@ describe("floe hop", function()
 				end
 			end
 		end
-		error("no open water in the lake")
+		error("no open water in the zone")
 	end
 
+	-- Round floes: on one if within a disc's radius, above it.
 	local function onAFloe(zone, at: Vector3): boolean
 		for _, floe in zone:FindFirstChild("Floes"):GetChildren() do
-			local q = floe.CFrame:PointToObjectSpace(at)
-			if math.abs(q.X) <= floe.Size.X / 2 and math.abs(q.Z) <= floe.Size.Z / 2 and q.Y > 0 then
+			local c = floe.CFrame.Position
+			local flat = Vector3.new(at.X - c.X, 0, at.Z - c.Z).Magnitude
+			if flat <= floe.Size.Z / 2 and at.Y > c.Y then
 				return true
 			end
 		end
 		return false
 	end
 
-	it("keeps splashing a Santa who keeps walking on the water", function()
-		local world, engine, Config, Run, players = boot()
+	-- Thin Ice on a canal (no terrain water there) still SPLOOSHes you back
+	-- onto a floe, polled so walking on the water can't dodge it.
+	it("keeps splashing a Santa who keeps walking on broken canal ice", function()
+		local world, engine, _, Run, players = boot()
 		local santa = players[1]
 		local CanalRules = world.load("ServerScriptService.Server.CanalRules")
+		local CanalTown = world.load("ServerScriptService.Server.CanalTown")
 		world.run(function()
-			local run = startAtStop(world, Run, players, 3)
-			local lake = run.route.stops[3].canal.lake
-			world.wait(Config.Canal.StompDelay + 0.5)
-			expect(lake:GetAttribute("Broken")).toBe(true)
-			if run.krampus then
-				run.krampus.stunnedUntil = math.huge -- this test is about water
+			local run = startAtStop(world, Run, players, 1)
+			local zone
+			for _, z in run.route.stops[1].canal.splashZones do
+				if z:GetAttribute("CrackZone") then
+					zone = z
+					break
+				end
 			end
-			local water = waterPoint(CanalRules, lake, 3)
+			assert(zone, "no Thin Ice segment on stop 1")
+			CanalTown.breakZone(zone, Random.new(2))
+			local water = waterPoint(world, CanalRules, zone, 3)
 
 			engine:teleport(santa, water)
 			world.wait(0.3)
 			expect(banners(engine, santa, "SPLOOSH")).toBe(1)
-			expect(onAFloe(lake, santa.Character.HumanoidRootPart.Position)).toBe(true)
+			expect(onAFloe(zone, santa.Character.HumanoidRootPart.Position)).toBe(true)
 
 			-- Straight back onto the water inside the 1 s cooldown, then stay
 			-- there: the old Touched splash never fired again.
 			engine:teleport(santa, water)
 			world.wait(2)
 			expect(banners(engine, santa, "SPLOOSH")).toBe(2)
-			expect(onAFloe(lake, santa.Character.HumanoidRootPart.Position)).toBe(true)
+			expect(onAFloe(zone, santa.Character.HumanoidRootPart.Position)).toBe(true)
 			run.ended = true
 		end)
 	end)
@@ -265,10 +280,10 @@ describe("floe hop", function()
 				run.krampus.stunnedUntil = math.huge
 			end
 			local floe = lake:FindFirstChild("Floes"):GetChildren()[1]
-			local top = floe.CFrame.Position.Y + floe.Size.Y / 2
+			local top = floe.CFrame.Position.Y + floe.Size.X / 2
 			engine:teleport(santa, Vector3.new(floe.CFrame.Position.X, top + 3, floe.CFrame.Position.Z))
 			world.wait(1.5)
-			local water = waterPoint(CanalRules, lake, 3)
+			local water = waterPoint(world, CanalRules, lake, 3)
 			engine:teleport(santa, water + Vector3.new(0, 4, 0)) -- mid-hop
 			world.wait(1.5)
 			expect(banners(engine, santa, "SPLOOSH")).toBe(0)
@@ -287,6 +302,116 @@ describe("floe hop", function()
 			engine:teleport(santa, zone.CFrame.Position + Vector3.new(0, top + 3 - zone.CFrame.Position.Y, 0))
 			world.wait(1.5)
 			expect(banners(engine, santa, "SPLOOSH")).toBe(0)
+			run.ended = true
+		end)
+	end)
+end)
+
+-- Josh's playtest (6 Nov 2026): the Lair's water was glitchy (a fall
+-- snapped you back onto a floe) and the floes were all rectangles. Now the
+-- lake is real water: you swim, body heat drains, and at zero you freeze
+-- and wash ashore. Krampus never swims.
+describe("Lair swimming and body heat", function()
+	local function lakeRun(world, Run, players, Config)
+		local run = startAtStop(world, Run, players, 3)
+		world.wait(Config.Canal.StompDelay + 0.5)
+		if run.krampus then
+			run.krampus.stunnedUntil = math.huge -- this is about water
+		end
+		return run, run.route.stops[3].canal.lake
+	end
+
+	local function swimAt(engine, santa, at: Vector3)
+		engine:teleport(santa, at)
+		santa.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Swimming)
+	end
+
+	it("the stomp clears the ice away and leaves round floes, with no SPLOOSH snap", function()
+		local world, engine, Config, Run, players = boot()
+		local santa = players[1]
+		world.run(function()
+			local run, lake = lakeRun(world, Run, players, Config)
+			expect(lake:GetAttribute("Broken")).toBe(true)
+			expect(lake.CanCollide).toBe(false)
+			expect(lake.Transparency).toBe(1)
+			for _, floe in lake:FindFirstChild("Floes"):GetChildren() do
+				expect(floe.Shape).toBe(Enum.PartType.Cylinder)
+			end
+			swimAt(engine, santa, lake.CFrame.Position + Vector3.new(60, 0, 0))
+			world.wait(1)
+			expect(banners(engine, santa, "SPLOOSH")).toBe(0)
+			run.ended = true
+		end)
+	end)
+
+	it("swimming drains body heat; at zero you freeze, wash ashore and come back soggy", function()
+		local world, engine, Config, Run, players = boot()
+		local santa = players[1]
+		world.run(function()
+			local run, lake = lakeRun(world, Run, players, Config)
+			local st = run.players[santa]
+			local at = lake.CFrame.Position + Vector3.new(80, 0, 0)
+			swimAt(engine, santa, at)
+			world.wait(Config.BodyHeat.SwimSeconds / 2)
+			local half = santa:GetAttribute("BodyHeat")
+			expect(half).toBeLessThan(0.6)
+			expect(half).toBeGreaterThan(0.3)
+			expect(st.swimming).toBe(true)
+
+			world.wait(Config.BodyHeat.SwimSeconds / 2 + 0.3)
+			expect(st.frozen).toBe(true)
+			expect(santa:GetAttribute("Frozen")).toBe(true)
+			expect(santa.Character.HumanoidRootPart.Anchored).toBe(true)
+			expect(banners(engine, santa, "FROZEN SOLID")).toBe(1)
+			expect(run:_free(santa)).toBeNil() -- no buying or grabbing in an ice cube
+
+			santa.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Running)
+			world.wait(Config.BodyHeat.FrozenSeconds + 0.3)
+			expect(st.frozen).toBe(false)
+			expect(santa:GetAttribute("Frozen")).toBeNil()
+			expect(santa.Character.HumanoidRootPart.Anchored).toBe(false)
+			-- Washed up on the bridge or the island, not left in the water.
+			local swim = run.route.stops[3].canal.swim
+			local p = santa.Character.HumanoidRootPart.Position
+			local flat = Vector3.new(p.X - swim.island.X, 0, p.Z - swim.island.Z).Magnitude
+			local onBridge = math.abs(
+				(p - swim.bridgeFrom):Dot((swim.bridgeTo - swim.bridgeFrom).Unit:Cross(Vector3.yAxis))
+			) < 1
+			expect(flat < swim.islandRadius or onBridge).toBe(true)
+			expect(run:baseWalkSpeed(st)).toBe(Config.BodyHeat.SoggyWalkSpeed)
+			world.wait(Config.BodyHeat.SoggySeconds + 0.2)
+			expect(run:baseWalkSpeed(st)).toBe(Config.Player.WalkSpeed)
+			run.ended = true
+		end)
+	end)
+
+	it("heat comes back on land, fastest by the island's fires", function()
+		local world, engine, Config, Run, players = boot()
+		local santa = players[1]
+		world.run(function()
+			local run, lake = lakeRun(world, Run, players, Config)
+			swimAt(engine, santa, lake.CFrame.Position + Vector3.new(80, 0, 0))
+			world.wait(Config.BodyHeat.SwimSeconds / 2)
+			local swim = run.route.stops[3].canal.swim
+			engine:teleport(santa, swim.island + Vector3.new(0, 3, 0))
+			santa.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Running)
+			world.wait(Config.BodyHeat.FireRecoverSeconds)
+			expect(santa:GetAttribute("BodyHeat")).toBe(1)
+			run.ended = true
+		end)
+	end)
+
+	it("Krampus won't chase a Santa in the water", function()
+		local world, engine, Config, Run, players = boot({ "A" })
+		local santa = players[1]
+		world.run(function()
+			local run, lake = lakeRun(world, Run, players, Config)
+			swimAt(engine, santa, lake.CFrame.Position + Vector3.new(60, 0, 0))
+			world.wait(0.3)
+			local list = run:krampusCandidates({})
+			expect(list[1].inWater).toBe(true)
+			local KrampusBrain = world.load("ServerScriptService.Server.KrampusBrain")
+			expect(KrampusBrain.pickTarget(list[1].position, list, math.huge)).toBeNil()
 			run.ended = true
 		end)
 	end)

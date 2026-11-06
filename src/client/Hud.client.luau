@@ -11,6 +11,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
+local BodyHeat = require(ReplicatedStorage.Shared.BodyHeat)
 local Config = require(ReplicatedStorage.Shared.Config)
 local HudLayout = require(ReplicatedStorage.Shared.HudLayout)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
@@ -212,6 +213,27 @@ quitButton.Visible = false
 local eventPanel = panel(UDim2.fromOffset(240, 34), UDim2.new(0.5, 0, 0, 98), Vector2.new(0.5, 0))
 eventPanel.BackgroundColor3 = Color3.fromRGB(60, 110, 170)
 local eventLabel = label(eventPanel, UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), 22)
+
+-- Under that: body heat in Krampus's Lair (server/Swimming sets the player
+-- attributes). Only shows while you're cooling down or warming back up.
+local heatPanel = panel(UDim2.fromOffset(260, 58), UDim2.new(0.5, 0, 0, 138), Vector2.new(0.5, 0))
+local heatLabel = label(heatPanel, UDim2.new(1, 0, 0, 24), UDim2.fromOffset(0, 2), 18)
+local heatFill = bar(heatPanel, UDim2.fromOffset(10, 30))
+heatPanel.Visible = false
+local function showHeat()
+	local heat = player:GetAttribute(BodyHeat.ATTRIBUTE)
+	local frozen = player:GetAttribute(BodyHeat.FROZEN_ATTRIBUTE) == true
+	if type(heat) ~= "number" then
+		heatPanel.Visible = false
+		return
+	end
+	heatPanel.Visible = BodyHeat.visible(heat, frozen)
+	heatLabel.Text = BodyHeat.label(heat, frozen)
+	heatLabel.TextColor3 = if heat < 0.3 or frozen then Color3.fromRGB(140, 210, 255) else Color3.new(1, 1, 1)
+	setBar(heatFill, heat, Color3.fromRGB(90, 170, 255), Color3.fromRGB(255, 140, 60))
+end
+player:GetAttributeChangedSignal(BodyHeat.ATTRIBUTE):Connect(showHeat)
+player:GetAttributeChangedSignal(BodyHeat.FROZEN_ATTRIBUTE):Connect(showHeat)
 
 -- Bottom right (above the jump button on phones): snowballs and the throw
 -- button (F / R2 / tap).

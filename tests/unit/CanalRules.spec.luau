@@ -31,14 +31,41 @@ test("canal ice by the stops never cracks; the middle is split into pieces", fun
 	expect(cracks).toBeGreaterThan(3)
 end)
 
-test("floes leave hoppable gaps and keep clear of the island", function()
+test("floes are round and lumpy, keep their gaps, stay hoppable and clear of the island", function()
 	local floes = CanalRules.floeLayout(300, 340, Random.new(4), { { x = 0, z = 0, radius = 40 } })
 	expect(#floes).toBeGreaterThan(200)
-	for _, f in floes do
+	local lumpy = 0
+	local discs = {}
+	for i, f in floes do
 		expect(f.sizeX).toBeLessThan(C.FloeCell)
-		expect(f.sizeX).toBeGreaterThan(C.FloeCell - 5)
-		local d = math.sqrt(f.x * f.x + f.z * f.z)
-		expect(d).toBeGreaterThan(40)
+		expect(f.sizeZ).toBeLessThan(C.FloeCell)
+		if #f.discs > 1 then
+			lumpy += 1
+		end
+		for _, d in f.discs do
+			expect(math.sqrt(d.x * d.x + d.z * d.z)).toBeGreaterThan(40)
+			table.insert(discs, { x = d.x, z = d.z, r = d.r, floe = i })
+		end
+	end
+	-- Not a grid of identical shapes (Josh's playtest, 6 Nov 2026).
+	expect(lumpy).toBeGreaterThan(#floes * 0.3)
+	expect(lumpy).toBeLessThan(#floes * 0.9)
+	-- Different floes never touch, and every floe has a neighbour within a hop.
+	local nearestGap = {}
+	for i = 1, #discs do
+		local a = discs[i]
+		for j = i + 1, #discs do
+			local b = discs[j]
+			if a.floe ~= b.floe then
+				local gap = math.sqrt((a.x - b.x) ^ 2 + (a.z - b.z) ^ 2) - a.r - b.r
+				expect(gap).toBeGreaterThan(C.FloeGap[1] - 1e-6)
+				nearestGap[a.floe] = math.min(nearestGap[a.floe] or math.huge, gap)
+				nearestGap[b.floe] = math.min(nearestGap[b.floe] or math.huge, gap)
+			end
+		end
+	end
+	for _, gap in nearestGap do
+		expect(gap).toBeLessThan(7.5)
 	end
 end)
 
