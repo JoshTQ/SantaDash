@@ -147,12 +147,39 @@ for _, l in { jingleLabel, sackLabel, bankedLabel } do
 end
 jingleLabel.TextColor3 = GOLD
 
--- Top right: noise meter and Krampus bells.
-local noisePanel = panel(UDim2.fromOffset(240, 84), UDim2.new(1, -12, 0, 8), Vector2.new(1, 0))
-label(noisePanel, UDim2.new(1, 0, 0, 22), UDim2.fromOffset(0, 2), 18).Text = "NOISE"
-local noiseFill = bar(noisePanel, UDim2.fromOffset(10, 28))
-local bellsLabel = label(noisePanel, UDim2.new(1, 0, 0, 26), UDim2.fromOffset(0, 52), 20)
+-- Top right: noise meter (what a full meter brings, and a red glow as it
+-- nears full) and Krampus bells.
+local noisePanel = panel(UDim2.fromOffset(270, 104), UDim2.new(1, -12, 0, 8), Vector2.new(1, 0))
+local noiseTitle = label(noisePanel, UDim2.new(1, 0, 0, 24), UDim2.fromOffset(0, 2), 22)
+noiseTitle.Text = "NOISE 0%"
+local noiseFill = bar(noisePanel, UDim2.fromOffset(10, 30))
+local noiseBack = noiseFill.Parent :: Frame
+noiseBack.Size = UDim2.new(1, -20, 0, 24)
+local noiseHint = label(noisePanel, UDim2.new(1, 0, 0, 20), UDim2.fromOffset(0, 56), 16)
+local bellsLabel = label(noisePanel, UDim2.new(1, 0, 0, 24), UDim2.fromOffset(0, 78), 20)
 bellsLabel.TextColor3 = RED
+local noiseGlow = Instance.new("UIStroke")
+noiseGlow.Color = RED
+noiseGlow.Thickness = 0
+noiseGlow.Parent = noisePanel
+local noiseLevel = 0 -- 0..1, the last meter value
+local NOISE_HINT = {
+	dogs = "Fills up = guard dogs + early horn!",
+	krampus = "Fills up = KRAMPUS comes!",
+}
+
+-- The glow pulses once the meter is three-quarters full.
+task.spawn(function()
+	while true do
+		local t = os.clock()
+		if noisePanel.Visible and noiseLevel >= 0.75 then
+			noiseGlow.Thickness = if noiseLevel >= 1 then 4 else 2 + math.sin(t * 8) * 1.5
+		else
+			noiseGlow.Thickness = 0
+		end
+		task.wait(0.05)
+	end
+end)
 
 -- Red edge glow while Krampus is near.
 local vignette = Instance.new("Frame")
@@ -334,6 +361,7 @@ function handlers.Stop(data)
 	else
 		stopLabel.Text = "STOP " .. data.stop .. "/" .. HOUSE_STOPS .. " · " .. phase
 	end
+	noiseHint.Text = NOISE_HINT[data.noiseThreat or ""] or ""
 	local horn = data.phase == "Horn"
 	stopLabel.TextColor3 = if horn then RED else WHITE
 	timerLabel.TextColor3 = if horn then RED else WHITE
@@ -347,7 +375,12 @@ function handlers.Banner(data)
 end
 
 function handlers.Noise(data)
-	setBar(noiseFill, data.value / Config.Noise.Max, Color3.fromRGB(120, 220, 120), RED)
+	noiseLevel = math.clamp(data.value / Config.Noise.Max, 0, 1)
+	setBar(noiseFill, noiseLevel, Color3.fromRGB(120, 220, 120), RED)
+	noiseTitle.Text = if noiseLevel >= 1
+		then "NOISE FULL!"
+		else ("NOISE %d%%"):format(math.floor(noiseLevel * 100))
+	noiseTitle.TextColor3 = if noiseLevel >= 0.75 then RED else WHITE
 end
 
 function handlers.Player(data)
