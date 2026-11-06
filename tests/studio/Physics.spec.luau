@@ -151,18 +151,15 @@ describe("floe hop with real collisions", function()
 		expect(#floes).toBeGreaterThan(10)
 
 		-- Somewhere between floes.
-		local boxes = {}
-		for _, f in floes do
-			table.insert(boxes, { cframe = f.CFrame, size = f.Size })
-		end
+		-- Round floes (flat cylinders): clear of every disc by 1.5 studs.
 		local water: Vector3? = nil
 		for x = -38, 38, 1 do
 			for z = -38, 38, 1 do
 				local p = zone.CFrame.Position + Vector3.new(x, 0, z)
 				local clear = true
-				for _, b in boxes do
-					local q = b.cframe:PointToObjectSpace(p)
-					if math.abs(q.X) < b.size.X / 2 + 1.5 and math.abs(q.Z) < b.size.Z / 2 + 1.5 then
+				for _, f in floes do
+					local c = f.CFrame.Position
+					if Vector3.new(p.X - c.X, 0, p.Z - c.Z).Magnitude < f.Size.Z / 2 + 1.5 then
 						clear = false
 						break
 					end
@@ -184,7 +181,7 @@ describe("floe hop with real collisions", function()
 		expect(CanalTown.waterUnder({ zone }, wet.root, stand)).toBe(zone)
 
 		local floe = floes[1]
-		local dry = Rig.santa(folder, floe.Position + Vector3.new(0, floe.Size.Y / 2, 0))
+		local dry = Rig.santa(folder, floe.Position + Vector3.new(0, floe.Size.X / 2, 0))
 		Rig.settle(dry)
 		expect(CanalTown.waterUnder({ zone }, dry.root, Util.standHeight(dry.humanoid, dry.root))).toBeNil()
 

@@ -552,7 +552,22 @@ function Instance.GetAttribute(self, name: string)
 end
 
 function Instance.SetAttribute(self, name: string, value)
-	rawget(self, "_attributes")[name] = value
+	local attributes = rawget(self, "_attributes")
+	local changed = attributes[name] ~= value
+	attributes[name] = value
+	local s = changed and rawget(self, "_signals")["Attribute:" .. name]
+	if s then
+		s:Fire()
+	end
+end
+
+function Instance.GetAttributeChangedSignal(self, name: string)
+	local signals = rawget(self, "_signals")
+	local key = "Attribute:" .. name
+	if not signals[key] then
+		signals[key] = newSignal(rawget(self, "_engine"))
+	end
+	return signals[key]
 end
 
 function Instance.GetAttributes(self)
@@ -693,6 +708,16 @@ function sit(self, humanoid)
 	props(humanoid).SeatPart = self
 	props(humanoid).Sit = true
 	rawget(self, "_engine"):_trackSeat(self)
+end
+
+-- Humanoid states: a headless world has no water or falling, so a state only
+-- changes when a test sets it (ChangeState), e.g. Swimming in the Lair lake.
+function Instance.GetState(self)
+	return rawget(self, "_state") or Enum.HumanoidStateType.Running
+end
+
+function Instance.ChangeState(self, state)
+	rawset(self, "_state", state)
 end
 
 function Instance.SetNetworkOwner() end

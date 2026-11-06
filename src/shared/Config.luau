@@ -638,7 +638,10 @@ Config.Canal = {
 	StopEndClear = 30, -- canal ice this close to a stop is never CrackZone
 	IceTop = 0.25, -- top of canal and lake ice
 	FloeTop = 0.9, -- floes sit proud of the water so the hop reads
-	FloeCell = 11, -- floe grid pitch; floes are 7-8 studs with ~3-4 stud gaps
+	FloeCell = 13, -- floe grid pitch: one round, lumpy floe per cell
+	FloeGap = { 2.5, 4 }, -- studs of water kept round each floe's cell
+	FloeRadius = { 0.85, 1 }, -- main disc, as a share of the room in its cell
+	FloeLobeChance = 0.6, -- a smaller disc pokes out toward a corner
 	Promenade = 6, -- pavement width either side of a street canal
 	Dogs = {
 		Count = 4, -- Stop 1 market, mixed Corgi Patrol and Tin Sausage Dog
@@ -679,6 +682,62 @@ Config.Canal = {
 		Color3.fromRGB(90, 160, 255),
 		Color3.fromRGB(255, 120, 210),
 	},
+}
+
+-- Krampus's Lair lake (Josh's playtest, 6 Nov 2026): after the stomp the
+-- lake is real Roblox water, so Santas swim. Swimming drains body heat; on
+-- land it comes back, fast by the island's fires. Run out and you freeze
+-- into an ice cube that bobs back to the nearest shore. Krampus never swims.
+Config.BodyHeat = {
+	Enabled = true,
+	SwimSeconds = 10, -- full heat to frozen while swimming, with no warm gear
+	RecoverSeconds = 6, -- empty to full on land
+	FireRecoverSeconds = 1.5, -- empty to full on the Lair island, by its fires
+	FireRadius = 12, -- studs past the island's edge that still count as by the fire
+	FrozenSeconds = 3, -- stuck in the ice cube before you wash ashore
+	ThawHeat = 0.4, -- heat you come back with
+	SoggySeconds = 4, -- slow after thawing
+	SoggyWalkSpeed = 10,
+	SendStep = 0.02, -- the HUD meter updates in steps this big
+	WaterDepth = 8, -- studs of terrain water under the lake ice
+	WaterTop = -0.05, -- water surface, relative to the bottom of the lake ice
+}
+
+-- The Wardrobe: warm gear bought with Jingle at each Sleigh Stop, worn for the
+-- rest of the run (lost at the end of it, never sold for Robux). Josh picked
+-- sets A and D (6 Nov 2026): four pieces, each its own model pinned to
+-- Santa's bones, so every suit wears the same ones. warmth adds up: 0.25 =
+-- 25% longer in the water. The whole set is 2,200 Jingle and lets you swim
+-- 2.25x as long. OFF until Josh approves the 3D art (pieces and the stand).
+Config.Wardrobe = {
+	Enabled = false,
+	Items = {
+		Scarf = { name = "Chunky Scarf", price = 400, warmth = 0.25, model = "WearScarf", enabled = true },
+		Mittens = {
+			name = "Bobble Mittens",
+			price = 400,
+			warmth = 0.25,
+			model = "WearMittens",
+			enabled = true,
+		},
+		DuckieRing = {
+			name = "Duckie Ring",
+			price = 600,
+			warmth = 0.25,
+			swimSpeed = 4, -- added to WalkSpeed while swimming
+			model = "WearDuckieRing",
+			enabled = true,
+		},
+		HotWaterBottle = {
+			name = "Hot-Water Bottle",
+			price = 800,
+			warmth = 0.5,
+			model = "WearHotWaterBottle",
+			enabled = true,
+		},
+	},
+	Order = { "Scarf", "Mittens", "DuckieRing", "HotWaterBottle" }, -- left to right on the stand
+	StandOffset = Vector3.new(0, 0, 8), -- from the cocoa machine, stop space
 }
 
 -- Sound mix (Sounds.luau has the catalogue). Phone speakers clip easily, so
