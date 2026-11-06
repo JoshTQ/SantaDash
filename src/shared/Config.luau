@@ -704,7 +704,20 @@ Config.LobbyMap = {
 -- 2026: Christmas Market with security dogs, skate lanes with boost hoops,
 -- Ice Rink Square, floe hop at the Lair.
 Config.Canal = {
-	SkateSpeed = 24, -- WalkSpeed on Ice (a boost, not custom physics)
+	-- WalkSpeed on Ice (a boost, not custom physics). Josh's first playtest
+	-- (6 Nov 2026): "Ice should make you go faster" -> 24 wasn't felt; 30 is
+	-- nearly double a walk, and the skate lean + spray sell it.
+	SkateSpeed = 30,
+	-- The back lane (6 Nov 2026, Josh: "the stops need connected by the ice
+	-- lane, as does Krampus's lair"): a second canal joining every street's far
+	-- end, ending at the Lair lake, where the solid Lair Lane runs to the
+	-- castle's back gate. With the main canal it makes a loop (TranZit-style).
+	BackLane = {
+		Z = 600, -- stop space: past the vault (z 500) and the street's end (560)
+		Width = 30,
+		LairLaneWidth = 14, -- the solid lane over the lake to the back gate
+		LairLaneTop = 1, -- as high as the bell bridge: never water, never a floe
+	},
 	HoopSpeed = 40, -- WalkSpeed for a moment after flying through a boost hoop
 	HoopBoostSeconds = 1.5,
 	Width = 44, -- the main canal between stops (runs along the on-foot path)

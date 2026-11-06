@@ -214,6 +214,26 @@ describe("buying and moving around a stop", function()
 		end)
 	end)
 
+	it("tells every client where the sleigh is waiting, so the gold guide line can point there", function()
+		local world, engine, Run, players = setup({ "Lost" })
+		local santa = players[1]
+		world.run(function()
+			local run = startRun(world, Run, players)
+			atStop(world, run, 2)
+			local stop = run.route.stops[2]
+			local found = false
+			for _, m in engine:hudMessages(santa, "Stop") do
+				if m.data.stop == 2 and m.data.phase ~= "Flight" then
+					expect(m.data.sleighAt).toBe(stop.deckCFrame.Position)
+					found = true
+				elseif m.data.phase == "Flight" then
+					expect(m.data.sleighAt).toBeNil()
+				end
+			end
+			expect(found).toBe(true)
+		end)
+	end)
+
 	it("takes you down a chimney and back up, and swings doors", function()
 		local world, engine, Run, players = setup({ "Climber" })
 		local santa = players[1]
@@ -228,10 +248,11 @@ describe("buying and moving around a stop", function()
 			engine.trigger(chimney.up, santa)
 			expect((engine.rootOf(santa).Position - chimney.roof.Position).Magnitude).toBeLessThan(0.1)
 			for _, door in stop.doors do
-				engine.trigger(door.prompt, santa)
-				expect(door.open).toBe(true)
+				expect(door.open).toBe(true) -- doors start open
 				engine.trigger(door.prompt, santa)
 				expect(door.open).toBe(false)
+				engine.trigger(door.prompt, santa)
+				expect(door.open).toBe(true)
 			end
 		end)
 	end)

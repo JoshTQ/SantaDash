@@ -22,6 +22,7 @@ local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Maps = require(ReplicatedStorage.Shared.Maps)
+local SantaMoves = require(ReplicatedStorage.Shared.SantaMoves)
 local SoundPlayer = require(ReplicatedStorage.Shared.SoundPlayer)
 local Sounds = require(ReplicatedStorage.Shared.Sounds)
 local Util = require(ReplicatedStorage.Shared.Util)
@@ -36,6 +37,7 @@ local CanalTown = {}
 
 local ICE = Color3.fromRGB(175, 220, 245)
 local WATER = Color3.fromRGB(40, 95, 150)
+local LANE_ICE = Color3.fromRGB(120, 185, 235) -- thick lane ice, a shade deeper than the lake
 local SNOW = Color3.fromRGB(240, 245, 252)
 local HEDGE = Color3.fromRGB(40, 120, 70)
 local PAVEMENT = Color3.fromRGB(205, 200, 215)
@@ -438,8 +440,8 @@ local function garden(ctx, house)
 	)
 end
 
--- Townhouse fronts (not enterable) and low hedges fill the stretches between
--- the stop's real houses, so the canal reads as a street.
+-- Townhouse fronts (not enterable, so no front door) and low hedges fill the
+-- stretches between the stop's real houses, so the canal reads as a street.
 local function terraces(ctx, zEnd: number, ranges, houses, plaza: Vector3, skipBand: boolean)
 	local layout = ctx.map.layout
 	local inner = layout.RoadWidth / 2 + C.Promenade
@@ -484,6 +486,9 @@ local function terraces(ctx, zEnd: number, ranges, houses, plaza: Vector3, skipB
 					0.8,
 					2.6
 				)
+				-- No front door: only houses with a gold ROB ME marker open
+				-- (Josh's first playtest, 6 Nov 2026: fake doors read as
+				-- "lots of houses are locked"). A wreath over a lit window instead.
 				local wreath = ctx.newPart(
 					ctx.model,
 					"Wreath",
@@ -494,14 +499,6 @@ local function terraces(ctx, zEnd: number, ranges, houses, plaza: Vector3, skipB
 				)
 				wreath.Shape = Enum.PartType.Cylinder
 				ball(ctx, "WreathBow", Vector3.new(face - side * 0.5, 5.6, z), 1, CANDY, Enum.Material.Neon)
-				ctx.newPart(
-					ctx.model,
-					"TownhouseDoor",
-					Vector3.new(0.3, 5, 3.4),
-					ctx.origin * CFrame.new(face, 2.5, z),
-					WOOD,
-					Enum.Material.Wood
-				)
 				for row = 1, math.floor((height - 4) / 7) do
 					for _, dz in { -10, 0, 10 } do
 						ctx.newPart(
@@ -642,6 +639,142 @@ local function iceSegment(ctx, frame: CFrame, from: number, to: number, crack: b
 	return part
 end
 
+-- A signpost: a candy post with a board and a big label (seen from 160 studs).
+local function signpost(ctx, at: Vector3, text: string)
+	ctx.newPart(
+		ctx.model,
+		"SignPost",
+		Vector3.new(0.8, 9, 0.8),
+		ctx.origin * CFrame.new(at + Vector3.new(0, 4.5, 0)),
+		CANDY
+	)
+	local board = ctx.newPart(
+		ctx.model,
+		"SignBoard",
+		Vector3.new(7, 2.4, 0.4),
+		ctx.origin * CFrame.new(at + Vector3.new(0, 8, 0)),
+		WOOD,
+		Enum.Material.Wood
+	)
+	label(board, text, GOLD, 3.2, 160)
+end
+
+-- What a sign calls a stop: "STOP 2", or the Lair at the finale.
+local function stopName(index: number): string
+	if Config.Run.StopKinds[index] == "Finale" then
+		return "KRAMPUS'S LAIR"
+	end
+	return "STOP " .. index
+end
+
+-- The FloeLake feature of another stop, if it has one.
+local function lakeOf(ctx, index: number)
+	for _, f in ctx.map.features do
+		if f.kind == "FloeLake" and Maps.featureOnStop(f, index) then
+			return f
+		end
+	end
+	return nil
+end
+
+-- The back lane from this street's far end to the next stop's (or to the
+-- edge of the Lair lake), plus the link down the street canal to it.
+local function backLane(ctx)
+	local layout = ctx.map.layout
+	local B = C.BackLane
+	local i = ctx.stop.plan.index
+	local zEnd = streetEnd(ctx)
+	if not sibling(ctx, "FloeLake") then
+		-- The street canal carries on past the vault into the back lane.
+		local from, to = zEnd - 1, B.Z + B.Width / 2
+		local link = ctx.newPart(
+			ctx.model,
+			"BackLink",
+			Vector3.new(layout.RoadWidth, C.IceTop, to - from),
+			ctx.origin * CFrame.new(0, C.IceTop / 2, (from + to) / 2),
+			ICE,
+			Enum.Material.Ice
+		)
+		link:SetAttribute("IceZone", true)
+		link:SetAttribute("CrackZone", false)
+		table.insert(canalState(ctx.stop).iceZones, link)
+	end
+	if i >= #Config.Run.StopKinds then
+		return
+	end
+	local here = Maps.stopOrigin(layout, i)
+	local nextOrigin = here:Inverse() * Maps.stopOrigin(layout, i + 1)
+	local nextLake = lakeOf(ctx, i + 1)
+	-- Ends in this stop's space: the next street's link, or the lake's near edge.
+	local endAt = nextOrigin * Vector3.new(if nextLake then -nextLake.halfWidth + 4 else 0, 0, B.Z)
+	local a = Vector3.new(0, 0, B.Z)
+	local flat = (endAt - a) * Vector3.new(1, 0, 1)
+	local length = flat.Magnitude
+	local frame = CFrame.fromMatrix(a, flat.Unit, Vector3.yAxis)
+	local start = layout.RoadWidth / 2
+	local finish = if nextLake then length else length - layout.RoadWidth / 2
+	for _, seg in CanalRules.segments(start, finish) do
+		local part = iceSegment(ctx, frame, seg.from, seg.to, seg.crack)
+		part.Size = Vector3.new(part.Size.X, part.Size.Y, B.Width)
+		part.Name = "BackLaneIce"
+	end
+	-- Low snowbanks, chevrons towards the next stop, a few hoops and lamps.
+	for _, side in { -1, 1 } do
+		local bank = ctx.newPart(
+			ctx.model,
+			"CanalBank",
+			Vector3.new(finish - start, 1, 2),
+			ctx.origin * frame * CFrame.new((start + finish) / 2, 0.5, side * (B.Width / 2 + 1)),
+			SNOW,
+			Enum.Material.Snow
+		)
+		bank.CanCollide = false
+	end
+	local d = start + 40
+	while d < finish - 30 do
+		chevron(
+			ctx,
+			frame * CFrame.new(d, 0, 0) * CFrame.Angles(0, -math.pi / 2, 0),
+			Color3.fromRGB(255, 215, 90)
+		)
+		d += 60
+	end
+	d = start + 150
+	while d < finish - 100 do
+		hoop(ctx, frame * CFrame.new(d, 0, 0) * CFrame.Angles(0, math.pi / 2, 0))
+		d += 220
+	end
+	d = start + 70
+	local side = 1
+	while d < finish - 40 do
+		local at = (frame * CFrame.new(d, 0, side * (B.Width / 2 + 3))).Position
+		ctx.newPart(
+			ctx.model,
+			"LampPost",
+			Vector3.new(0.6, 10, 0.6),
+			ctx.origin * CFrame.new(at + Vector3.new(0, 5, 0)),
+			CANDY
+		)
+		local lamp = ball(
+			ctx,
+			"LampGlow",
+			at + Vector3.new(0, 10.5, 0),
+			1.6,
+			Color3.fromRGB(255, 235, 170),
+			Enum.Material.Neon
+		)
+		glow(lamp, Color3.fromRGB(255, 210, 150), 22)
+		side = -side
+		d += 140
+	end
+	-- Signs at the junction: where each way goes.
+	local sideX = layout.RoadWidth / 2 + 4
+	signpost(ctx, Vector3.new(sideX, 0, B.Z - B.Width / 2 - 4), stopName(i + 1) .. "  >>")
+	if i > 1 then
+		signpost(ctx, Vector3.new(-sideX, 0, B.Z - B.Width / 2 - 4), "<<  " .. stopName(i - 1))
+	end
+end
+
 local SkateCanal = {}
 
 function SkateCanal.build(ctx)
@@ -659,6 +792,15 @@ function SkateCanal.build(ctx)
 		end
 	end
 
+	backLane(ctx)
+	-- Signs where the street canal meets the main canal.
+	local sideX = layout.RoadWidth / 2 + 4
+	if i < #Config.Run.StopKinds then
+		signpost(ctx, Vector3.new(sideX, 0, z + C.Width / 2 + 4), stopName(i + 1) .. "  >>")
+	end
+	if i > 1 then
+		signpost(ctx, Vector3.new(-sideX, 0, z + C.Width / 2 + 4), "<<  " .. stopName(i - 1))
+	end
 	if i >= #Config.Run.StopKinds then
 		return
 	end
@@ -795,6 +937,13 @@ function SkateCanal.start(ctx)
 					if humanoid.WalkSpeed ~= speed then
 						humanoid.WalkSpeed = speed
 					end
+					-- Clients lean, sway and spray ice for Santas gliding on ice.
+					local root_ = humanoid.RootPart
+					local v = if root_ then root_.AssemblyLinearVelocity else Vector3.zero
+					local skating = onIce and Vector3.new(v.X, 0, v.Z).Magnitude > 4
+					if character:GetAttribute(SantaMoves.SKATE_ATTRIBUTE) ~= skating then
+						character:SetAttribute(SantaMoves.SKATE_ATTRIBUTE, skating)
+					end
 					-- Water is polled, not Touched: a Santa who keeps walking on
 					-- broken ice never re-touches it, so Touched let them stroll
 					-- across the lake and skip the floe hop.
@@ -817,6 +966,9 @@ function SkateCanal.start(ctx)
 		end
 		for player in run.players do
 			run:_applyPerks(player)
+			if player.Character then
+				player.Character:SetAttribute(SantaMoves.SKATE_ATTRIBUTE, nil)
+			end
 		end
 	end
 end
@@ -1753,7 +1905,7 @@ local function lairGrounds(ctx, f, bridgeFrom: number)
 	end
 	for k = 0, 23 do
 		local a = k / 24 * math.pi * 2
-		if not gapAt(a, 0.2) then
+		if not gateAt(a, 0.2) then -- open at the bridge and at the Lair Lane (back gate)
 			local at = isl + Vector3.new(math.sin(a) * (r + 5), 0, math.cos(a) * (r + 5))
 			local pot = ctx.newPart(
 				ctx.model,
@@ -1958,6 +2110,50 @@ function FloeLake.build(ctx)
 		{ x = f.island.X, z = f.island.Z - midZ, radius = f.islandRadius + 8 }, -- + the fire pots
 		{ x = 0, z = (bridgeFrom + bridgeTo) / 2 - midZ, halfX = 5, halfZ = (bridgeTo - bridgeFrom) / 2 },
 	}
+	-- The Lair Lane: the back lane from the stop before arrives at the lake's
+	-- side; a solid lane (as high as the bridge, so never water) carries on to
+	-- the castle's back gate.
+	if ctx.stop.plan.index > 1 then
+		local B = C.BackLane
+		local w, top = B.LairLaneWidth, B.LairLaneTop
+		local gateZ = f.island.Z + f.islandRadius - 6
+		local laneZ = math.min(B.Z, f.to - w)
+		local pieces = {
+			{ a = Vector3.new(-f.halfWidth - 2, 0, laneZ), b = Vector3.new(w / 2, 0, laneZ) },
+			{ a = Vector3.new(0, 0, laneZ + w / 2), b = Vector3.new(0, 0, gateZ) },
+		}
+		for _, piece in pieces do
+			local lane = wall(ctx, "LairLane", piece.a, piece.b, w, top, LANE_ICE, Enum.Material.Ice)
+			lane:SetAttribute("IceZone", true)
+			lane:SetAttribute("CrackZone", false)
+			table.insert(state.iceZones, lane)
+			local mid = (piece.a + piece.b) / 2
+			local size = (piece.b - piece.a)
+			table.insert(keepoutsFor[lake], {
+				x = mid.X,
+				z = mid.Z - midZ,
+				halfX = math.abs(size.X) / 2 + w / 2 + 2,
+				halfZ = math.abs(size.Z) / 2 + w / 2 + 2,
+			})
+		end
+		for k = 1, 5 do
+			local x = -f.halfWidth + k * f.halfWidth / 6
+			chevron(ctx, CFrame.new(x, top - 0.2, laneZ) * CFrame.Angles(0, -math.pi / 2, 0), GOLD)
+		end
+		for k = 1, 2 do
+			local z = laneZ - k * (laneZ - gateZ) / 3
+			chevron(ctx, CFrame.new(0, top - 0.2, z), GOLD)
+		end
+		local lanterns = {
+			Vector3.new(-f.halfWidth + 30, 0, laneZ + w / 2 + 0.5),
+			Vector3.new(-f.halfWidth / 2, 0, laneZ + w / 2 + 0.5),
+			Vector3.new(w / 2 + 0.5, 0, (laneZ + gateZ) / 2),
+		}
+		for k, at in lanterns do
+			castleLantern(ctx, at, 1, EVIL[k % 2 + 1])
+		end
+		signpost(ctx, Vector3.new(-f.halfWidth + 6, top, laneZ - w / 2 - 1), "KRAMPUS'S LAIR  >>")
+	end
 	lairGrounds(ctx, f, bridgeFrom)
 	-- Red beacon over the Lair island.
 	local beacon = ctx.newPart(
@@ -2022,7 +2218,12 @@ local function woodlandAreas(ctx): ({ CanalRules.Rect }, { CanalRules.Rect })
 		{ x0 = -W.Inner, x1 = W.Inner, z0 = streetEnd(ctx) + 20, z1 = z1 }, -- past the street's end
 	}
 	local z = ctx.map.layout.FootPathZ
-	local keepouts = { { x0 = -1e4, x1 = 1e4, z0 = z - C.Width / 2 - 8, z1 = z + C.Width / 2 + 8 } }
+	local B = C.BackLane
+	local keepouts = {
+		{ x0 = -1e4, x1 = 1e4, z0 = z - C.Width / 2 - 8, z1 = z + C.Width / 2 + 8 },
+		{ x0 = -1e4, x1 = 1e4, z0 = B.Z - B.Width / 2 - 10, z1 = B.Z + B.Width / 2 + 10 }, -- the back lane
+		{ x0 = -20, x1 = 20, z0 = streetEnd(ctx) - 10, z1 = B.Z }, -- its link down the street
+	}
 	local lake = sibling(ctx, "FloeLake")
 	if lake then
 		table.insert(

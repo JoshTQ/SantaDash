@@ -202,7 +202,65 @@ export type BuiltPresent = {
 	plan: any,
 	taken: boolean?,
 	inVault: boolean?, -- behind a locked vault door until someone buys it open
+	house: RobHouse?, -- the house it sits in (its gift marker counts it)
 }
+
+-- A house you can rob: its presents and the gift marker floating over it.
+export type RobHouse = { plan: any, presents: { any }, marker: TextLabel, locked: boolean }
+
+-- What a house's gift marker says: presents left, or that the vault is shut.
+function MapBuilder.markerText(house: RobHouse, vaultShut: boolean): string
+	local left = 0
+	for _, present in house.presents do
+		if not present.taken then
+			left += 1
+		end
+	end
+	if left == 0 then
+		return "EMPTY"
+	elseif house.locked and vaultShut then
+		return string.format("VAULT · %d GIFTS\n%d Jingle to open", left, Config.Buys.VaultDoor.Cost)
+	end
+	return string.format("ROB ME · %d GIFT%s", left, if left == 1 then "" else "S")
+end
+
+-- Refreshes a house's gift marker (Run calls it when a present goes or the vault opens).
+function MapBuilder.refreshMarker(house: RobHouse, vaultShut: boolean)
+	local text = MapBuilder.markerText(house, vaultShut)
+	house.marker.Text = text
+	local empty = text == "EMPTY"
+	house.marker.TextColor3 = if empty then Color3.fromRGB(170, 175, 190) else GOLD
+	local gui = house.marker.Parent :: BillboardGui
+	gui.AlwaysOnTop = not empty -- an emptied house stops shouting through walls
+end
+
+local MARKER_HEIGHT = 30 -- studs over the house's ground: above any roof in the kit
+
+-- A floating gold "ROB ME · 4 GIFTS" over a house, seen from down the street.
+local function buildHouseMarker(parent: Instance, cframe: CFrame, plan, house: RobHouse): TextLabel
+	local anchor = newPart(parent, "GiftMarker", Vector3.one, cframe * CFrame.new(0, MARKER_HEIGHT, 0), GOLD)
+	anchor.Transparency = 1
+	anchor.CanCollide = false
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "GiftMarker"
+	gui.Size = UDim2.fromOffset(200, 56)
+	gui.MaxDistance = 420
+	gui.LightInfluence = 0
+	gui.AlwaysOnTop = true
+	local label = Instance.new("TextLabel")
+	label.Name = "Text"
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.TextColor3 = GOLD
+	label.TextStrokeTransparency = 0
+	label.TextScaled = true
+	label.Font = Enum.Font.FredokaOne
+	label.Parent = gui
+	gui.Parent = anchor
+	house.marker = label
+	MapBuilder.refreshMarker(house, plan.locked == true)
+	return label
+end
 
 export type Stop = {
 	plan: any, -- Loot.StopPlan
@@ -217,6 +275,7 @@ export type Stop = {
 	vaultDoor: BasePart?,
 	krampusSpawn: CFrame,
 	doors: { Door }, -- approved houses' front doors (Run swings them)
+	houses: { RobHouse }, -- the houses you can rob, with their gift markers
 	origin: CFrame, -- stop space: +Z runs down the street from the landing house
 }
 
@@ -546,6 +605,7 @@ local function buildStop(
 		hideSpots = {},
 		cocoaPrompt = nil :: any,
 		doors = {},
+		houses = {},
 		krampusSpawn = origin * CFrame.new(0, 6, far + map.StreetOverrun - 20), -- past the vault
 		origin = origin,
 	}
@@ -563,9 +623,21 @@ local function buildStop(
 			cf = origin * CFrame.lookAt(pos, pos - Vector3.xAxis * house.side)
 		end
 		local label = Config.Houses.Types[house.typeName].Label .. " · " .. string.upper(house.ring)
+		local firstPresent = #stop.presents + 1
 		local kitSpawn = buildHouse(model, stop, rng, house, cf, label, kit)
 		if house.typeName == "Lair" then
 			stop.krampusSpawn = kitSpawn or cf * CFrame.new(0, 6, house.size.Z / 4)
+		else
+			-- Every house you can rob gets a gift marker (Josh's playtest, 6 Nov:
+			-- "lots of houses are locked, I don't know what you're meant to do").
+			local entry: RobHouse =
+				{ plan = house, presents = {}, marker = nil :: any, locked = house.locked == true }
+			for i = firstPresent, #stop.presents do
+				table.insert(entry.presents, stop.presents[i])
+				stop.presents[i].house = entry
+			end
+			entry.marker = buildHouseMarker(model, cf, house, entry)
+			table.insert(stop.houses, entry)
 		end
 	end
 

@@ -222,8 +222,14 @@ function HouseKit.build(ctx: Context): CFrame?
 		stop.vaultPrompt =
 			h.addPrompt(vault :: BasePart, "Open vault", Config.Buys.VaultDoor.Cost .. " Jingle", 0.5)
 	elseif door and door:IsA("BasePart") then
-		local prompt = door:FindFirstChildOfClass("ProximityPrompt") or h.addPrompt(door, "Open", "Door")
-		table.insert(stop.doors, { door = door, prompt = prompt, closed = door.CFrame, open = false })
+		-- Front doors start open (Josh's first playtest, 6 Nov 2026: shut doors
+		-- read as "locked"). Shut one behind you to slow Krampus down.
+		local prompt = door:FindFirstChildOfClass("ProximityPrompt") or h.addPrompt(door, "Close", "Door")
+		local closed = door.CFrame
+		door.CFrame = HouseKit.doorCFrame(closed, door.Size, true)
+		door.CanCollide = false
+		prompt.ActionText = "Close"
+		table.insert(stop.doors, { door = door, prompt = prompt, closed = closed, open = true })
 	end
 
 	-- Chimney: down from ChimneyTop, out at the Fireplace.

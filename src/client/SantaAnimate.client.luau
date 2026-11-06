@@ -87,7 +87,8 @@ function attach(character: Model)
 		end
 		local track = tracks[clip]
 		if track then
-			track:AdjustSpeed(SantaMoves.loopSpeed(clip, speed))
+			local skating = clip == "Walk" and character:GetAttribute(SantaMoves.SKATE_ATTRIBUTE) == true
+			track:AdjustSpeed(if skating then SantaMoves.SKATE_STRIDE else SantaMoves.loopSpeed(clip, speed))
 		end
 	end)
 

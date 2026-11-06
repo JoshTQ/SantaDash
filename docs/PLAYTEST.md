@@ -52,6 +52,10 @@ in the server's command bar, `require(game.ReplicatedStorage.Shared.Config).Run.
 | 18 | **Boots**: give yourself Coal in the command bar, buy Blade Skates in the shop, then change suits | Boots stay on both feet, follow the legs when walking and cheering, and fit every suit (watch Chrome Puffer's chunky legs) | Bone-following only shows on a real client. Nudge with `Config.Gear.SuitNudge`. If the toes point backwards, set yaw to 90 in `art/meshy/SkateBoots.json` and re-run the Meshy model workflow (free) |
 | 19 | Boots: skate a canal and a hoop, next to a friend without boots | 36 on ice (friend 30) and 48 after a hoop. A gold scratch trail shows only on ice | |
 | 17 | Tips: second run on the same account; then press X on a tip on another account | No repeats. X hides the card and trail and no tips come back | Saved only once the store thread's PlayerData is plugged in; until then progress resets when the server restarts |
+| 18 | **Run map clarity** (6 Nov playtest fixes): land at Stop 1 and look down the street | A gold "ROB ME · n GIFTS" over each robbable house (through walls), "VAULT · ... Jingle to open" on the vault, front doors already open; the townhouses in between have no doors. Grab a gift: the count drops; empty a house: "EMPTY" in grey | |
+| 19 | Skate the street canal, then the main canal | Clearly faster than walking (30 vs 16), Santa leans forward and sways, slow long strides, ice spray at the heels; a friend sees you skate too. Stops the moment you step off the ice | Lean direction: if he leans backwards, flip the sign in SkateLean |
+| 20 | Miss the sleigh on purpose at Stop 1 | A gold line from you to the sleigh (and "SLEIGH 230" over it) the whole time, it follows to Stop 2's Sleigh Stop after take-off, orange after the horn, gone once you're aboard | |
+| 21 | From Stop 1's far end (past the vault) follow the back lane | Ice all the way: back lane to Stop 2, on to the Lair lake; the raised Lair Lane leads to the castle's back gate, and stays solid after Krampus stomps the lake. Signposts at each junction | |
 
 ## 2. Phone (5 min)
 

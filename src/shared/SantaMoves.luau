@@ -33,6 +33,9 @@ SantaMoves.ONE_SHOTS = {
 SantaMoves.SNEAK_ATTRIBUTE = "Sneaking"
 SantaMoves.MOVE_ATTRIBUTE = "SantaMove"
 SantaMoves.SANTA_ATTRIBUTE = "IsSanta"
+-- Character attribute "Skating": true while a Santa glides on canal ice
+-- (server/CanalTown sets it). Clients lean and sway him and spray ice.
+SantaMoves.SKATE_ATTRIBUTE = "Skating"
 SantaMoves.SKIN_ATTRIBUTE = "SantaSkin" -- the suit he wears (Config.Skins id, server/Skins.luau)
 
 -- Below this ground speed (studs/s) Santa stands still: idle.
@@ -65,6 +68,21 @@ function SantaMoves.loopSpeed(clip: string, speed: number): number
 		return 1
 	end
 	return math.clamp(speed / Config.Player.WalkSpeed, 0.6, 1.8)
+end
+
+-- Skating has no Meshy clip (the animation library has none, checked 6 Nov
+-- 2026), so it is the walk played as slow, long strides plus a lean and a
+-- side-to-side sway on the root joint (client/SkateLean.client.luau).
+SantaMoves.SKATE_STRIDE = 0.7 -- walk clip playback speed while skating
+
+-- The skating pose at time t (seconds) and ground speed: forward lean and
+-- side sway in radians, and the stride phase (-1..1, which foot pushes).
+function SantaMoves.skatePose(t: number, speed: number): (number, number, number)
+	local amount = math.clamp(speed / Config.Canal.SkateSpeed, 0, 1)
+	local phase = math.sin(t * math.pi * 2 * 0.9) -- about one push per foot a second
+	local lean = math.rad(16) * amount
+	local sway = math.rad(11) * amount * phase
+	return lean, sway, phase
 end
 
 -- The attribute value that asks clients to play `move` (n counts up).
