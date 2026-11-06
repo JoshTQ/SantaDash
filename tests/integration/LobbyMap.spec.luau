@@ -41,3 +41,43 @@ test("lobby spawn sits inside the workshop", function()
 	expect(p.X > w.X0 and p.X < w.X1).toBeTruthy()
 	expect(p.Z > w.Z0 and p.Z < w.Z1).toBeTruthy()
 end)
+
+-- Josh's playtest (6 Nov 2026): the bay boards and Top Crews board showed
+-- their blank backs to players walking up from the workshop.
+test("boards and podium face the yard (-Z), where players walk up", function()
+	local hub = LobbyMap.build(newFolder())
+	for _, bay in hub.bays do
+		local gui = bay.stats.title.Parent.Parent
+		expect(gui.ClassName).toBe("SurfaceGui")
+		expect(gui.Face).toBe(Enum.NormalId.Front)
+		expect(gui.Parent.CFrame.LookVector.Z < -0.99).toBeTruthy()
+	end
+	local found = { TopCrewsBoard = 0, PodiumBadge = 0 }
+	for _, d in hub.model:GetDescendants() do
+		if found[d.Name] then
+			found[d.Name] += 1
+			expect(d.CFrame.LookVector.Z < -0.99).toBeTruthy()
+			expect(d:FindFirstChildOfClass("SurfaceGui").Face).toBe(Enum.NormalId.Front)
+		end
+	end
+	expect(found.TopCrewsBoard).toBe(1)
+	expect(found.PodiumBadge).toBe(3)
+end)
+
+test("scenery closes the yard in: forest, lights and falling snow", function()
+	local hub = LobbyMap.build(newFolder())
+	local scenery = hub.model:FindFirstChild("Scenery")
+	expect(scenery ~= nil).toBeTruthy()
+	expect(scenery:GetAttribute("Trees") > 40).toBeTruthy()
+	expect(scenery:FindFirstChild("Snowfall"):FindFirstChildOfClass("ParticleEmitter") ~= nil).toBeTruthy()
+	local S, y = Config.LobbyMap.Scenery, Config.LobbyMap.Yard
+	for _, d in scenery:GetChildren() do
+		if d.Name == "PineTrunk" and not d.CanCollide then
+			local p = d.CFrame.Position
+			local inYard = p.X > y.X0 and p.X < y.X1 and p.Z > y.Z0 and p.Z < y.Z1
+			expect(inYard).toBe(false)
+			-- the sleighs' flight lane stays clear
+			expect(math.abs(p.Z - Config.LobbyMap.SleighZ) >= S.FlightGap).toBeTruthy()
+		end
+	end
+end)
