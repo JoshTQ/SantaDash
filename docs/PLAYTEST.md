@@ -47,6 +47,10 @@ in the server's command bar, `require(game.ReplicatedStorage.Shared.Config).Run.
 | 15 | **First-time tips** (fresh account, or Studio): spawn in the workshop | A gold tip card ("Follow the trail to a sleigh!"), a gold trail and ring on the Public bay, and a "First heist!" tag over your Santa that your friend can see | The trail is a client Beam; only a real client shows it |
 | 16 | Tips: play the first run | One tip at a time, never over a cutscene: sneak (trail to the nearest door), grab, carry, lights on, horn (trail back to the ring), banked, Lair, Krampus, done. The tag goes after the run | |
 | 17 | Tips: second run on the same account; then press X on a tip on another account | No repeats. X hides the card and trail and no tips come back | Saved only once the store thread's PlayerData is plugged in; until then progress resets when the server restarts |
+| 18 | **Run map clarity** (6 Nov playtest fixes): land at Stop 1 and look down the street | A gold "ROB ME · n GIFTS" over each robbable house (through walls), "VAULT · ... Jingle to open" on the vault, front doors already open; the townhouses in between have no doors. Grab a gift: the count drops; empty a house: "EMPTY" in grey | |
+| 19 | Skate the street canal, then the main canal | Clearly faster than walking (30 vs 16), Santa leans forward and sways, slow long strides, ice spray at the heels; a friend sees you skate too. Stops the moment you step off the ice | Lean direction: if he leans backwards, flip the sign in SkateLean |
+| 20 | Miss the sleigh on purpose at Stop 1 | A gold line from you to the sleigh (and "SLEIGH 230" over it) the whole time, it follows to Stop 2's Sleigh Stop after take-off, orange after the horn, gone once you're aboard | |
+| 21 | From Stop 1's far end (past the vault) follow the back lane | Ice all the way: back lane to Stop 2, on to the Lair lake; the raised Lair Lane leads to the castle's back gate, and stays solid after Krampus stomps the lake. Signposts at each junction | |
 
 ## 2. Phone (5 min)
 

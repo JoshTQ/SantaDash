@@ -225,18 +225,22 @@ describe("on the Frozen Canal street", function()
 		end
 	end)
 
-	it("front doors open from a prompt and face the street", function()
+	it("front doors start open (shut reads as locked), close from a prompt, face the street", function()
 		for _, stop in route.stops do
 			expect(#stop.doors).toBeGreaterThan(0)
 			for _, door in stop.doors do
-				expect(door.prompt.ActionText).toBe("Open")
-				local local_ = stop.origin:PointToObjectSpace(door.door.CFrame.Position)
+				expect(door.open).toBe(true)
+				expect(door.door.CanCollide).toBe(false)
+				expect(door.prompt.ActionText).toBe("Close")
+				local local_ = stop.origin:PointToObjectSpace(door.closed.Position)
 				local outward = stop.origin:VectorToObjectSpace(door.door.CFrame.LookVector)
 				if math.abs(local_.X) > 20 then
 					-- Side houses: the door's front points back toward the road (X = 0).
+					outward = stop.origin:VectorToObjectSpace(door.closed.LookVector)
 					expect(outward.X * local_.X).toBeLessThan(0)
 					-- and it swings open outward, onto the path.
 					local open = HouseKit.doorCFrame(door.closed, door.door.Size, true)
+					expect((open.Position - door.door.CFrame.Position).Magnitude).toBeLessThan(0.01)
 					local moved = stop.origin:PointToObjectSpace(open.Position) - local_
 					expect(moved.X * local_.X).toBeLessThan(0)
 				end

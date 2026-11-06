@@ -212,6 +212,9 @@ function Run:_sendStop()
 		isFinale = stop ~= nil and stop.plan.escapeMultiplier ~= nil,
 		phase = self.phase,
 		departAt = self.times.departAt,
+		-- Where the sleigh is waiting: everyone's gold guide line points here
+		-- (Josh, 6 Nov 2026: Santas who missed it couldn't find the next stop).
+		sleighAt = if stop and self.phase ~= "Flight" then stop.deckCFrame.Position else nil,
 	})
 end
 
@@ -481,6 +484,13 @@ function Run:_collect(player: Player, st: PlayerState, present, from: Vector3)
 	present.taken = true
 	self.lastNoisePos = from
 	present.model:Destroy()
+	if present.house then
+		local stop = self.route.stops[self.stopIndex]
+		MapBuilder.refreshMarker(
+			present.house,
+			stop ~= nil and stop.vaultPrompt ~= nil and stop.vaultPrompt.Enabled
+		)
+	end
 	SoundPlayer.at(if present.plan.naughtyList then "NaughtyListGrab" else "PresentGrab", from)
 	self:_addNoise(Loot.noiseForGrab(math.max(self.stopIndex, 1), present.plan.threats))
 	self:_sendPlayer(player)
@@ -581,6 +591,11 @@ function Run:_buyVault(player: Player, stop)
 	local prompt = stop.vaultPrompt
 	if prompt.Enabled and self:_spend(player, Config.Buys.VaultDoor.Cost) then
 		prompt.Enabled = false
+		for _, house in stop.houses or {} do
+			if house.locked then
+				MapBuilder.refreshMarker(house, false)
+			end
+		end
 		local vaultDoor = stop.vaultDoor
 		vaultDoor.CFrame = HouseKit.doorCFrame(vaultDoor.CFrame, vaultDoor.Size, true)
 		vaultDoor.CanCollide = false

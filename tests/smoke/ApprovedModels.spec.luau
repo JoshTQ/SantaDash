@@ -161,11 +161,11 @@ describe("a run with every approved model", function()
 				expect(elf.body.model.Name).toBe(elf.variant) -- the approved elf, not the stand-in
 			end
 			local door = run.route.stops[1].doors[1]
-			engine.trigger(door.prompt, santa)
-			expect(door.open).toBe(true)
+			expect(door.open).toBe(true) -- doors start open
 			expect(door.door.CanCollide).toBe(false)
 			engine.trigger(door.prompt, santa)
 			expect(door.open).toBe(false)
+			expect(door.door.CanCollide).toBe(true)
 
 			while not run.krampus do
 				world.wait(0.5)
