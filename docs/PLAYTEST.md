@@ -59,6 +59,7 @@ in the server's command bar, `require(game.ReplicatedStorage.Shared.Config).Run.
 | 19 | Skate the street canal, then the main canal | Clearly faster than walking (30 vs 16), Santa leans forward and sways, slow long strides, ice spray at the heels; a friend sees you skate too. Stops the moment you step off the ice | Lean direction: if he leans backwards, flip the sign in SkateLean |
 | 20 | Miss the sleigh on purpose at Stop 1 | A gold line from you to the sleigh (and "SLEIGH 230" over it) the whole time, it follows to Stop 2's Sleigh Stop after take-off, orange after the horn, gone once you're aboard | |
 | 21 | From Stop 1's far end (past the vault) follow the back lane | Ice all the way: back lane to Stop 2, on to the Lair lake; the raised Lair Lane leads to the castle's back gate, and stays solid after Krampus stomps the lake. Signposts at each junction | |
+| 22 | **Lights on: "Who's there?!" checks.** Grab a present at Stop 1, then stay inside a marked house after 0:45 | Within ~16 s the house light flickers orange, a grumble plays and "WHO'S THERE?!" floats over the roof (you get a banner). If you're still inside: white flash, SPOTTED banner, a red present drops on the floor, the NOISE meter jumps and you land outside the front door. Hide in the wardrobe or step out and nothing happens. Houses take turns, not all at once | Note if the warning feels too short on a phone (`Config.LightsCheck.WarnSeconds`) or checks too frequent (`Interval`) |
 
 ## 2. Phone (5 min)
 

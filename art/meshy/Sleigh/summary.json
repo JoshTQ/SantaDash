@@ -13,14 +13,14 @@
     "Seat6",
     "Shell"
   ],
-  "imageAssetId": 71478036890248,
+  "imageAssetId": 116614993605196,
   "meshParts": 1,
   "meshStuds": [
     6.9,
     9.8,
     14
   ],
-  "modelAssetId": 134998274452560,
+  "modelAssetId": 118346873162710,
   "name": "Sleigh",
   "primaryPart": "Body",
   "removed": 1,

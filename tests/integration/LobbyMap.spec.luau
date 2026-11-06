@@ -64,6 +64,30 @@ test("boards and podium face the yard (-Z), where players walk up", function()
 	expect(found.PodiumBadge).toBe(3)
 end)
 
+-- Josh's playtest (6 Nov 2026): Santas couldn't walk under the boards over
+-- the gates. A Roblox character is about 5 studs tall and jumps ~7.
+test("players walk and jump under the boards over the gates", function()
+	local hub = LobbyMap.build(newFolder())
+	local floorH = Config.LobbyMap.FloorHeight
+	local canopy
+	for _, d in hub.model:GetDescendants() do
+		if d.Name == "Canopy" then
+			canopy = d
+		end
+	end
+	local canopyBottom = canopy.CFrame.Position.Y - canopy.Size.Y / 2
+	local boards = 0
+	for _, d in hub.model:GetDescendants() do
+		if d.Name == "StatsBoard" then
+			boards += 1
+			local bottom = d.CFrame.Position.Y - d.Size.Y / 2
+			expect(bottom - floorH >= 6.5).toBeTruthy()
+			expect(d.CFrame.Position.Y + d.Size.Y / 2 <= canopyBottom).toBeTruthy()
+		end
+	end
+	expect(boards).toBe(#Config.LobbyMap.Bays)
+end)
+
 test("scenery closes the yard in: forest, lights and falling snow", function()
 	local hub = LobbyMap.build(newFolder())
 	local scenery = hub.model:FindFirstChild("Scenery")
