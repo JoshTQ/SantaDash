@@ -1,10 +1,10 @@
 {
-  "modelAssetId": 71094588538265,
-  "imageAssetId": 100214350213432,
+  "modelAssetId": 72779995034857,
+  "imageAssetId": 128830382475355,
   "source": "rigged.fbx",
   "animations": {
-    "Follow": 87539908602715,
-    "Grab": 130101423261814,
-    "Idle": 104571058471154
+    "Follow": 137647253726516,
+    "Grab": 136376075051570,
+    "Idle": 116159675869150
   }
 }

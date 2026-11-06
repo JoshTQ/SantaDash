@@ -6,14 +6,14 @@
     "Humanoid",
     "HumanoidRootPart"
   ],
-  "imageAssetId": 132342604562783,
+  "imageAssetId": 96731316789986,
   "meshParts": 1,
   "meshStuds": [
     5.3,
     5.5,
     2.6
   ],
-  "modelAssetId": 134330065288293,
+  "modelAssetId": 110651827131542,
   "name": "Santa",
   "primaryPart": "HumanoidRootPart",
   "removed": 1,

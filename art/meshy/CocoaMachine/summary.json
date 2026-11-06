@@ -3,14 +3,14 @@
   "children": [
     "Body"
   ],
-  "imageAssetId": 73787623222080,
+  "imageAssetId": 94272687635103,
   "meshParts": 1,
   "meshStuds": [
     5.6,
     8,
     5.6
   ],
-  "modelAssetId": 128100395605562,
+  "modelAssetId": 105513546002981,
   "name": "CocoaMachine",
   "primaryPart": "Body",
   "removed": 1,

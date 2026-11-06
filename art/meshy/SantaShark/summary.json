@@ -1,0 +1,24 @@
+{
+  "bones": 24,
+  "children": [
+    "Body",
+    "Humanoid",
+    "HumanoidRootPart"
+  ],
+  "imageAssetId": 117596214822501,
+  "meshParts": 1,
+  "meshStuds": [
+    5.3,
+    5.5,
+    3
+  ],
+  "modelAssetId": 73318758026169,
+  "name": "SantaShark",
+  "primaryPart": "HumanoidRootPart",
+  "removed": 1,
+  "sizeStuds": [
+    5.3,
+    5.5,
+    3
+  ]
+}

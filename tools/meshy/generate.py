@@ -24,6 +24,7 @@ containing SurfaceAppearance. Standard library only.
 """
 import argparse
 import json
+import struct
 import os
 import sys
 import time
@@ -124,8 +125,6 @@ def main():
         })["result"]
         r = wait("/v2/text-to-3d", ids["refine"], "refine", credits)
         save(r.get("thumbnail_url"), f"{out}/refined.png")
-        if not save((r.get("texture_urls") or [{}])[0].get("base_color"), f"{out}/color.png"):
-            sys.exit("::error::Meshy refine returned no base colour texture")
 
         ids["remesh"] = call("POST", "/v1/remesh", {
             "input_task_id": ids["refine"],
@@ -136,6 +135,7 @@ def main():
         m = wait("/v1/remesh", ids["remesh"], f"remesh to {spec['polycount']} tris", credits)
         save(m["model_urls"].get("glb"), f"{out}/game.glb")
         save(m["model_urls"].get("fbx"), f"{out}/game.fbx")
+        save_colour(m, out)
 
         if spec.get("rig"):
             ids["rig"] = call("POST", "/v1/rigging", {
@@ -164,6 +164,39 @@ def main():
         print("  recorded the task ids in", os.path.relpath(path, ROOT))
 
 
+def save_colour(remesh, out):
+    """The colour texture for the uploaded mesh: the REMESH task's, never the
+    refine task's. Remeshing re-unwraps the UVs and re-bakes the texture, so
+    the refine texture on the remeshed mesh comes out as scrambled confetti
+    (Josh's Staging playtest, 6 Nov 2026). The rig keeps the remesh's UVs."""
+    url = ((remesh.get("texture_urls") or [{}])[0] or {}).get("base_color")
+    if save(url, f"{out}/color.png"):
+        return
+    if os.path.isfile(f"{out}/game.glb") and glb_base_colour(f"{out}/game.glb", f"{out}/color.png"):
+        return
+    sys.exit("::error::Meshy remesh task has no base colour texture (expired?); remove the spec's meshy block")
+
+
+def glb_base_colour(glb, dest):
+    """Writes the base colour image embedded in a GLB to dest. True if found."""
+    with open(glb, "rb") as f:
+        data = f.read()
+    length = struct.unpack("<I", data[12:16])[0]
+    doc = json.loads(data[20:20 + length])
+    binary = data[28 + length:]
+    for material in doc.get("materials", []):
+        tex = (material.get("pbrMetallicRoughness") or {}).get("baseColorTexture")
+        if tex is None:
+            continue
+        image = doc["images"][doc["textures"][tex["index"]]["source"]]
+        view = doc["bufferViews"][image["bufferView"]]
+        start = view.get("byteOffset", 0)
+        with open(dest, "wb") as f:
+            f.write(binary[start:start + view["byteLength"]])
+        return True
+    return False
+
+
 def reuse(spec, out):
     """Download the results of tasks that already finished (no credits)."""
     ids = spec["meshy"]
@@ -172,12 +205,11 @@ def reuse(spec, out):
     save(p.get("thumbnail_url"), f"{out}/preview.png")
     r = call("GET", f"/v2/text-to-3d/{ids['refine']}")
     save(r.get("thumbnail_url"), f"{out}/refined.png")
-    if not save((r.get("texture_urls") or [{}])[0].get("base_color"), f"{out}/color.png"):
-        sys.exit("::error::Meshy refine task has no base colour texture (expired?); remove the spec's meshy block")
     m = call("GET", f"/v1/remesh/{ids['remesh']}")
     if not save((m.get("model_urls") or {}).get("fbx"), f"{out}/game.fbx"):
         sys.exit("::error::Meshy remesh task has no FBX (expired?); remove the spec's meshy block")
     save(m["model_urls"].get("glb"), f"{out}/game.glb")
+    save_colour(m, out)
     if ids.get("rig"):
         g = call("GET", f"/v1/rigging/{ids['rig']}")
         res = g.get("result") or {}

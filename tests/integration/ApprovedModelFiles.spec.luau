@@ -85,6 +85,19 @@ if fs.isDir(DIR) then
 end
 table.sort(files)
 
+local function boneWorld(bone): Vector3
+	local cf = bone.CFrame
+	local parent = bone.Parent
+	while parent and parent:IsA("Bone") do
+		cf = parent.CFrame * cf
+		parent = parent.Parent
+	end
+	if parent and parent:IsA("BasePart") then
+		cf = parent.CFrame * cf
+	end
+	return cf.Position
+end
+
 local function load(name: string)
 	local roots = roblox.deserializeModel(fs.readFile(paths[name]))
 	return roots
@@ -122,6 +135,17 @@ describe("assets/models", function()
 						end)
 						expect(ok and string.match(texture, "rbxassetid://%d+") ~= nil).toBe(true)
 					end
+				end
+			end)
+
+			-- Roblox's FBX import turns meshes 180°; a rigged character that
+			-- wasn't turned back faces +Z, backwards (Josh's playtest, 6 Nov).
+			it("faces forward (-Z) if it's a rigged character", function()
+				local model = load(name)[1]
+				local left = model:FindFirstChild("LeftHand", true)
+				local right = model:FindFirstChild("RightHand", true)
+				if left and right and left:IsA("Bone") and right:IsA("Bone") then
+					expect(boneWorld(left).X < boneWorld(right).X).toBe(true)
 				end
 			end)
 
