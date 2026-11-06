@@ -132,7 +132,9 @@ end)
 test("the lobby is settled too", function()
 	local hub = LobbyMap.build(newFolder())
 	local lobby = census(hub.model)
-	expect(lobby.parts).toBeLessThan(4000)
+	print(string.format("  [budget] lobby parts %d, lights %d", lobby.parts, lobby.lights))
+	expect(lobby.parts).toBeLessThan(Config.LobbyMap.PartBudget)
+	expect(lobby.lights).toBeLessThan(40)
 	for _, p in lobby.list do
 		if not p.CanCollide and (p.CanTouch or p.CanQuery) then
 			error(p:GetFullName() .. " is non-colliding but still touchable")

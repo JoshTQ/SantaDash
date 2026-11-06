@@ -8,6 +8,12 @@
 	Like MapBuilder it connects no events, so tests can build it outside
 	Roblox. Station.luau drives the bays (gates, boards, sleighs, seating).
 	Plain parts only: approved models replace stand-ins through Assets.
+
+	Scenery (Josh's playtest, 6 Nov 2026: "looks rough"): a pine forest and
+	snow hills close the yard in, Christmas lights and lanterns warm it up,
+	signs get rounded framed panels, and it snows. The lobby is also built in
+	the Run place, so dressing is non-colliding (phones drop it far away,
+	Shared.Detail) and the whole hub stays under LobbyMap.PartBudget.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -33,6 +39,17 @@ local C = {
 	purple = Color3.fromRGB(138, 92, 255),
 	navy = Color3.fromRGB(16, 24, 58),
 	platform = Color3.fromRGB(232, 220, 200),
+	pine = Color3.fromRGB(29, 138, 69),
+	darkPine = Color3.fromRGB(18, 102, 58),
+	lantern = Color3.fromRGB(255, 214, 140),
+	orange = Color3.fromRGB(255, 138, 43),
+}
+local BULBS = {
+	Color3.fromRGB(255, 70, 70),
+	Color3.fromRGB(255, 205, 80),
+	Color3.fromRGB(90, 230, 120),
+	Color3.fromRGB(80, 150, 255),
+	Color3.fromRGB(255, 120, 200),
 }
 local PRESENTS = {
 	{ Color3.fromRGB(232, 52, 63), C.gold },
@@ -84,13 +101,43 @@ local function surfaceGui(p: BasePart, face: Enum.NormalId): SurfaceGui
 	return gui
 end
 
+local BLACK = Color3.new(0, 0, 0)
+
+-- Rounded corners, a border inset and an outline on the text, so a sign
+-- reads as a framed panel on its slab instead of text painted on a block.
+local function dress(label: TextLabel, bg: Color3, inset: number)
+	label.AnchorPoint = Vector2.new(0.5, 0.5)
+	label.Position = UDim2.fromScale(0.5, 0.5)
+	label.Size = UDim2.new(1, -inset * 2, 1, -inset * 2)
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, math.max(inset * 1.6, 8))
+	corner.Parent = label
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft = UDim.new(0.05, 0)
+	pad.PaddingRight = UDim.new(0.05, 0)
+	pad.PaddingTop = UDim.new(0.1, 0)
+	pad.PaddingBottom = UDim.new(0.1, 0)
+	pad.Parent = label
+	local stroke = Instance.new("UIStroke")
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+	stroke.Color = bg:Lerp(BLACK, 0.6)
+	stroke.Thickness = 3
+	stroke.Parent = label
+end
+
+-- Border width in SurfaceGui pixels for a w x h stud sign.
+local function insetFor(w: number, h: number): number
+	return math.floor(math.clamp(math.min(w, h) * 0.08, 0.15, 0.45) * 40)
+end
+
 local function surfaceText(
 	p: BasePart,
 	face: Enum.NormalId,
 	text: string,
 	bg: Color3,
 	fg: Color3,
-	font: Enum.Font?
+	font: Enum.Font?,
+	inset: number?
 ): TextLabel
 	local gui = surfaceGui(p, face)
 	local label = Instance.new("TextLabel")
@@ -102,10 +149,14 @@ local function surfaceText(
 	label.TextScaled = true
 	label.Font = font or Enum.Font.FredokaOne
 	label.Parent = gui
+	if inset then
+		dress(label, bg, inset)
+	end
 	return label
 end
 
--- A sign board with text on its -Z face (and +Z if twoSided).
+-- A framed sign board with text on its -Z face (and +Z if twoSided). The
+-- slab is the frame (a darker rim of the panel colour unless given).
 local function sign(
 	parent: Instance,
 	name: string,
@@ -115,14 +166,196 @@ local function sign(
 	cf: CFrame,
 	bg: Color3,
 	fg: Color3,
-	twoSided: boolean?
+	twoSided: boolean?,
+	frame: Color3?
 ): (BasePart, { TextLabel })
-	local p = part(parent, name, Vector3.new(w, h, 0.6), cf, bg)
-	local labels = { surfaceText(p, Enum.NormalId.Front, text, bg, fg) }
+	local p = part(parent, name, Vector3.new(w, h, 0.6), cf, frame or bg:Lerp(BLACK, 0.45))
+	local inset = insetFor(w, h)
+	local labels = { surfaceText(p, Enum.NormalId.Front, text, bg, fg, nil, inset) }
 	if twoSided then
-		table.insert(labels, surfaceText(p, Enum.NormalId.Back, text, bg, fg))
+		table.insert(labels, surfaceText(p, Enum.NormalId.Back, text, bg, fg, nil, inset))
 	end
 	return p, labels
+end
+
+-- A rounded panel on a face, for boards with several rows of text.
+local function panel(p: BasePart, face: Enum.NormalId, bg: Color3): Frame
+	local gui = surfaceGui(p, face)
+	local inset = insetFor(p.Size.X, p.Size.Y)
+	local f = Instance.new("Frame")
+	f.AnchorPoint = Vector2.new(0.5, 0.5)
+	f.Position = UDim2.fromScale(0.5, 0.5)
+	f.Size = UDim2.new(1, -inset * 2, 1, -inset * 2)
+	f.BackgroundColor3 = bg
+	f.BorderSizePixel = 0
+	f.Parent = gui
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, math.max(inset * 1.6, 8))
+	corner.Parent = f
+	return f
+end
+
+local function row(
+	parent: Instance,
+	name: string,
+	y: number,
+	h: number,
+	text: string,
+	color: Color3,
+	back: Color3?
+): TextLabel
+	local l = Instance.new("TextLabel")
+	l.Name = name
+	l.Position = UDim2.fromScale(0.05, y)
+	l.Size = UDim2.fromScale(0.9, h)
+	l.BackgroundTransparency = if back then 0 else 1
+	l.BackgroundColor3 = back or C.navy
+	l.BorderSizePixel = 0
+	l.TextColor3 = color
+	l.TextScaled = true
+	l.Font = Enum.Font.FredokaOne
+	l.TextXAlignment = Enum.TextXAlignment.Left
+	l.Text = text
+	l.Parent = parent
+	if back then
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0.25, 0)
+		corner.Parent = l
+	end
+	return l
+end
+
+local function ball(
+	parent: Instance,
+	name: string,
+	pos: Vector3,
+	d: number,
+	color: Color3,
+	material: Enum.Material?
+)
+	local p = part(parent, name, Vector3.one * d, CFrame.new(pos), color, material)
+	p.Shape = Enum.PartType.Ball
+	return p
+end
+
+-- Upright cylinder standing on base (Roblox cylinders run along X).
+local function column(
+	parent: Instance,
+	name: string,
+	height: number,
+	diameter: number,
+	base: Vector3,
+	color: Color3,
+	material: Enum.Material?
+): BasePart
+	local p = part(
+		parent,
+		name,
+		Vector3.new(height, diameter, diameter),
+		CFrame.new(base + Vector3.new(0, height / 2, 0)) * CFrame.Angles(0, 0, math.pi / 2),
+		color,
+		material
+	)
+	p.Shape = Enum.PartType.Cylinder
+	return p
+end
+
+-- A snow bump: a big ball sunk so only a cap `height` tall and `radius`
+-- wide shows above the ground.
+local function mound(parent: Instance, x: number, z: number, radius: number, height: number): BasePart
+	local r = (radius * radius + height * height) / (2 * height)
+	return deco(ball(parent, "SnowMound", Vector3.new(x, height - r, z), r * 2, C.snow, Enum.Material.Snow))
+end
+
+local function glow(p: BasePart, range: number, brightness: number?)
+	local light = Instance.new("PointLight")
+	light.Color = C.lantern
+	light.Range = range
+	light.Brightness = brightness or 1.4
+	light.Shadows = false
+	light.Parent = p
+end
+
+-- An invisible light source (nothing for the culler to hide).
+local function lightAt(parent: Instance, pos: Vector3, range: number, brightness: number?): PointLight
+	local p = deco(part(parent, "LightSource", Vector3.one, CFrame.new(pos), C.lantern))
+	p.Transparency = 1
+	p.CastShadow = false
+	glow(p, range, brightness)
+	return p:FindFirstChildOfClass("PointLight") :: PointLight
+end
+
+-- Christmas bulbs on a sagging wire from a to b.
+local function stringLights(parent: Instance, a: Vector3, b: Vector3, sag: number, spacing: number)
+	local n = math.max(2, math.floor((b - a).Magnitude / spacing))
+	local function at(t: number): Vector3
+		return a:Lerp(b, t) - Vector3.new(0, sag * 4 * t * (1 - t), 0)
+	end
+	for k = 0, 3 do -- the wire, in four straight runs
+		local p0, p1 = at(k / 4), at((k + 1) / 4)
+		deco(
+			part(
+				parent,
+				"LightWire",
+				Vector3.new(0.12, 0.12, (p1 - p0).Magnitude),
+				CFrame.lookAt((p0 + p1) / 2, p1),
+				C.coal
+			)
+		)
+	end
+	for i = 1, n - 1 do
+		deco(
+			ball(
+				parent,
+				"Bulb",
+				at(i / n) - Vector3.new(0, 0.35, 0),
+				0.6,
+				BULBS[i % #BULBS + 1],
+				Enum.Material.Neon
+			)
+		)
+	end
+end
+
+-- Snowy pine: trunk, three tiers, a snow tip; lit ones get bulbs.
+local function pine(parent: Instance, base: Vector3, h: number, lit: boolean, solid: boolean?)
+	local trunk =
+		column(parent, "PineTrunk", h * 0.22, math.max(h * 0.08, 1), base, C.darkWood, Enum.Material.Wood)
+	if not solid then
+		deco(trunk)
+	end
+	for k, frac in { 0.62, 0.46, 0.3 } do
+		deco(
+			column(
+				parent,
+				"PineTier",
+				h * 0.24,
+				h * frac,
+				base + Vector3.new(0, h * (0.01 + k * 0.19), 0),
+				if k % 2 == 1 then C.darkPine else C.pine,
+				Enum.Material.Grass
+			)
+		)
+	end
+	deco(ball(parent, "PineSnow", base + Vector3.new(0, h * 0.86, 0), h * 0.15, C.snow, Enum.Material.Snow))
+	if lit then
+		for k = 0, 7 do
+			local a = k * 2.3
+			local tier = k % 3
+			local r = h * ({ 0.31, 0.23, 0.15 })[tier + 1]
+			local y = h * (0.3 + tier * 0.19)
+			deco(
+				ball(
+					parent,
+					"Bulb",
+					base + Vector3.new(math.cos(a) * r, y, math.sin(a) * r),
+					math.max(h * 0.05, 0.6),
+					BULBS[k % #BULBS + 1],
+					Enum.Material.Neon
+				)
+			)
+		end
+	end
 end
 
 local function present(parent: Instance, pos: Vector3, size: number, k: number, yaw: number)
@@ -231,20 +464,90 @@ local function buildWorkshop(model: Model, floorH: number): { TextLabel }
 		C.floor,
 		Enum.Material.WoodPlanks
 	)
+	for x = w.X0 + 4, w.X1 - 1, 8 do
+		deco(
+			part(f, "FloorLine", Vector3.new(0.3, 0.05, D - 2), CFrame.new(x, floorH + 0.03, cz), C.darkWood)
+		)
+	end
+	deco(part(f, "Rug", Vector3.new(16, 0.15, 8), CFrame.new(0, floorH + 0.08, -52), C.red))
 	part(f, "BackWall", Vector3.new(W + 2, w.Height, 2), CFrame.new(0, w.Height / 2, w.Z0), C.wall)
 	for _, x in { w.X0, w.X1 } do
 		part(f, "SideWall", Vector3.new(2, w.Height, D), CFrame.new(x, w.Height / 2, cz), C.wall)
 	end
 	part(f, "FrontHeader", Vector3.new(W + 2, 5, 2), CFrame.new(0, w.Height - 2.5, w.Z1), C.wall)
 	for _, x in { -13, 13 } do
-		part(
-			f,
-			"Pillar",
-			Vector3.new(2.4, w.Height - 5, 2.4),
-			CFrame.new(x, (w.Height - 5) / 2, w.Z1),
-			C.gold
+		column(f, "Pillar", w.Height - 5, 2.6, Vector3.new(x, 0, w.Z1), C.gold)
+	end
+	-- gold trim under the header, snow along the wall tops
+	deco(part(f, "HeaderTrim", Vector3.new(W + 2.4, 0.6, 2.4), CFrame.new(0, w.Height - 5, w.Z1), C.gold))
+	for _, x in { w.X0, w.X1 } do
+		deco(
+			part(
+				f,
+				"WallSnow",
+				Vector3.new(2.8, 0.8, D + 2),
+				CFrame.new(x, w.Height + 0.4, cz),
+				C.snow,
+				Enum.Material.Snow
+			)
+		)
+		-- warm lit windows on the outside of each side wall
+		for _, z in { -55, -43, -31 } do
+			local out = if x < 0 then -1 else 1
+			local win = deco(
+				part(
+					f,
+					"Window",
+					Vector3.new(0.3, 5, 4.4),
+					CFrame.new(x + out * 1.05, 9, z),
+					C.lantern,
+					Enum.Material.Neon
+				)
+			)
+			win.CastShadow = false
+			deco(
+				part(f, "WindowFrame", Vector3.new(0.4, 5.8, 0.5), CFrame.new(x + out * 1.15, 9, z), C.cream)
+			)
+			deco(
+				part(f, "WindowFrame", Vector3.new(0.4, 0.5, 5.2), CFrame.new(x + out * 1.15, 9, z), C.cream)
+			)
+			deco(
+				part(
+					f,
+					"WindowSill",
+					Vector3.new(1, 0.5, 5.4),
+					CFrame.new(x + out * 1.3, 6.3, z),
+					C.snow,
+					Enum.Material.Snow
+				)
+			)
+		end
+	end
+	-- candy-striped chimneys
+	for _, x in { -30, 30 } do
+		for i = 0, 3 do
+			deco(
+				column(
+					f,
+					"Chimney",
+					2.6,
+					4.2,
+					Vector3.new(x, w.Height + i * 2.6, w.Z0 + 5),
+					if i % 2 == 0 then C.red else C.snow
+				)
+			)
+		end
+		deco(
+			ball(f, "ChimneySnow", Vector3.new(x, w.Height + 10.6, w.Z0 + 5), 3.6, C.snow, Enum.Material.Snow)
 		)
 	end
+	stringLights(
+		f,
+		Vector3.new(w.X0, w.Height - 5.4, w.Z1 + 1.4),
+		Vector3.new(w.X1, w.Height - 5.4, w.Z1 + 1.4),
+		2,
+		2.4
+	)
 	-- sawtooth roof in candy stripes
 	for i = 0, 5 do
 		local x = w.X0 + 6.7 + i * 13.3
@@ -291,6 +594,9 @@ local function buildWorkshop(model: Model, floorH: number): { TextLabel }
 			)
 		end
 		present(f, Vector3.new(b[1] - 2.5, floorH + 4, b[2]), 1.5, b[1] + b[2], 0.3)
+		deco(part(f, "Toy", Vector3.new(1.3, 1.3, 1.3), CFrame.new(b[1] + 2.5, floorH + 4.65, b[2]), C.coal))
+		deco(column(f, "Toy", 2, 0.6, Vector3.new(b[1] + 0.5, floorH + 4, b[2] + 0.5), C.red))
+		deco(column(f, "LampCord", 6, 0.2, Vector3.new(b[1], w.Height - 6.6, b[2]), C.coal))
 		local lamp = deco(
 			part(
 				f,
@@ -327,36 +633,51 @@ local function buildWorkshop(model: Model, floorH: number): { TextLabel }
 			Enum.Material.Neon
 		)
 	)
+	part(f, "Mantel", Vector3.new(15, 1, 3.6), CFrame.new(0, floorH + 11.2, w.Z0 + 2.6), C.cream)
+	lightAt(f, Vector3.new(0, floorH + 3, w.Z0 + 5), 22, 1.6).Color = C.orange
 	for i, col in { C.red, C.green, Color3.fromRGB(61, 123, 255), C.purple, C.gold } do
+		local sx = -5.6 + (i - 1) * 2.8
+		deco(part(f, "Stocking", Vector3.new(1.2, 2.4, 0.6), CFrame.new(sx, floorH + 9, w.Z0 + 4.5), col))
 		deco(
 			part(
 				f,
-				"Stocking",
-				Vector3.new(1.2, 2.4, 0.6),
-				CFrame.new(-5.6 + (i - 1) * 2.8, floorH + 9, w.Z0 + 4.5),
+				"StockingToe",
+				Vector3.new(1.8, 0.9, 0.6),
+				CFrame.new(sx + 0.4, floorH + 7.6, w.Z0 + 4.5),
 				col
+			)
+		)
+		deco(
+			part(
+				f,
+				"StockingCuff",
+				Vector3.new(1.4, 0.6, 0.7),
+				CFrame.new(sx, floorH + 10.3, w.Z0 + 4.5),
+				C.snow
 			)
 		)
 	end
 	for _, s in { -1, 1 } do
-		part(
+		local col = if s < 0 then C.purple else C.teal
+		local seat = CFrame.new(s * 10, floorH, -53) * CFrame.Angles(0, -s * 0.5, 0)
+		part(f, "Armchair", Vector3.new(4, 2, 4), seat * CFrame.new(0, 1.4, 0), col)
+		deco(part(f, "ArmchairBack", Vector3.new(4, 4, 1.2), seat * CFrame.new(0, 2.8, -1.6), col))
+		for _, a in { -2, 2 } do
+			deco(part(f, "ArmchairArm", Vector3.new(1, 2.6, 4), seat * CFrame.new(a, 2.2, 0), col))
+		end
+	end
+	pine(f, Vector3.new(-34, floorH, -28), 13, true, true)
+	for k = 1, 5 do
+		local a = k * 1.3
+		present(
 			f,
-			"Armchair",
-			Vector3.new(4, 2, 4),
-			CFrame.new(s * 10, floorH + 1.4, -53) * CFrame.Angles(0, -s * 0.5, 0),
-			if s < 0 then C.purple else C.teal
+			Vector3.new(-34 + math.cos(a) * 3.6, floorH, -28 + math.sin(a) * 3.6),
+			1.2 + (k % 2) * 0.5,
+			k,
+			a
 		)
 	end
-	part(
-		f,
-		"Tree",
-		Vector3.new(7, 11, 7),
-		CFrame.new(-34, floorH + 5.5, -28),
-		Color3.fromRGB(29, 138, 69),
-		nil,
-		"Part"
-	).Shape =
-		Enum.PartType.Cylinder
+	lightAt(f, Vector3.new(0, w.Height - 4, -44), 60, 1.2)
 	-- spawn ring
 	local spawnCF = Config.Map.HubSpawn
 	local spawnPart = part(
@@ -390,12 +711,166 @@ local function buildWorkshop(model: Model, floorH: number): { TextLabel }
 	return boards
 end
 
+-- Candy-cane fence from a to b: red and white posts, a rail, and an
+-- invisible wall tall enough that nobody hops out of the yard.
+local function fence(parent: Instance, a: Vector3, b: Vector3)
+	local len = (b - a).Magnitude
+	local frame = CFrame.lookAt(a, b)
+	local n = math.floor(len / 3)
+	for i = 0, n do
+		local p = a:Lerp(b, i / n)
+		deco(column(parent, "FencePost", 2.4, 0.6, p, if i % 2 == 0 then C.snow else C.red))
+	end
+	deco(
+		part(parent, "FenceRail", Vector3.new(0.35, 0.35, len), frame * CFrame.new(0, 1.7, -len / 2), C.snow)
+	)
+	deco(part(parent, "FenceRail", Vector3.new(0.35, 0.35, len), frame * CFrame.new(0, 0.8, -len / 2), C.red))
+	local wall =
+		part(parent, "FenceWall", Vector3.new(1, 7, len), frame * CFrame.new(0, 3.5, -len / 2), C.snow)
+	wall.Transparency = 1
+end
+
+-- Candy-striped lamp post with a hook and a glowing lantern.
+local function lampPost(parent: Instance, base: Vector3, out: Vector3)
+	for i = 0, 3 do
+		column(
+			parent,
+			"LampPost",
+			2,
+			0.6,
+			base + Vector3.new(0, i * 2, 0),
+			if i % 2 == 0 then C.red else C.snow
+		)
+	end
+	deco(
+		part(
+			parent,
+			"LampHook",
+			Vector3.new(0.4, 0.4, 1.6),
+			CFrame.lookAt(base + Vector3.new(0, 8.1, 0) + out * 0.7, base + Vector3.new(0, 8.1, 0) + out * 2),
+			C.red
+		)
+	)
+	local bulb = deco(
+		ball(parent, "Lantern", base + Vector3.new(0, 7.4, 0) + out * 1.4, 1.2, C.lantern, Enum.Material.Neon)
+	)
+	glow(bulb, 26, 1.6)
+end
+
+local function snowman(parent: Instance, base: Vector3, yaw: number)
+	local face = CFrame.new(base) * CFrame.Angles(0, yaw, 0)
+	for _, b in { { 1.4, 3.2 }, { 3.4, 2.3 }, { 4.9, 1.6 } } do
+		ball(parent, "Snowman", (face * CFrame.new(0, b[1], 0)).Position, b[2], C.snow, Enum.Material.Snow)
+	end
+	deco(part(parent, "SnowmanNose", Vector3.new(0.3, 0.3, 1), face * CFrame.new(0, 4.9, -0.9), C.orange))
+	deco(part(parent, "SnowmanScarf", Vector3.new(2.3, 0.4, 2.3), face * CFrame.new(0, 4.2, 0), C.red))
+	for _, x in { -0.3, 0.3 } do
+		deco(part(parent, "SnowmanEye", Vector3.new(0.2, 0.2, 0.2), face * CFrame.new(x, 5.2, -0.7), C.coal))
+	end
+	deco(column(parent, "SnowmanHat", 0.2, 1.8, (face * CFrame.new(0, 5.6, 0)).Position, C.coal))
+	deco(column(parent, "SnowmanHat", 1, 1.2, (face * CFrame.new(0, 5.8, 0)).Position, C.coal))
+end
+
+-- Forest and hills close the yard in, so it reads as a cosy clearing, not a
+-- flat field to the horizon. Seeded: the same lobby every server.
+local function buildScenery(model: Model)
+	local L = Config.LobbyMap
+	local y = L.Yard
+	local S = L.Scenery
+	local m = Instance.new("Model")
+	m.Name = "Scenery"
+	m.Parent = model
+	local rng = Random.new(S.Seed)
+	local function clear(x: number, z: number): boolean
+		if x > y.X0 - S.YardGap and x < y.X1 + S.YardGap and z > -70 - S.YardGap and z < y.Z1 + S.YardGap then
+			return false
+		end
+		-- the sleighs fly in and out along the back of the station
+		return not (z > L.SleighZ - S.FlightGap and z < L.SleighZ + S.FlightGap)
+	end
+	local c = S.Centre
+	local trees = 0
+	for x = -S.Radius.X, S.Radius.X, S.TreeSpacing do
+		for z = c.Z - S.Radius.Z, c.Z + S.Radius.Z, S.TreeSpacing do
+			local px = x + rng:NextNumber(-0.4, 0.4) * S.TreeSpacing
+			local pz = z + rng:NextNumber(-0.4, 0.4) * S.TreeSpacing
+			local e = (px / S.Radius.X) ^ 2 + ((pz - c.Z) / S.Radius.Z) ^ 2
+			local keep = rng:NextNumber() < S.TreeChance
+			local h = rng:NextNumber(S.TreeHeight[1], S.TreeHeight[2])
+			local lit = rng:NextNumber() < S.LitChance
+			if keep and e <= 1 and clear(px, pz) then
+				pine(m, Vector3.new(px, 0, pz), h * (1 + e * 0.3), lit)
+				trees += 1
+			end
+		end
+	end
+	m:SetAttribute("Trees", trees)
+	-- a ring of big snow hills on the skyline
+	for i = 1, S.Hills do
+		local a = (i + rng:NextNumber(-0.3, 0.3)) / S.Hills * math.pi * 2
+		local r = rng:NextNumber(1.05, 1.25)
+		mound(
+			m,
+			math.cos(a) * S.Radius.X * r,
+			c.Z + math.sin(a) * S.Radius.Z * r,
+			rng:NextNumber(40, 70),
+			rng:NextNumber(14, 30)
+		)
+	end
+	-- drifts banked against the inside of the fence
+	for i = 0, 5 do
+		local z = y.Z0 + 10 + i * (y.Z1 - y.Z0 - 20) / 5
+		for _, x in { y.X0 + 3, y.X1 - 3 } do
+			if not (z > L.Platform.Z0 - 4 and math.abs(x) < 46) then
+				mound(m, x, z, rng:NextNumber(5, 8), rng:NextNumber(1.2, 2.2))
+			end
+		end
+	end
+	for _, x in { -48, -24, 24, 48 } do
+		mound(m, x, y.Z1 - 3, rng:NextNumber(5, 8), rng:NextNumber(1.2, 2))
+	end
+	-- big lit trees in the back corners, with presents underneath
+	for k, corner in { Vector3.new(-60, 0, 84), Vector3.new(60, 0, 84) } do
+		pine(m, corner, 18 - k * 2, true, true)
+		for i = 1, 6 do
+			local a = i * 1.05 + k
+			present(
+				m,
+				corner + Vector3.new(math.cos(a) * 4.5, 0, math.sin(a) * 4.5),
+				1 + (i % 3) * 0.5,
+				i + k,
+				a
+			)
+		end
+	end
+	snowman(m, Vector3.new(-60, 0, -14), math.rad(-150))
+	-- falling snow over the yard (client-rendered, no parts)
+	local sky =
+		deco(part(m, "Snowfall", Vector3.new(S.SnowArea, 1, S.SnowArea), CFrame.new(0, 70, c.Z), C.snow))
+	sky.Transparency = 1
+	sky.CastShadow = false
+	local snow = Instance.new("ParticleEmitter")
+	snow.Name = "Snow"
+	snow.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	snow.EmissionDirection = Enum.NormalId.Bottom
+	snow.Rate = S.SnowRate
+	snow.Lifetime = NumberRange.new(9, 13)
+	snow.Speed = NumberRange.new(5, 8)
+	snow.SpreadAngle = Vector2.new(12, 12)
+	snow.Size = NumberSequence.new(0.4)
+	snow.Color = ColorSequence.new(Color3.new(1, 1, 1))
+	snow.LightEmission = 0.3
+	snow.RotSpeed = NumberRange.new(-60, 60)
+	snow.Acceleration = Vector3.new(1, 0, 0.5)
+	snow.Parent = sky
+end
+
 local function buildYard(model: Model)
 	local y = Config.LobbyMap.Yard
 	local m = Instance.new("Model")
 	m.Name = "Yard"
 	m.Parent = model
-	part(m, "Snow", Vector3.new(400, 2, 400), CFrame.new(0, -1, 20), C.snow, Enum.Material.Snow)
+	part(m, "Snow", Vector3.new(600, 2, 600), CFrame.new(0, -1, 20), C.snow, Enum.Material.Snow)
 	deco(
 		part(
 			m,
@@ -405,17 +880,15 @@ local function buildYard(model: Model)
 			C.yard
 		)
 	)
-	-- candy-cane fence on three sides
-	for _, x in { y.X0, y.X1 } do
-		part(m, "Fence", Vector3.new(1, 2.2, y.Z1 - y.Z0), CFrame.new(x, 1.1, (y.Z0 + y.Z1) / 2), C.snow)
-	end
-	part(m, "Fence", Vector3.new(y.X1 - y.X0, 2.2, 1), CFrame.new(0, 1.1, y.Z1), C.snow)
+	-- candy-cane fence on three sides (the workshop closes the fourth)
+	fence(m, Vector3.new(y.X0, 0, y.Z0), Vector3.new(y.X0, 0, y.Z1))
+	fence(m, Vector3.new(y.X0, 0, y.Z1), Vector3.new(y.X1, 0, y.Z1))
+	fence(m, Vector3.new(y.X1, 0, y.Z1), Vector3.new(y.X1, 0, y.Z0))
+	-- the yard's front corners, either side of the workshop
+	fence(m, Vector3.new(y.X0, 0, y.Z0), Vector3.new(-41, 0, y.Z0))
+	fence(m, Vector3.new(41, 0, y.Z0), Vector3.new(y.X1, 0, y.Z0))
 	for _, l in { { -56, -12 }, { 36, -12 }, { -50, 34 }, { 42, 36 }, { -60, 60 }, { 60, 60 } } do
-		part(m, "LampPost", Vector3.new(0.5, 8, 0.5), CFrame.new(l[1], 4, l[2]), C.red)
-		local bulb = deco(
-			part(m, "Bulb", Vector3.new(1, 1, 1), CFrame.new(l[1], 8.2, l[2]), C.gold, Enum.Material.Neon)
-		)
-		bulb.Shape = Enum.PartType.Ball
+		lampPost(m, Vector3.new(l[1], 0, l[2]), Vector3.new(if l[1] > 0 then -1 else 1, 0, 0))
 	end
 end
 
@@ -424,7 +897,8 @@ local function buildShowOff(model: Model)
 	local m = Instance.new("Model")
 	m.Name = "ShowOff"
 	m.Parent = model
-	-- Top crews podium (statues are stand-ins until avatars are cloned in)
+	-- Top crews podium, facing the workshop (-Z) like the board behind it.
+	-- Statues are chunky stand-ins until the crews' avatars are cloned in.
 	local P = L.Podium
 	for _, s in
 		{
@@ -433,25 +907,32 @@ local function buildShowOff(model: Model)
 			{ 8, 2.6, Color3.fromRGB(208, 138, 74), 3 },
 		}
 	do
-		local step = part(
-			m,
-			"PodiumStep" .. s[4],
-			Vector3.new(7.5, s[2], 6),
-			CFrame.new(P.X - s[1], s[2] / 2, P.Z),
-			s[3]
+		local x = P.X - s[1]
+		local step =
+			part(m, "PodiumStep" .. s[4], Vector3.new(7.5, s[2], 6), CFrame.new(x, s[2] / 2, P.Z), s[3])
+		local badge = deco(
+			part(m, "PodiumBadge", Vector3.new(2.6, 2.6, 0.3), CFrame.new(x, s[2] / 2, P.Z - 3.1), C.snow)
 		)
-		surfaceText(step, Enum.NormalId.Back, tostring(s[4]), s[3], C.navy)
+		surfaceText(badge, Enum.NormalId.Front, tostring(s[4]), C.snow, C.navy, nil, 4)
+		step:SetAttribute("Place", s[4])
 		for k = 0, 2 do
-			part(
-				m,
-				"Statue",
-				Vector3.new(1.6, 4, 1.4),
-				CFrame.new(P.X - s[1] - 2.2 + k * 2.2, s[2] + 2, P.Z + 0.5),
-				C.red
-			)
+			local base = Vector3.new(x - 2.2 + k * 2.2, s[2], P.Z + 0.5)
+			local suit = ({ C.red, C.green, Color3.fromRGB(61, 123, 255) })[k + 1]
+			ball(m, "Statue", base + Vector3.new(0, 1.1, 0), 2.2, suit)
+			deco(ball(m, "StatueFace", base + Vector3.new(0, 2.6, 0), 1.3, Color3.fromRGB(255, 214, 186)))
+			deco(ball(m, "StatueBeard", base + Vector3.new(0, 2.2, -0.35), 1.1, C.snow))
+			deco(column(m, "StatueHat", 0.9, 1.2, base + Vector3.new(0, 3.05, 0), suit))
+			deco(ball(m, "StatuePom", base + Vector3.new(0, 4.1, 0), 0.5, C.snow))
 		end
 	end
-	sign(m, "TopCrewsBoard", "TOP CREWS THIS WEEK", 17, 9, CFrame.new(P.X, 15, P.Z + 5), C.navy, C.gold)
+	local board = part(m, "TopCrewsBoard", Vector3.new(17, 9, 0.6), CFrame.new(P.X, 15, P.Z + 5), C.coal)
+	local bg = panel(board, Enum.NormalId.Front, C.navy)
+	row(bg, "Title", 0.08, 0.3, "TOP CREWS THIS WEEK", C.gold).TextXAlignment = Enum.TextXAlignment.Center
+	row(bg, "Body", 0.5, 0.36, "Rob the most presents to stand up here!", Color3.new(1, 1, 1)).TextXAlignment =
+		Enum.TextXAlignment.Center
+	for _, x in { -7, 7 } do
+		column(m, "BoardPost", 10.5, 0.8, Vector3.new(P.X + x, 0, P.Z + 5.4), C.coal)
+	end
 	-- Giant weekly present
 	local T = L.Trophy
 	local base = part(
@@ -472,6 +953,20 @@ local function buildShowOff(model: Model)
 		C.gold
 	)
 	giant:SetAttribute("Spin", true)
+	for i = 0, 13 do
+		local a = i / 14 * math.pi * 2
+		deco(
+			ball(
+				m,
+				"TrophyBead",
+				Vector3.new(T.X + math.cos(a) * 9.5, 3.2, T.Z + math.sin(a) * 9.5),
+				1,
+				BULBS[i % #BULBS + 1],
+				Enum.Material.Neon
+			)
+		)
+	end
+	lightAt(m, Vector3.new(T.X, 4, T.Z - 12), 30, 1.2)
 	deco(part(m, "GiantRibbon", Vector3.new(11.1, 11.1, 2), giant.CFrame, C.red))
 	deco(part(m, "GiantRibbon", Vector3.new(2, 11.1, 11.1), giant.CFrame, C.red))
 	sign(
@@ -495,8 +990,20 @@ local function buildShowOff(model: Model)
 		C.darkWood,
 		Enum.Material.Wood
 	)
+	deco(
+		part(
+			m,
+			"WantedSnow",
+			Vector3.new(38, 1.2, 3),
+			wall.CFrame * CFrame.new(0, 7.9, 0),
+			C.snow,
+			Enum.Material.Snow
+		)
+	)
 	for i = 0, 7 do
-		local cf = wall.CFrame * CFrame.new(-13.5 + (i % 4) * 9, 3.5 - math.floor(i / 4) * 6.6, -1.2)
+		local cf = wall.CFrame
+			* CFrame.new(-13.5 + (i % 4) * 9, 3.5 - math.floor(i / 4) * 6.6, -1.2)
+			* CFrame.Angles(0, 0, (i % 3 - 1) * 0.06)
 		local poster = sign(
 			m,
 			"WantedPoster",
@@ -505,7 +1012,9 @@ local function buildShowOff(model: Model)
 			5.6,
 			cf,
 			Color3.fromRGB(241, 223, 180),
-			Color3.fromRGB(122, 42, 26)
+			Color3.fromRGB(122, 42, 26),
+			false,
+			Color3.fromRGB(201, 164, 106)
 		)
 		poster:SetAttribute("Rank", i + 1)
 	end
@@ -547,30 +1056,24 @@ local function buildPath(model: Model)
 		path(m, { L.Fork + Vector3.new(0, 0, 4), mid, finish }, 5.5, bay.Colour, 16, 7, 2)
 	end
 	-- wooden signpost at the fork: arrow planks to Public and Private, a board on top for Party
-	local post = part(
-		m,
-		"SignpostStake",
-		Vector3.new(0.9, 10, 0.9),
-		CFrame.new(L.Fork.X, 5, L.Fork.Z),
-		C.darkWood,
-		Enum.Material.Wood
-	)
+	local post =
+		column(m, "SignpostStake", 10, 1, Vector3.new(L.Fork.X, 0, L.Fork.Z), C.darkWood, Enum.Material.Wood)
 	post:SetAttribute("Signpost", true)
 	for k, bay in L.Bays do
 		local label = string.upper(bay.Kind)
 		if bay.X == 0 then
-			local board = sign(
+			sign(
 				m,
 				"SignParty",
 				"PARTY AHEAD",
 				6.4,
 				1.8,
-				CFrame.new(L.Fork.X, 10.1, L.Fork.Z),
+				CFrame.new(L.Fork.X, 10.9, L.Fork.Z),
 				C.wood,
 				Color3.fromRGB(74, 42, 20),
-				true
+				true,
+				C.darkWood
 			)
-			board.Material = Enum.Material.Wood
 		else
 			local dir = (branchEnd(bay) - Vector3.new(L.Fork.X, 0, L.Fork.Z)).Unit
 			local y = if k == 1 then 7.6 else 5.6
@@ -578,16 +1081,25 @@ local function buildPath(model: Model)
 			-- plank runs along dir, text on both faces
 			local cf = CFrame.lookAt(origin + dir * 3.4, origin + dir * 10)
 				* CFrame.Angles(0, math.rad(90), 0)
-			local plank =
-				sign(m, "Sign" .. bay.Kind, label, 6.4, 1.6, cf, C.wood, Color3.fromRGB(74, 42, 20), true)
-			plank.Material = Enum.Material.Wood
+			sign(
+				m,
+				"Sign" .. bay.Kind,
+				label,
+				6.4,
+				1.6,
+				cf,
+				C.wood,
+				Color3.fromRGB(74, 42, 20),
+				true,
+				C.darkWood
+			)
 			part(
 				m,
 				"SignTip",
 				Vector3.new(0.6, 1.6, 1.2),
 				CFrame.lookAt(origin + dir * 7.2, origin + dir * 10) * CFrame.Angles(0, math.rad(90), 0),
-				C.wood,
-				Enum.Material.Wood,
+				C.darkWood,
+				nil,
 				"WedgePart"
 			)
 		end
@@ -630,8 +1142,18 @@ local function buildStation(model: Model, floorH: number): { Bay }
 	edge.Transparency = 1
 	for _, x in { -39, -13, 13, 39 } do
 		for _, z in { pl.Z0 + 1, pl.Z1 - 1 } do
-			part(m, "CanopyPost", Vector3.new(1, 13, 1), CFrame.new(x, floorH + 6.5, z), C.gold)
+			column(m, "CanopyPost", 13, 1.1, Vector3.new(x, floorH, z), C.gold)
 		end
+	end
+	-- Christmas lights along both canopy edges, warm light on the platform
+	for _, z in { pl.Z0 - 1.6, pl.Z1 + 1.6 } do
+		stringLights(
+			m,
+			Vector3.new(pl.X0 - 2, floorH + 12.7, z),
+			Vector3.new(pl.X1 + 2, floorH + 12.7, z),
+			1.2,
+			2.4
+		)
 	end
 	part(
 		m,
@@ -656,6 +1178,8 @@ local function buildStation(model: Model, floorH: number): { Bay }
 		3.6,
 		CFrame.new(0, floorH + 12.4, pl.Z0 - 2.4),
 		C.red,
+		C.gold,
+		false,
 		C.gold
 	)
 
@@ -703,49 +1227,24 @@ local function buildStation(model: Model, floorH: number): { Bay }
 			cfg.Colour
 		)
 		gate.Transparency = 1
-		-- stats board over the gate, facing the yard
+		-- stats board over the gate, facing the yard (-Z) so you read it as
+		-- you walk up; the rim is the bay's colour
 		local statsPart = part(
 			m,
 			"StatsBoard",
 			Vector3.new(9.8, 6.8, 0.6),
-			CFrame.new(bx, floorH + 8, L.GateZ) * CFrame.Angles(0, math.pi, 0),
-			C.coal
+			CFrame.new(bx, floorH + 8, L.GateZ),
+			cfg.Colour:Lerp(BLACK, 0.2)
 		)
 		for _, s in { -1, 1 } do
-			part(
-				m,
-				"StatsPost",
-				Vector3.new(0.6, 8, 0.6),
-				CFrame.new(bx + s * 5.5, floorH + 4, L.GateZ - 0.8),
-				C.coal
-			)
+			column(m, "StatsPost", 8, 0.6, Vector3.new(bx + s * 5.5, floorH, L.GateZ + 0.8), C.coal)
 		end
-		local gui = surfaceGui(statsPart, Enum.NormalId.Front)
-		local bg = Instance.new("Frame")
-		bg.Size = UDim2.fromScale(1, 1)
-		bg.BackgroundColor3 = C.navy
-		bg.BorderSizePixel = 0
-		bg.Parent = gui
-		local function row(name: string, y: number, h: number, color: Color3, back: Color3?): TextLabel
-			local l = Instance.new("TextLabel")
-			l.Name = name
-			l.Position = UDim2.fromScale(0.05, y)
-			l.Size = UDim2.fromScale(0.9, h)
-			l.BackgroundTransparency = if back then 0 else 1
-			l.BackgroundColor3 = back or C.navy
-			l.TextColor3 = color
-			l.TextScaled = true
-			l.Font = Enum.Font.FredokaOne
-			l.TextXAlignment = Enum.TextXAlignment.Left
-			l.Text = ""
-			l.Parent = bg
-			return l
-		end
+		local bg = panel(statsPart, Enum.NormalId.Front, C.navy)
 		local stats = {
-			title = row("Title", 0.03, 0.2, Color3.new(1, 1, 1), cfg.Colour),
-			status = row("Status", 0.3, 0.18, C.gold),
-			crew = row("Crew", 0.52, 0.16, Color3.new(1, 1, 1)),
-			mode = row("Mode", 0.72, 0.16, Color3.fromRGB(169, 179, 218)),
+			title = row(bg, "Title", 0.05, 0.2, "", Color3.new(1, 1, 1), cfg.Colour),
+			status = row(bg, "Status", 0.3, 0.18, "", C.gold),
+			crew = row(bg, "Crew", 0.52, 0.16, "", Color3.new(1, 1, 1)),
+			mode = row(bg, "Mode", 0.72, 0.16, "", Color3.fromRGB(169, 179, 218)),
 		}
 		stats.title.Text = string.format("BAY %d  %s", cfg.Number, string.upper(cfg.Kind))
 		stats.title.TextXAlignment = Enum.TextXAlignment.Center
@@ -760,8 +1259,13 @@ local function buildStation(model: Model, floorH: number): { Bay }
 			CFrame.new(bx, floorH + 17.4, cz + 2),
 			C.red,
 			Color3.new(1, 1, 1),
-			true
+			true,
+			C.gold
 		)
+		for _, s in { -1, 1 } do
+			column(m, "BoardingSignPost", 1.6, 0.4, Vector3.new(bx + s * 6, floorH + 14.5, cz + 2), C.gold)
+		end
+		lightAt(m, Vector3.new(bx, floorH + 11, cz), 20, 1)
 		-- board zone between the gate and the platform edge
 		local bz = L.BoardZone
 		local zone = part(
@@ -797,6 +1301,7 @@ function LobbyMap.build(parent: Instance): Hub
 	model.Name = "SleighStationLobby"
 	local floorH = Config.LobbyMap.FloorHeight
 	buildYard(model)
+	buildScenery(model)
 	local boards = buildWorkshop(model, floorH)
 	buildShowOff(model)
 	buildPath(model)

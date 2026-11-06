@@ -668,6 +668,23 @@ Config.LobbyMap = {
 	BoardSeconds = { Public = 12, Party = 20, Private = 20 }, -- gate open, BOARDING NOW! lit
 	DepartSeconds = 5, -- sleigh takes off
 	GapSeconds = 3, -- empty bay before the next sleigh
+	-- Forest, hills and snowfall round the yard (Josh's playtest, 6 Nov 2026:
+	-- the flat floor ran to the horizon). Seeded, so every server matches.
+	Scenery = {
+		Seed = 1224,
+		Centre = Vector3.new(0, 0, 15),
+		Radius = { X = 175, Z = 170 }, -- forest ellipse; hills sit just past it
+		YardGap = 8, -- no trees this close to the yard fence or workshop
+		FlightGap = 12, -- clear lane for sleighs flying in and out (SleighZ)
+		TreeSpacing = 20,
+		TreeChance = 0.6,
+		TreeHeight = { 16, 28 },
+		LitChance = 0.15,
+		Hills = 16,
+		SnowArea = 220, -- studs square of falling snow over the yard
+		SnowRate = 140,
+	},
+	PartBudget = 3000, -- the hub is built in the Run place too (RenderBudget.spec)
 }
 
 -- Frozen Canal Town (Maps/FrozenCanal, server/CanalTown). Josh's picks, 1 Nov
