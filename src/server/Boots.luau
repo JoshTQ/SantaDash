@@ -7,7 +7,8 @@
 	Canal's skating loop reads (server/CanalTown.luau):
 	  "SkateSpeed"  WalkSpeed on ice with these boots
 	  "HoopSpeed"   WalkSpeed after a boost hoop
-	and "SkateBoots" (the id worn) tells clients to play the Skate clip on ice.
+	and "SkateBoots" (the id worn). Everyone gets the skating look on ice
+	(the run map's SkateLean); boots add speed and the gold trail.
 
 	A gold scratch Trail sits under each blade; it only shows on ice
 	(Boots.setOnIce, called by CanalTown).

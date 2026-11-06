@@ -55,8 +55,8 @@ first minute.
 
 Josh, 6 Nov 2026: boots are **saved and bought with Coal**, with **Robux
 styles that only change the look**. The base pair is **Blade Skates**
-(1,500 Coal, `Config.Boots`): faster on ice (30 instead of 24, hoops 46
-instead of 40) and the Skate clip on ice. They're kept for good and saved as
+(1,500 Coal, `Config.Boots`): faster on ice (36 instead of everyone's 30,
+hoops 48 instead of 40) and a gold scratch trail under the blades. They're kept for good and saved as
 `owned.SkateBoots`; the pair worn is `boots` in PlayerData.
 
 - The Shop panel has a **Boots** section: Buy for Coal, then Wear / Take off.

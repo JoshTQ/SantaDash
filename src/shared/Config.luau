@@ -570,7 +570,7 @@ Config.Skins = {
 }
 
 -- Boots (Josh, 6 Nov 2026): bought once with Coal and kept for good; they
--- make you faster on ice and play the Skate clip there. Worn over any suit
+-- make you faster on ice and leave a gold trail there. Worn over any suit
 -- (shared/GearAttach.luau). Robux boot styles come later: cosmetic only,
 -- and they need the Coal boots for the speed (style = true, base = id).
 -- ready = false: the model isn't approved and imported yet, so it's hidden.
@@ -581,9 +581,11 @@ Config.Boots = {
 			name = "Blade Skates",
 			model = "SkateBoots", -- ServerStorage.Assets: LeftBoot + RightBoot on the foot bones
 			coal = 1500, -- about 2-3 finished runs; the Starter Sack's 1,000 gets you most of the way
-			skateSpeed = 30, -- WalkSpeed on ice (Config.Canal.SkateSpeed without boots)
-			hoopSpeed = 46, -- WalkSpeed after a boost hoop (Config.Canal.HoopSpeed without)
-			blurb = "Faster on the ice, and you skate instead of shuffle. Yours for good.",
+			-- Agreed with the run map thread (PR #38), 6 Nov: everyone skates at
+			-- 30 (Config.Canal.SkateSpeed); boots are a clear 20% on top.
+			skateSpeed = 36, -- WalkSpeed on ice with boots
+			hoopSpeed = 48, -- WalkSpeed after a boost hoop with boots (40 without)
+			blurb = "Zoom across the ice faster than anyone. Yours for good.",
 			trail = Color3.fromRGB(255, 217, 102), -- the gold scratch line
 			ready = false, -- 3D preview awaiting Josh's approval, then Meshy + import
 		},

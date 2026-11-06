@@ -53,7 +53,6 @@ function attach(character: Model)
 			local ok, track = pcall(animator.LoadAnimation, animator, animation)
 			if ok and track then
 				track.Looped = table.find(SantaMoves.LOOPS, animation.Name) ~= nil
-					or table.find(SantaMoves.EXTRA_LOOPS, animation.Name) ~= nil
 				tracks[animation.Name] = track
 				has[animation.Name] = true
 			else
@@ -73,10 +72,7 @@ function attach(character: Model)
 		if humanoid.MoveDirection.Magnitude < 0.05 then
 			speed = 0 -- knockbacks and sleigh rides aren't walking
 		end
-		local skating = humanoid.FloorMaterial == Enum.Material.Ice
-			and character:GetAttribute(SantaMoves.BOOTS_ATTRIBUTE) ~= nil
-		local clip =
-			SantaMoves.loopFor(speed, player:GetAttribute(SantaMoves.SNEAK_ATTRIBUTE) == true, has, skating)
+		local clip = SantaMoves.loopFor(speed, player:GetAttribute(SantaMoves.SNEAK_ATTRIBUTE) == true, has)
 		if clip ~= current then
 			if current and tracks[current] then
 				tracks[current]:Stop(FADE)

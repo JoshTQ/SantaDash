@@ -3,7 +3,6 @@
 local BootRules = load("ReplicatedStorage.Shared.BootRules")
 local PlayerDefaults = load("ReplicatedStorage.Shared.PlayerDefaults")
 local CanalRules = load("ServerScriptService.Server.CanalRules")
-local SantaMoves = load("ReplicatedStorage.Shared.SantaMoves")
 local Config = load("ReplicatedStorage.Shared.Config")
 
 local STYLE = {
@@ -133,14 +132,5 @@ describe("BootRules", function()
 		expect(CanalRules.walkSpeed(16, false, false, boot.skateSpeed, boot.hoopSpeed)).toBe(16)
 		expect(CanalRules.walkSpeed(16, true, false, 5, 5)).toBe(C.SkateSpeed)
 		expect(CanalRules.walkSpeed(16, true, false)).toBe(C.SkateSpeed)
-	end)
-
-	it("plays the Skate clip with boots on ice, but tiptoeing wins in the sneak phase", function()
-		local has = { Idle = true, Walk = true, Sneak = true, Skate = true }
-		expect(SantaMoves.loopFor(10, false, has, true)).toBe("Skate")
-		expect(SantaMoves.loopFor(10, true, has, true)).toBe("Sneak")
-		expect(SantaMoves.loopFor(10, false, has, false)).toBe("Walk")
-		expect(SantaMoves.loopFor(0, false, has, true)).toBe("Idle")
-		expect(SantaMoves.loopFor(10, false, { Idle = true, Walk = true }, true)).toBe("Walk") -- no clip yet
 	end)
 end)
