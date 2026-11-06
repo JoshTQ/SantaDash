@@ -159,13 +159,20 @@ local function vec(t, default): any
 	return Vector3.new(t[1], t[2], t[3])
 end
 
+-- Roblox's FBX import turns the mesh half way round (about +Y) compared with
+-- the Meshy GLB preview the spec yaws were worked out from: with yaw 180 the
+-- characters came out facing +Z, backwards (LeftHand bone at +X; Josh's
+-- Staging playtest, 6 Nov 2026). Undo it here so a spec's yaw keeps meaning
+-- "turn the GLB preview by this much".
+local IMPORT_TURN = 180
+
 -- Turns (yaw, degrees about +Y), scales and moves a set of meshes as one.
 -- Bones and attachments under them scale with them.
 local function place(parts: { any }, opts)
 	local low, high = bounds(parts)
 	local size = high - low
 	local centre = (low + high) / 2
-	local turn = CFrame.Angles(0, math.rad(opts.yaw or 0), 0)
+	local turn = CFrame.Angles(0, math.rad((opts.yaw or 0) + IMPORT_TURN), 0)
 	-- A quarter turn swaps X and Z.
 	local quarter = math.abs(((opts.yaw or 0) / 90) % 2) == 1
 	local turned = if quarter then Vector3.new(size.Z, size.Y, size.X) else size
@@ -409,6 +416,27 @@ for _, instance in model:GetDescendants() do
 		counts.MeshPart += 1
 	elseif instance:IsA("Bone") then
 		counts.Bone += 1
+	end
+end
+
+-- Rigged characters must face -Z: their left hand on -X, right hand on +X.
+local function boneWorld(bone): any
+	local cf = bone.CFrame
+	local parent = bone.Parent
+	while parent and parent:IsA("Bone") do
+		cf = parent.CFrame * cf
+		parent = parent.Parent
+	end
+	if parent and parent:IsA("BasePart") then
+		cf = parent.CFrame * cf
+	end
+	return cf.Position
+end
+local leftHand = model:FindFirstChild("LeftHand", true)
+local rightHand = model:FindFirstChild("RightHand", true)
+if leftHand and rightHand and leftHand:IsA("Bone") and rightHand:IsA("Bone") then
+	if boneWorld(leftHand).X >= boneWorld(rightHand).X then
+		fail(name .. " faces backwards (+Z): its LeftHand bone is on +X. Check the spec's yaw.")
 	end
 end
 
