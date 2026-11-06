@@ -939,11 +939,10 @@ function SkateCanal.start(ctx)
 						humanoid.WalkSpeed = speed
 					end
 					-- Clients lean, sway and spray ice for Santas gliding on ice.
-					local character = humanoid.Parent
 					local root_ = humanoid.RootPart
 					local v = if root_ then root_.AssemblyLinearVelocity else Vector3.zero
 					local skating = onIce and Vector3.new(v.X, 0, v.Z).Magnitude > 4
-					if character and character:GetAttribute(SantaMoves.SKATE_ATTRIBUTE) ~= skating then
+					if character:GetAttribute(SantaMoves.SKATE_ATTRIBUTE) ~= skating then
 						character:SetAttribute(SantaMoves.SKATE_ATTRIBUTE, skating)
 					end
 					-- Water is polled, not Touched: a Santa who keeps walking on
