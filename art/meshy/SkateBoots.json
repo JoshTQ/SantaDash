@@ -1,0 +1,68 @@
+{
+  "name": "SkateBoots",
+  "approved": "6 Nov 2026",
+  "rig": false,
+  "pose_mode": "",
+  "polycount": 3000,
+  "shape_prompt": "Stylized 3D game accessory, chunky vinyl-toy style, smooth sculpted rounded forms. A single chunky cartoon ice-skate boot for a short round Santa: short stubby rounded boot with a big fluffy fur cuff around the top opening, laces up the front, a small buckle, a thick sole, and a big chunky skate blade underneath that curls up into a round loop at the toe. Left-right symmetrical so it fits either foot. Toy-like proportions, single object, no character, no base.",
+  "texture_prompt": "Bright saturated colours, smooth soft vinyl-toy finish. Glossy dark plum-black leather boot, soft cream fur cuff, red-and-white candy-cane striped laces, small shiny gold buckle, thick black sole, shiny bright gold skate blade. Simple bold shapes that read from far away. No text, no logos.",
+  "assemble": {
+    "_note": "Gear worn over any suit (shared/GearAttach.luau). One Meshy boot used for both feet (symmetrical prompt). Model space = Santa's HumanoidRootPart at the origin, feet 3 studs below, forward -Z (Meshy faces +Z, so yaw 180). Each boot follows its foot bone via the FollowBone attribute.",
+    "mesh": {
+      "name": "LeftBoot",
+      "yaw": 180,
+      "fit": {
+        "axis": "Z",
+        "studs": 1.6
+      },
+      "bottom": [
+        -0.55,
+        -3.3,
+        -0.15
+      ]
+    },
+    "include": {
+      "RightBoot": {
+        "from": "SkateBoots",
+        "yaw": 180,
+        "fit": {
+          "axis": "Z",
+          "studs": 1.6
+        },
+        "bottom": [
+          0.55,
+          -3.3,
+          -0.15
+        ]
+      }
+    },
+    "parts": {
+      "Root": {
+        "size": [
+          1,
+          1,
+          1
+        ],
+        "at": [
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "attributes": {
+      "LeftBoot": {
+        "FollowBone": "LeftFoot"
+      },
+      "RightBoot": {
+        "FollowBone": "RightFoot"
+      }
+    },
+    "primary": "Root"
+  },
+  "meshy": {
+    "preview": "01a1b039-4187-7080-b19a-7e5aa7e8c171",
+    "refine": "01a1b03a-1e2f-76a2-bb38-45c2aaea1c91",
+    "remesh": "01a1b03c-c69d-75d7-a406-95bb67d0ee02"
+  }
+}
