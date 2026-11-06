@@ -1,7 +1,7 @@
 --[[
 	One crew's run: take-off, the house stops and Krampus's Lair, then results.
 
-	Each stop: 0:00-0:45 sneak, 0:45 lights on (Heat rises), 1:30 horn,
+	Each stop: 0:00-0:45 sneak, 0:45 lights on (the noise meter creeps up), 1:30 horn,
 	2:00 the sleigh leaves with or without you. Miss it and you run to the next
 	stop on foot. Krampus comes from Stop 3 (Config.Krampus.FirstStop), so in
 	the launch slice he is only in his Lair. Escaping the Lair doubles loot.
@@ -1030,7 +1030,7 @@ function Run:_playStop(stop): { Player }
 					light.Enabled = true
 				end
 				self:_wakeParents(stop)
-				self:_banner(nil, "The lights are on! Heat is rising.", 3)
+				self:_banner(nil, "Lights on! Everyone's awake. The NOISE meter is filling up!", 3)
 				Onboarding.teachAll(self.order, "LightsOn")
 			end,
 		},
