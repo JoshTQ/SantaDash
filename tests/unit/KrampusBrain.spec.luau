@@ -118,3 +118,123 @@ describe("clipFor (Meshy animations)", function()
 		expect(Brain.clipFor("moving", rig({}))).toBeNil()
 	end)
 end)
+
+-- Magic tricks and the Grumpy Meter (Josh, 6 Nov 2026: "Krampus is too easy").
+describe("magic tricks", function()
+	local M = K.Magic
+	local function ctx(extra)
+		local c = {
+			now = 100,
+			level = 3,
+			lastCastAt = -math.huge,
+			lastTrick = nil,
+			from = origin,
+			candidates = {},
+			hitAt = {},
+			noiseAt = nil,
+			safe = function()
+				return false
+			end,
+		}
+		for k, v in extra do
+			c[k] = v
+		end
+		return c
+	end
+
+	it("gets grumpier over time and with every bell ring, up to Furious", function()
+		expect(Brain.grumpyLevel(0, 0)).toBe(1)
+		expect(Brain.grumpyLevel(M.Grumpy.At[2], 0)).toBe(2)
+		expect(Brain.grumpyLevel(M.Grumpy.At[3], 0)).toBe(3)
+		expect(Brain.grumpyLevel(0, 1)).toBe(2)
+		expect(Brain.grumpyLevel(0, 5)).toBe(3)
+	end)
+
+	it("is slower than a Santa until Furious, and Peppermint Rush always outruns him", function()
+		expect(Brain.speedFor(1) < Config.Player.WalkSpeed).toBe(true)
+		expect(Brain.speedFor(3) > Config.Player.WalkSpeed).toBe(true)
+		expect(Brain.speedFor(3) < Config.Buys.PeppermintRush.WalkSpeed).toBe(true)
+	end)
+
+	it("only unlocks Frost Zap at first", function()
+		local trick = Brain.pickTrick(ctx({ level = 1, candidates = { candidate("near", 10) } }))
+		expect(trick).toBeNil()
+		local zap = Brain.pickTrick(ctx({ level = 1, candidates = { candidate("mid", 40) } }))
+		expect(zap).toBe("FrostZap")
+	end)
+
+	it("never zaps point blank or out of range", function()
+		expect(Brain.pickTrick(ctx({ level = 1, candidates = { candidate("a", M.FrostZap.MinRange - 1) } }))).toBeNil()
+		expect(Brain.pickTrick(ctx({ level = 1, candidates = { candidate("a", M.FrostZap.MaxRange + 1) } }))).toBeNil()
+	end)
+
+	it("stomps when a Santa gets close, once he's Cross", function()
+		local trick, target = Brain.pickTrick(ctx({ level = 2, candidates = { candidate("near", 10) } }))
+		expect(trick).toBe("FrostStomp")
+		expect(target.player).toBe("near")
+	end)
+
+	it("blinks to the Santa nearest the latest noise when they've got away", function()
+		local trick, target = Brain.pickTrick(ctx({
+			candidates = { candidate("quiet", 70), candidate("noisy", -80) },
+			noiseAt = Vector3.new(-82, 0, 0),
+		}))
+		expect(trick).toBe("BellBlink")
+		expect(target.player).toBe("noisy")
+	end)
+
+	it("never blinks into the Sleigh Stop", function()
+		local trick = Brain.pickTrick(ctx({
+			candidates = { candidate("far", 80) },
+			safe = function()
+				return true
+			end,
+		}))
+		expect(trick).never.toBe("BellBlink")
+	end)
+
+	it("waits out the cooldown between tricks", function()
+		local c = ctx({
+			level = 1,
+			candidates = { candidate("mid", 40) },
+			lastCastAt = 100 - M.Grumpy.Cooldown[1] + 1,
+		})
+		expect(Brain.pickTrick(c)).toBeNil()
+		c.lastCastAt = 100 - M.Grumpy.Cooldown[1]
+		expect(Brain.pickTrick(c)).toBe("FrostZap")
+	end)
+
+	it("never picks a hidden, snatched, aboard, swimming, iced or recently hit Santa", function()
+		for _, extra in
+			{ { hidden = true }, { captive = true }, { aboard = true }, { inWater = true }, { iced = true } }
+		do
+			expect(Brain.pickTrick(ctx({ level = 1, candidates = { candidate("x", 40, extra) } }))).toBeNil()
+		end
+		local hit =
+			ctx({ level = 1, candidates = { candidate("x", 40) }, hitAt = { x = 100 - M.RehitSeconds + 1 } })
+		expect(Brain.pickTrick(hit)).toBeNil()
+	end)
+
+	it("mixes it up: the trick he just used goes last", function()
+		local c = ctx({ level = 3, candidates = { candidate("far", 50) }, lastTrick = "BellBlink" })
+		expect(Brain.pickTrick(c)).toBe("FrostZap")
+	end)
+
+	it("still chases an ice cube so he can scoop it up", function()
+		local target = Brain.pickTarget(origin, { candidate("cube", 20, { iced = true }) }, 0)
+		expect(target.player).toBe("cube")
+	end)
+
+	it("lands beside the Santa, on his side", function()
+		local spot = Brain.blinkSpot(origin, Vector3.new(50, 0, 0))
+		expect(spot.X).toBe(50 - M.BellBlink.LandBeside)
+	end)
+
+	it("the frost ring only catches Santas on the ground at its edge", function()
+		expect(Brain.stompHits(20, 20, false)).toBe(true)
+		expect(Brain.stompHits(20, 20, true)).toBe(false)
+		expect(Brain.stompHits(10, 20, false)).toBe(false)
+		expect(Brain.stompRadius(M.FrostStomp.Seconds * 2)).toBe(M.FrostStomp.Radius)
+		expect(Brain.skidSpeed(16)).toBe(16 * M.FrostStomp.SkidSpeed)
+	end)
+end)

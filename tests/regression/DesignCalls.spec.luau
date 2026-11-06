@@ -245,3 +245,21 @@ describe("lights on has a consequence (Josh, 6 Nov 2026)", function()
 		end
 	)
 end)
+
+describe("Krampus's magic tricks (Josh, 6 Nov: Top 3 + Grumpy Meter)", function()
+	local M = Config.Krampus.Magic
+	it("is on, with Frost Zap, Frost Stomp and Bell Blink unlocking over the Lair", function()
+		expect(M.Enabled).toBe(true)
+		expect(M.Grumpy.Tricks[1]).toEqual({ "FrostZap" })
+		expect(table.find(M.Grumpy.Tricks[2], "FrostStomp")).never.toBeNil()
+		expect(table.find(M.Grumpy.Tricks[3], "BellBlink")).never.toBeNil()
+	end)
+	it("never zaps point blank, so a teammate always has time to smash the ice", function()
+		local secondsToReach = (M.FrostZap.MinRange - Config.Krampus.CatchRange) / M.Grumpy.Speed[3]
+		expect(secondsToReach > 1).toBe(true)
+	end)
+	it("is slower than a Santa until Furious, and Peppermint Rush always outruns him", function()
+		expect(M.Grumpy.Speed[1] < Config.Player.WalkSpeed).toBe(true)
+		expect(M.Grumpy.Speed[3] < Config.Buys.PeppermintRush.WalkSpeed).toBe(true)
+	end)
+end)
