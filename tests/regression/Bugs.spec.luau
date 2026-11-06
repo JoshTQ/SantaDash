@@ -59,3 +59,62 @@ describe("bugs found 4 Nov", function()
 		end, { maxSeconds = 600 })
 	end)
 end)
+
+describe("noise alarm (Josh, 6 Nov)", function()
+	local function startStop1(world)
+		local engine = world.engine
+		local Config = world.load("ReplicatedStorage.Shared.Config")
+		fastRuns(Config)
+		Config.Noise.Alarm.HornSeconds = 5 -- shorter than the fast 24 s stop
+		world.load("ReplicatedStorage.Shared.Remotes").init()
+		local Run = world.load("ServerScriptService.Server.Run")
+		local a = engine:addPlayer("A")
+		local run = Run.new(1, { a }, function() end)
+		run:start()
+		while run.stopIndex < 1 or run.phase ~= "Sneak" do
+			world.wait(0.1)
+		end
+		-- Off the sleigh, so the stop doesn't end early with everyone aboard.
+		local root = a.Character.HumanoidRootPart
+		root.CFrame = run.route.stops[1].deckCFrame * CFrame.new(0, 3, 60)
+		return run, engine
+	end
+
+	local function hasDog(run): boolean
+		for _, d in run.route.model:GetDescendants() do
+			if d:IsA("Model") and string.sub(d.Name, 1, 3) == "Dog" and d.Name ~= "DroppedPresent" then
+				return true
+			end
+		end
+		return false
+	end
+
+	it("a full meter on Stop 1 lets the dogs loose and sounds the horn early", function()
+		local world = headless()
+		world.run(function()
+			local run, engine = startStop1(world)
+			local before = run.times.departAt
+			run:_addNoise(10000)
+			world.wait(0.5)
+			expect(run.phase).toBe("Horn")
+			expect(run.times.departAt < before).toBeTruthy()
+			expect(run.times.departAt - engine.now <= 5).toBeTruthy()
+			expect(hasDog(run)).toBeTruthy()
+		end, { maxSeconds = 120 })
+	end)
+
+	it("an alarm after the horn doesn't reset the countdown to 30", function()
+		local world = headless()
+		world.run(function()
+			local run = startStop1(world)
+			while run.phase ~= "Horn" do
+				world.wait(0.1)
+			end
+			local departAt = run.times.departAt
+			run:_addNoise(10000)
+			world.wait(0.5)
+			expect(run.times.departAt).toBe(departAt)
+			expect(hasDog(run)).toBeTruthy()
+		end, { maxSeconds = 120 })
+	end)
+end)

@@ -195,10 +195,23 @@ Config.Noise = {
 	Max = 100,
 	PerGrab = 4,
 	PerBuy = 2,
-	LightsOnPerSecond = 0.3, -- noise per second once the lights are on
+	LightsOnPerSecond = 0.5, -- noise per second once the lights are on (+37 by the 2:00 departure)
 	PerThreatMultiplier = 0.25, -- each threat in the house adds 25% to grab noise
 	StopMultiplier = { 1, 1.25, 1.5, 1.75 }, -- noise fills faster each stop
 	Gasp = 10, -- running out of breath in a hiding spot
+	-- A full meter on a stop where Krampus doesn't answer it (Stops 1-2):
+	-- security dogs chase the crew and the horn sounds early (Josh, 6 Nov 2026).
+	-- The horn only ever brings departure closer: with 20 s left it stays 20 s.
+	Alarm = {
+		Enabled = true,
+		HornSeconds = 30, -- sleigh leaves this long after the alarm horn (or sooner)
+		Dogs = { "DogCorgi", "DogTin" }, -- released from the far end of the street
+		ChaseSpeed = 13, -- faster than the market patrols (9), slower than a Santa (16)
+		SenseRange = 90, -- chases the nearest Santa this close
+		HitRadius = 4,
+		Cooldown = 4, -- seconds before the same dog can bump the same Santa again
+		RepathSeconds = 0.75,
+	},
 }
 
 -- Krampus (game-design.md "The danger: Krampus is coming"). He arrives from
@@ -668,6 +681,23 @@ Config.LobbyMap = {
 	BoardSeconds = { Public = 12, Party = 20, Private = 20 }, -- gate open, BOARDING NOW! lit
 	DepartSeconds = 5, -- sleigh takes off
 	GapSeconds = 3, -- empty bay before the next sleigh
+	-- Forest, hills and snowfall round the yard (Josh's playtest, 6 Nov 2026:
+	-- the flat floor ran to the horizon). Seeded, so every server matches.
+	Scenery = {
+		Seed = 1224,
+		Centre = Vector3.new(0, 0, 15),
+		Radius = { X = 175, Z = 170 }, -- forest ellipse; hills sit just past it
+		YardGap = 8, -- no trees this close to the yard fence or workshop
+		FlightGap = 12, -- clear lane for sleighs flying in and out (SleighZ)
+		TreeSpacing = 20,
+		TreeChance = 0.6,
+		TreeHeight = { 16, 28 },
+		LitChance = 0.15,
+		Hills = 16,
+		SnowArea = 220, -- studs square of falling snow over the yard
+		SnowRate = 140,
+	},
+	PartBudget = 3000, -- the hub is built in the Run place too (RenderBudget.spec)
 }
 
 -- Frozen Canal Town (Maps/FrozenCanal, server/CanalTown). Josh's picks, 1 Nov
