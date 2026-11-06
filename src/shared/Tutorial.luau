@@ -52,7 +52,7 @@ Tutorial.Lessons = {
 	lesson("Sneak", "Lights are off, so you tiptoe. Sneak in!", nil, 5, "show", true),
 	lesson("Grab", "Hold E on a present to grab it!", "Hold the button on a present!", 6, "action", true),
 	lesson("Carry", "Presents count once they're on the sleigh!", nil, 5, "show", true),
-	lesson("LightsOn", "Lights on! Don't let the NOISE fill up!", nil, 5, "show", true),
+	lesson("LightsOn", "Flickering lights? Hide or get out!", nil, 5, "show", true),
 	lesson("Horn", "HONK! Back to the glowing ring!", nil, 5, "show", true),
 	lesson("Bank", "Banked! That loot is safe now.", nil, 4, "show", true),
 	lesson("Cocoa", "You can afford cocoa! Find the booth.", nil, 5, "show", false),

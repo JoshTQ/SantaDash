@@ -224,6 +224,29 @@ Config.Noise = {
 	},
 }
 
+-- "Who's there?!" checks (Josh, 6 Nov 2026: lights on needs a consequence).
+-- Once the lights are on, each lit house checks itself every Interval s
+-- (+/- Jitter, staggered so houses don't all go at once). WarnSeconds of
+-- flicker, a grumble and "WHO'S THERE?!" over the roof, then a flash: any
+-- Santa inside who isn't in the wardrobe is SPOTTED. They drop one present
+-- on the floor (anyone can grab it back), add Noise to the meter and get
+-- bonked out of the front door. Not in Krampus's Lair (nobody lives there).
+Config.LightsCheck = {
+	Enabled = true,
+	FirstDelay = 3, -- seconds after the lights come on before the first warning
+	Interval = 13,
+	Jitter = 2,
+	WarnSeconds = 2.5,
+	FlashSeconds = 0.5,
+	Noise = 12, -- per Santa spotted, before the map event noise scale
+	Margin = 0.5, -- studs inside the house's walls before you count as inside
+	ExitDistance = 6, -- studs outside the front door you land
+	Bonk = 22, -- knockback away from the door, studs/s
+	WarnColor = Color3.fromRGB(255, 150, 40),
+	FlashColor = Color3.fromRGB(255, 255, 240),
+	FlashBrightness = 8,
+}
+
 -- Krampus (game-design.md "The danger: Krampus is coming"). He arrives from
 -- FirstStop (Josh, 1 Nov 2026: Stop 3, the Lair in the launch slice), when the
 -- noise meter fills or automatically after ArriveAt.
@@ -670,6 +693,10 @@ Config.LobbyMap = {
 	GateGap = 8, -- studs between the gate barriers
 	BoardZone = { Z0 = 52, Z1 = 57.5, HalfWidth = 6 }, -- step in here to sit on the sleigh
 	SleighZ = 65,
+	-- Stats board over each gate: its bottom edge sits Clearance studs above
+	-- the platform so Santas walk and jump under it; the top stays under the
+	-- canopy (FloorHeight + 12.8).
+	StatsBoard = { Clearance = 6.6, Height = 6 },
 	Podium = Vector3.new(-38, 0, 8),
 	Trophy = Vector3.new(16, 0, 14),
 	Wanted = Vector3.new(56, 0, 18),

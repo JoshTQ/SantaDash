@@ -32,6 +32,8 @@ local MapEventBrain = require(script.Parent.MapEventBrain)
 local MapEvents = require(script.Parent.MapEvents)
 local MapFeatures = require(script.Parent.MapFeatures)
 local NoiseAlarm = require(script.Parent.NoiseAlarm)
+local HouseChecks = require(script.Parent.HouseChecks)
+local LightsCheck = require(script.Parent.LightsCheck)
 local Onboarding = require(script.Parent.Onboarding)
 local SantaCharacter = require(script.Parent.SantaCharacter)
 local HouseKit = require(script.Parent.HouseKit)
@@ -965,6 +967,19 @@ function Run:_wakeParents(stop)
 	end
 end
 
+-- Lights on: every lit house starts its "Who's there?!" checks (HouseChecks).
+function Run:_startHouseChecks(stop)
+	if not LightsCheck.applies(stop.plan.kindName) then
+		return
+	end
+	local ok, cleanup = pcall(HouseChecks.start, self, stop)
+	if ok then
+		table.insert(self.featureCleanups, cleanup)
+	else
+		warn("[Run] house checks failed to start: " .. tostring(cleanup))
+	end
+end
+
 function Run:_stopSnores()
 	for _, snore in self.snores do
 		snore.stop(0.3)
@@ -1161,8 +1176,9 @@ function Run:_playStop(stop): { Player }
 					light.Enabled = true
 				end
 				self:_wakeParents(stop)
+				self:_startHouseChecks(stop)
 				if not hornSounded then -- the alarm horn's countdown banner wins
-					self:_banner(nil, "Lights on! Everyone's awake. The NOISE meter is filling up!", 3)
+					self:_banner(nil, "Lights on! Grown-ups are checking every house. Don't get spotted!", 3)
 				end
 				Onboarding.teachAll(self.order, "LightsOn")
 			end,

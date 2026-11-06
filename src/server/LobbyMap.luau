@@ -1228,16 +1228,25 @@ local function buildStation(model: Model, floorH: number): { Bay }
 		)
 		gate.Transparency = 1
 		-- stats board over the gate, facing the yard (-Z) so you read it as
-		-- you walk up; the rim is the bay's colour
+		-- you walk up; the rim is the bay's colour. It hangs high enough to
+		-- walk (and jump) under, just below the canopy (Josh, 6 Nov 2026).
+		local sb = L.StatsBoard
 		local statsPart = part(
 			m,
 			"StatsBoard",
-			Vector3.new(9.8, 6.8, 0.6),
-			CFrame.new(bx, floorH + 8, L.GateZ),
+			Vector3.new(9.8, sb.Height, 0.6),
+			CFrame.new(bx, floorH + sb.Clearance + sb.Height / 2, L.GateZ),
 			cfg.Colour:Lerp(BLACK, 0.2)
 		)
 		for _, s in { -1, 1 } do
-			column(m, "StatsPost", 8, 0.6, Vector3.new(bx + s * 5.5, floorH, L.GateZ + 0.8), C.coal)
+			column(
+				m,
+				"StatsPost",
+				sb.Clearance + sb.Height,
+				0.6,
+				Vector3.new(bx + s * 5.5, floorH, L.GateZ + 0.8),
+				C.coal
+			)
 		end
 		local bg = panel(statsPart, Enum.NormalId.Front, C.navy)
 		local stats = {
