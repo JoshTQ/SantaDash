@@ -208,6 +208,43 @@ if next(blocked) then
 end
 print(string.format("Publishable: %d approved models in ServerStorage.Assets", assetCount))
 
+-- Every Meshy MeshPart must still carry its mesh and texture (and every
+-- Animation its clip). An older Rojo
+-- (7.4) can't read the Content property type and silently drops both, so the
+-- models ship as grey boxes (Josh's first Staging playtest, 6 Nov 2026).
+local bare: { string } = {}
+if assets then
+	for _, instance in assets:GetDescendants() do
+		if instance:IsA("MeshPart") then
+			local mesh = instance.MeshContent
+			local texture = instance.TextureContent
+			if
+				not (mesh and mesh.Uri and mesh.Uri ~= "")
+				or not (texture and texture.Uri and texture.Uri ~= "")
+			then
+				table.insert(bare, instance:GetFullName())
+			end
+		elseif instance:IsA("Animation") then
+			local clip = instance.AnimationContent
+			if not (clip and clip.Uri and clip.Uri ~= "") then
+				table.insert(bare, instance:GetFullName())
+			end
+		end
+	end
+end
+if #bare > 0 then
+	for i = 1, math.min(#bare, 10) do
+		print("  lost its asset id: " .. bare[i])
+	end
+	fail(
+		string.format(
+			"%d MeshParts/Animations lost their asset ids in the build (they'd show as grey boxes). "
+				.. "Check that rokit.toml pins a Rojo that reads Content properties (7.5+).",
+			#bare
+		)
+	)
+end
+
 if dryRun then
 	print("Dry run: nothing uploaded.")
 	process.exit(0)
