@@ -13,6 +13,9 @@
 
 	Remote "Store" (client -> server): ("Open") for the catalog, ("Buy", id),
 	("Equip", suitId) to wear an unlocked Santa suit (server/Skins.luau).
+	("BuyBoots", id) buys boots with Coal; ("WearBoots", id or "") puts owned
+	boots on or takes them off (server/Boots.luau). Coal, not Robux, so the
+	3-minute rule doesn't apply to these.
 	Remote "Store" (server -> client): ("Catalog", snapshot), ("Notice", text).
 	Instant Break-out is used through the Run's Input remote ("Breakout").
 ]]
@@ -28,6 +31,7 @@ local SkinRules = require(ReplicatedStorage.Shared.SkinRules)
 local StoreRules = require(ReplicatedStorage.Shared.StoreRules)
 local PlayerData = require(script.Parent.PlayerData)
 local Skins = require(script.Parent.Skins)
+local Boots = require(script.Parent.Boots)
 
 local Store = {}
 
@@ -156,6 +160,7 @@ function Store.snapshot(player: Player): any
 		saving = ctx.saving,
 		blessing = if blessing then { by = blessing.by, endsAt = blessing.endsAt } else nil,
 		skins = Skins.list(player),
+		boots = Boots.list(player),
 	}
 end
 
@@ -170,6 +175,17 @@ local REASONS = {
 	notSaving = "We can't save right now, so the shop is closed. Try again soon!",
 	notCreated = "That isn't on sale yet.",
 	owned = "You already have that!",
+}
+
+-- What a player hears after trying to buy boots with Coal.
+local BOOT_NOTICES = {
+	ok = "New boots! You'll zoom across the ice.",
+	coal = "You need more Coal. Finish a few runs and come back!",
+	owned = "You already have those boots!",
+	notReady = "Those boots aren't on sale yet.",
+	notForCoal = "Those are a Robux style.",
+	loading = "Hang on, your Coal is still loading.",
+	unknown = "Those boots aren't on sale.",
 }
 
 -- Server-side prompt, only when every rule allows it. Returns the reason if not.
@@ -336,6 +352,13 @@ function Store.start(options: { runServer: boolean }?)
 			elseif why == "locked" then
 				notice(player, "You haven't unlocked that suit yet.")
 			end
+			Store.sendCatalog(player)
+		elseif action == "BuyBoots" then
+			local ok, why = Boots.buy(player, id)
+			notice(player, BOOT_NOTICES[if ok then "ok" else why or "unknown"] or BOOT_NOTICES.unknown)
+			Store.sendCatalog(player)
+		elseif action == "WearBoots" then
+			Boots.equip(player, id)
 			Store.sendCatalog(player)
 		end
 	end)

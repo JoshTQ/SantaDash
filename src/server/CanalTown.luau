@@ -27,6 +27,7 @@ local Sounds = require(ReplicatedStorage.Shared.Sounds)
 local Util = require(ReplicatedStorage.Shared.Util)
 local Assets = require(script.Parent.Assets)
 local CanalRules = require(script.Parent.CanalRules)
+local Boots = require(script.Parent.Boots)
 local Knockback = require(script.Parent.Knockback)
 local Loot = require(script.Parent.Loot)
 
@@ -782,7 +783,15 @@ function SkateCanal.start(ctx)
 				if humanoid and run:_free(player) then
 					local base = run:baseWalkSpeed(st)
 					local onIce = humanoid.FloorMaterial == Enum.Material.Ice
-					local speed = CanalRules.walkSpeed(base, onIce, (boostUntil[player] or 0) > t)
+					local character = humanoid.Parent :: Instance
+					Boots.setOnIce(character :: Model, onIce) -- the blades' gold trail
+					local speed = CanalRules.walkSpeed(
+						base,
+						onIce,
+						(boostUntil[player] or 0) > t,
+						character:GetAttribute("SkateSpeed"),
+						character:GetAttribute("HoopSpeed")
+					)
 					if humanoid.WalkSpeed ~= speed then
 						humanoid.WalkSpeed = speed
 					end

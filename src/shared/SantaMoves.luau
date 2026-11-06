@@ -19,6 +19,8 @@ local Config = require(script.Parent.Config)
 local SantaMoves = {}
 
 SantaMoves.LOOPS = { "Idle", "Walk", "Sneak" }
+-- Looping clips the Meshy spec doesn't make; played when present.
+SantaMoves.EXTRA_LOOPS = { "Skate" } -- wearing boots on ice (hand-made clip)
 SantaMoves.REQUIRED = { "Idle", "Walk" } -- without these, players keep the default avatar
 
 -- One-shots: playback speed over the trimmed clip (Grab 2.1 s, Cheer 3.2 s).
@@ -35,13 +37,24 @@ SantaMoves.SKIN_ATTRIBUTE = "SantaSkin" -- the suit he wears (Config.Skins id, s
 -- Below this ground speed (studs/s) Santa stands still: idle.
 SantaMoves.MOVING = 0.5
 
--- Which looping clip a Santa plays: standing, walking or tiptoeing.
-function SantaMoves.loopFor(speed: number, sneaking: boolean, has: { [string]: boolean }): string
+SantaMoves.BOOTS_ATTRIBUTE = "SkateBoots" -- the boots worn (server/Boots.luau)
+
+-- Which looping clip a Santa plays: standing, walking, tiptoeing, or
+-- skating (wearing boots on ice; tiptoeing wins during the sneak phase).
+function SantaMoves.loopFor(
+	speed: number,
+	sneaking: boolean,
+	has: { [string]: boolean },
+	skating: boolean?
+): string
 	if speed < SantaMoves.MOVING then
 		return "Idle"
 	end
 	if sneaking and has.Sneak then
 		return "Sneak"
+	end
+	if skating and has.Skate then
+		return "Skate"
 	end
 	return "Walk"
 end

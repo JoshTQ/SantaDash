@@ -51,6 +51,25 @@ first minute.
   SantaShark, SantaChrome) shows as Classic until the Meshy import runs.
 - To put a suit on sale: import its model, set `ready = true` and its `assetId`.
 
+## Boots
+
+Josh, 6 Nov 2026: boots are **saved and bought with Coal**, with **Robux
+styles that only change the look**. The base pair is **Blade Skates**
+(1,500 Coal, `Config.Boots`): faster on ice (30 instead of 24, hoops 46
+instead of 40) and the Skate clip on ice. They're kept for good and saved as
+`owned.SkateBoots`; the pair worn is `boots` in PlayerData.
+
+- The Shop panel has a **Boots** section: Buy for Coal, then Wear / Take off.
+  Coal isn't Robux, so the 3-minute rule doesn't apply.
+- Boots are one model that goes on top of any suit (`shared/GearAttach.luau`,
+  the same code the Lair's warm clothes use). `client/GearFollow.client.luau`
+  moves it with Santa's foot bones. No suit needs a boots variation.
+- A Robux style (`style = true, base = "SkateBoots"`) is cosmetic only: it
+  gives no speed unless you own the Coal boots too. That rules out pay-to-win.
+  No styles yet. They're planned after Meshy's credits reset on Dec 5.
+- `ready = false` until Josh approves the 3D preview and the `SkateBoots`
+  model (LeftBoot + RightBoot, each with `FollowBone`) is imported.
+
 ## Going live (Josh)
 
 1. Creator Dashboard > the experience > Monetization: create a **Developer Product** for

@@ -228,6 +228,58 @@ local function suitRow(skin, order: number)
 	end
 end
 
+-- One row per pair of boots: Buy for Coal, then Wear / Wearing / Take off.
+local function bootRow(boot, order: number)
+	local frame = Instance.new("Frame")
+	frame.Size = UDim2.new(1, -12, 0, 48)
+	frame.BackgroundColor3 = if boot.wearing then Color3.fromRGB(70, 60, 30) else Color3.fromRGB(40, 48, 80)
+	frame.LayoutOrder = order
+	frame.Parent = list
+	corner(frame)
+	text(frame, "TextLabel", {
+		Size = UDim2.new(1, -130, 0, 24),
+		Position = UDim2.fromOffset(10, 2),
+		Text = boot.name,
+		TextSize = 20,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	})
+	text(frame, "TextLabel", {
+		Size = UDim2.new(1, -130, 0, 20),
+		Position = UDim2.fromOffset(10, 25),
+		Text = boot.blurb or "",
+		TextSize = 14,
+		TextColor3 = Color3.fromRGB(190, 190, 205),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+	})
+	local label, action, enabled
+	if not boot.owned then
+		label = if boot.coal then string.format("%d Coal", boot.coal) else "Robux style"
+		action, enabled = "BuyBoots", boot.coal ~= nil
+	elseif boot.wearing then
+		label, action, enabled = "Take off", "WearBoots", true
+	else
+		label, action, enabled = "Wear", "WearBoots", true
+	end
+	local button = text(frame, "TextButton", {
+		Size = UDim2.fromOffset(104, 36),
+		Position = UDim2.new(1, -114, 0, 6),
+		Text = label,
+		BackgroundTransparency = 0,
+		BackgroundColor3 = if not enabled or (not boot.owned and not boot.canAfford)
+			then Color3.fromRGB(90, 90, 100)
+			else Color3.fromRGB(60, 140, 70),
+		AutoButtonColor = enabled,
+	})
+	corner(button)
+	button.Activated:Connect(function()
+		if not enabled then
+			return
+		end
+		store:FireServer(action, if action == "WearBoots" and boot.wearing then "" else boot.id)
+	end)
+end
+
 local function heading(label: string, order: number)
 	local t = text(list, "TextLabel", {
 		Size = UDim2.new(1, -12, 0, 28),
@@ -253,13 +305,23 @@ local function render(snapshot)
 		table.insert(bits, "Blessed by " .. snapshot.blessing.by .. "!")
 	end
 	status.Text = table.concat(bits, "   ")
-	-- Suits first (LayoutOrder 0-99), then what's on sale (100+).
+	-- Suits first (LayoutOrder 0-49), boots (50-98), then what's on sale (100+).
 	local skins = snapshot.skins or {}
 	if #skins > 0 then
 		heading("Santa suits", 0)
 		for i, skin in skins do
 			suitRow(skin, i)
 		end
+	end
+	-- Boots (LayoutOrder 50-98): bought with Coal, so no 3-minute wait.
+	local boots = snapshot.boots or {}
+	if #boots > 0 then
+		heading("Boots", 50)
+		for i, boot in boots do
+			bootRow(boot, 50 + i)
+		end
+	end
+	if #skins > 0 or #boots > 0 then
 		heading("On sale", 99)
 	end
 	if (snapshot.opensIn or 0) > 0 then

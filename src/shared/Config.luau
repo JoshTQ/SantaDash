@@ -569,6 +569,48 @@ Config.Skins = {
 	PhoneEffectScale = 0.5, -- phones get half the particles and a shorter trail
 }
 
+-- Boots (Josh, 6 Nov 2026): bought once with Coal and kept for good; they
+-- make you faster on ice and play the Skate clip there. Worn over any suit
+-- (shared/GearAttach.luau). Robux boot styles come later: cosmetic only,
+-- and they need the Coal boots for the speed (style = true, base = id).
+-- ready = false: the model isn't approved and imported yet, so it's hidden.
+Config.Boots = {
+	List = {
+		{
+			id = "SkateBoots",
+			name = "Blade Skates",
+			model = "SkateBoots", -- ServerStorage.Assets: LeftBoot + RightBoot on the foot bones
+			coal = 1500, -- about 2-3 finished runs; the Starter Sack's 1,000 gets you most of the way
+			skateSpeed = 30, -- WalkSpeed on ice (Config.Canal.SkateSpeed without boots)
+			hoopSpeed = 46, -- WalkSpeed after a boost hoop (Config.Canal.HoopSpeed without)
+			blurb = "Faster on the ice, and you skate instead of shuffle. Yours for good.",
+			trail = Color3.fromRGB(255, 217, 102), -- the gold scratch line
+			ready = false, -- 3D preview awaiting Josh's approval, then Meshy + import
+		},
+	},
+}
+
+-- Gear worn on top of any suit (shared/GearAttach.luau): boots, and the
+-- Lair's warm clothes. Built once, fits every suit (Josh, 6 Nov 2026).
+Config.Gear = {
+	-- Other names a bone may have in an imported rig (canonical name first
+	-- in GearAttach.boneNames). Matched case-insensitively.
+	BoneNames = {
+		LeftFoot = { "LeftAnkle", "mixamorig:LeftFoot", "L_Foot" },
+		RightFoot = { "RightAnkle", "mixamorig:RightFoot", "R_Foot" },
+		LeftHand = { "LeftWrist", "mixamorig:LeftHand", "L_Hand" },
+		RightHand = { "RightWrist", "mixamorig:RightHand", "R_Hand" },
+		Head = { "mixamorig:Head" },
+		Neck = { "neck", "mixamorig:Neck" },
+		Spine = { "Spine01", "Spine02", "Chest", "mixamorig:Spine" },
+		Hips = { "Pelvis", "mixamorig:Hips" },
+	},
+	-- Per-suit nudges (suit id -> bone -> CFrame in bone space) for bulky
+	-- suits. Empty until a Studio check shows one is needed (docs/PLAYTEST.md).
+	SuitNudge = {} :: { [string]: { [string]: CFrame } },
+	FollowDistance = 150, -- clients only move gear on Santas this close
+}
+
 Config.Map = {
 	StopSpacing = 700, -- studs between stops along the route (about 40 s on foot)
 	RouteSpacing = 1600, -- studs between concurrent routes

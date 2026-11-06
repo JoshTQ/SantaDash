@@ -12,12 +12,20 @@ local CanalRules = {}
 
 -- WalkSpeed for a Santa: a hoop boost beats skating, skating beats walking,
 -- and nothing ever slows a Santa below their own speed (Peppermint Rush).
-function CanalRules.walkSpeed(base: number, onIce: boolean, boosted: boolean): number
+-- Boots (Config.Boots) bring their own skate and hoop speeds; they never
+-- make you slower than skating without them.
+function CanalRules.walkSpeed(
+	base: number,
+	onIce: boolean,
+	boosted: boolean,
+	skate: number?,
+	hoop: number?
+): number
 	local C = Config.Canal
 	if boosted then
-		return math.max(base, C.HoopSpeed)
+		return math.max(base, C.HoopSpeed, hoop or 0)
 	elseif onIce then
-		return math.max(base, C.SkateSpeed)
+		return math.max(base, C.SkateSpeed, skate or 0)
 	end
 	return base
 end
