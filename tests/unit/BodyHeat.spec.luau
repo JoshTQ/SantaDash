@@ -38,8 +38,8 @@ describe("BodyHeat", function()
 end)
 
 describe("Wardrobe rules", function()
-	it("sells sets A and D, off until the art is approved, never for Robux", function()
-		expect(Config.Wardrobe.Enabled).toBe(false)
+	it("sells sets A and D (approved, built from parts), never for Robux", function()
+		expect(Config.Wardrobe.Enabled).toBe(true)
 		expect(#Wardrobe.onSale()).toBe(4)
 		for _, id in Wardrobe.onSale() do
 			local item = Wardrobe.item(id)
@@ -122,5 +122,58 @@ describe("Swimming", function()
 		expect(SantaMoves.loopFor(0, false, { Walk = true }, true)).toBe("Walk")
 		expect(SantaMoves.loopFor(0, false, { Walk = true, Swim = true }, true)).toBe("Swim")
 		expect(SantaMoves.loopFor(5, false, { Walk = true, Swim = true }, false)).toBe("Walk")
+	end)
+end)
+
+describe("WearBuilder", function()
+	local WearBuilder = load("ServerScriptService.Server.WearBuilder")
+	local BONES = { Spine = true, Hips = true, LeftHand = true, RightHand = true }
+
+	it("builds every piece on sale, around Santa's root, following a bone", function()
+		for _, id in Wardrobe.onSale() do
+			local m = WearBuilder.build(id)
+			expect(m).toBeTruthy()
+			expect(m.Name).toBe(Wardrobe.item(id).model)
+			expect(m.PrimaryPart.Name).toBe("Root")
+			expect(m.PrimaryPart.CFrame.Position.Magnitude).toBeLessThan(1e-6)
+			local holders, parts = 0, 0
+			for _, d in m:GetDescendants() do
+				local bone = d:GetAttribute("FollowBone")
+				if bone then
+					holders += 1
+					expect(BONES[bone]).toBe(true)
+				end
+				if d:IsA("BasePart") and d ~= m.PrimaryPart then
+					parts += 1
+					expect(d.CanCollide).toBe(false)
+					-- worn on a 5.5-stud Santa whose root is 3 studs over his feet
+					local p = d.CFrame.Position
+					expect(p.Y).toBeGreaterThan(-3)
+					expect(p.Y).toBeLessThan(2.5)
+					expect(math.abs(p.X)).toBeLessThan(2.5)
+				end
+			end
+			expect(holders).toBeGreaterThan(0)
+			expect(parts).toBeLessThan(30) -- light enough for phones
+		end
+		expect(WearBuilder.build("Nonsense")).toBeNil()
+	end)
+
+	it("mittens are one model with a mitten on each hand, Santa facing -Z", function()
+		local m = WearBuilder.build("Mittens")
+		local right = m:FindFirstChild("RightMitten")
+		local left = m:FindFirstChild("LeftMitten")
+		expect(right:GetAttribute("FollowBone")).toBe("RightHand")
+		expect(left:GetAttribute("FollowBone")).toBe("LeftHand")
+		-- facing -Z, his right is +X
+		expect(right:FindFirstChild("Mitten").CFrame.Position.X).toBeGreaterThan(0)
+		expect(left:FindFirstChild("Mitten").CFrame.Position.X).toBeLessThan(0)
+	end)
+
+	it("the duck and the bottle face the front (-Z)", function()
+		local duck = WearBuilder.build("DuckieRing"):FindFirstChild("DuckHead", true)
+		expect(duck.CFrame.Position.Z).toBeLessThan(0)
+		local bottle = WearBuilder.build("HotWaterBottle"):FindFirstChild("Bottle", true)
+		expect(bottle.CFrame.Position.Z).toBeLessThan(0)
 	end)
 end)

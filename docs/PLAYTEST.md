@@ -38,6 +38,7 @@ in the server's command bar, `require(game.ReplicatedStorage.Shared.Config).Run.
 | 6 | Stop 2: stand in the **ice polisher**'s path | WHOOSH, you land by a snowbank | |
 | 7 | Stop 3, after the stomp: hop the round floes; then drop into the water and **swim** | The lake ice vanishes and leaves water; you swim (no snap back onto a floe), with a BODY HEAT meter under the timer that empties in ~10 s. You can climb out onto a floe, the island's shore ice and the bridge | Terrain water and Roblox's swimming only exist in a real engine |
 | 7b | Keep swimming until the meter empties; then stand on the island by the fire pots | FROZEN SOLID: an ice cube for 3 s, then you're on the bridge or the island, slow for 4 s. By the fires the meter refills in about 1.5 s. Krampus walks the shore but never follows you in | |
+| 7d | Buy all four warm-gear pieces at the Wardrobe rack by the cocoa machine, then try each suit | Scarf on the neck, mittens on both hands, Duckie Ring round the hips, bottle on the chest, following the animations on every suit (needs the boots PR #39 for the gear to show). Note any suit that needs a nudge in `Config.Gear.SuitNudge` | Bones only move on a real client |
 | 7c | Swimming look | Santa paddles with his Walk clip (no Swim clip yet). Note if it looks silly enough to need a Meshy Swim clip | |
 | 8 | Player 2: get snatched; player 1 rings the bells from behind | Captive rides in the basket, drops behind Krampus, can walk off | |
 | 9 | Press reset mid-flight | You respawn seated in the sleigh | |

@@ -327,6 +327,7 @@ function Run:_resetCharacter(player: Player)
 	SantaCharacter.setSneaking(player, false)
 	player:SetAttribute(BodyHeat.ATTRIBUTE, nil)
 	player:SetAttribute(BodyHeat.FROZEN_ATTRIBUTE, nil)
+	ServerWardrobe.undress(player) -- warm gear is for this run only
 	local humanoid = humanoidOf(player)
 	if humanoid then
 		humanoid.WalkSpeed = Config.Player.WalkSpeed

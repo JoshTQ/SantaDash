@@ -2,7 +2,7 @@
 	The Wardrobe stand at each Sleigh Stop, played through a real Run in a
 	headless world: warm gear for Jingle, worn over any suit (a character
 	attribute the client dresses from), kept through a respawn, and off by
-	default until Josh approves the art.
+	can be switched off (Config.Wardrobe.Enabled).
 ]]
 
 local function boot(enabled: boolean)
@@ -31,7 +31,7 @@ local function atFirstStop(world, Run, players)
 	return run
 end
 
-it("is off by default: no stand, no prompts", function()
+it("switched off: no stand, no prompts", function()
 	local world, _, _, Run, players = boot(false)
 	world.run(function()
 		local run = atFirstStop(world, Run, players)
@@ -51,6 +51,13 @@ it("sells warm gear for Jingle, dresses Santa and refuses a second scarf", funct
 		for _, id in Config.Wardrobe.Order do
 			expect(stop.wardrobePrompts[id]).toBeTruthy()
 		end
+		local shown = 0
+		for _, d in run.route.model:GetDescendants() do
+			if d.Name == "WardrobeDisplay" then
+				shown += 1
+			end
+		end
+		expect(shown).toBe(#Config.Wardrobe.Order * #run.route.stops) -- each hanger shows its piece
 		local st = run.players[santa]
 		st.jingle = 1000
 		engine.trigger(stop.wardrobePrompts.Scarf, santa)
@@ -58,6 +65,16 @@ it("sells warm gear for Jingle, dresses Santa and refuses a second scarf", funct
 		expect(st.wardrobe.Scarf).toBe(true)
 		expect(st.jingle).toBe(1000 - Config.Wardrobe.Items.Scarf.price)
 		expect(santa.Character:GetAttribute("Wardrobe")).toBe("Scarf")
+		-- Worn over the suit once shared/GearAttach (the boots work) is in.
+		local hasGear = pcall(function()
+			return world.load("ReplicatedStorage.Shared.GearAttach")
+		end)
+		if hasGear then
+			local gear = santa.Character:FindFirstChild("Gear")
+			expect(gear).toBeTruthy()
+			expect(#gear:GetChildren()).toBe(1)
+			expect(gear:GetChildren()[1]:GetAttribute("GearId")).toBe("Scarf")
+		end
 
 		engine.trigger(stop.wardrobePrompts.Scarf, santa)
 		world.wait(0.1)
@@ -72,6 +89,9 @@ it("sells warm gear for Jingle, dresses Santa and refuses a second scarf", funct
 		santa:LoadCharacter()
 		world.wait(0.5)
 		expect(santa.Character:GetAttribute("Wardrobe")).toBe("Scarf")
+		if hasGear then
+			expect(#santa.Character:FindFirstChild("Gear"):GetChildren()).toBe(1)
+		end
 		run.ended = true
 	end)
 end)

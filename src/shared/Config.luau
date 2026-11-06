@@ -708,9 +708,10 @@ Config.BodyHeat = {
 -- sets A and D (6 Nov 2026): four pieces, each its own model pinned to
 -- Santa's bones, so every suit wears the same ones. warmth adds up: 0.25 =
 -- 25% longer in the water. The whole set is 2,200 Jingle and lets you swim
--- 2.25x as long. OFF until Josh approves the 3D art (pieces and the stand).
+-- 2.25x as long. Josh approved them built from parts (6 Nov 2026):
+-- server/WearBuilder.
 Config.Wardrobe = {
-	Enabled = false,
+	Enabled = true,
 	Items = {
 		Scarf = { name = "Chunky Scarf", price = 400, warmth = 0.25, model = "WearScarf", enabled = true },
 		Mittens = {
