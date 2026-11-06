@@ -683,6 +683,10 @@ Config.LobbyMap = {
 	GateGap = 8, -- studs between the gate barriers
 	BoardZone = { Z0 = 52, Z1 = 57.5, HalfWidth = 6 }, -- step in here to sit on the sleigh
 	SleighZ = 65,
+	-- Stats board over each gate: its bottom edge sits Clearance studs above
+	-- the platform so Santas walk and jump under it; the top stays under the
+	-- canopy (FloorHeight + 12.8).
+	StatsBoard = { Clearance = 6.6, Height = 6 },
 	Podium = Vector3.new(-38, 0, 8),
 	Trophy = Vector3.new(16, 0, 14),
 	Wanted = Vector3.new(56, 0, 18),
