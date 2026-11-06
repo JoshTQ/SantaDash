@@ -1,0 +1,430 @@
+--[[
+	Guard dogs on the move: the Christmas Market patrols (CanalTown) and the
+	alarm dogs a full noise meter lets loose (AlarmDogs). DogBrain decides,
+	this module walks them (Humanoid + Mover), shows a "?" / "!" over their
+	heads, swings the tin dog's head lamp, barks, calls the pack and bumps
+	Santas (DogBump).
+
+	spec = { kind, at: CFrame, patrol: { Vector3 }?, startIndex: number?,
+	         hunt: boolean?, cooldown: number }
+]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage.Shared.Config)
+local SantaMoves = require(ReplicatedStorage.Shared.SantaMoves)
+local SoundPlayer = require(ReplicatedStorage.Shared.SoundPlayer)
+local Sounds = require(ReplicatedStorage.Shared.Sounds)
+local Util = require(ReplicatedStorage.Shared.Util)
+local Assets = require(script.Parent.Assets)
+local CanalRules = require(script.Parent.CanalRules)
+local DogBrain = require(script.Parent.DogBrain)
+local DogBump = require(script.Parent.DogBump)
+local Mover = require(script.Parent.Mover)
+local RigAnimator = require(script.Parent.RigAnimator)
+
+local AI = Config.DogAI
+local TICK = 0.2
+local CORGI = Color3.fromRGB(225, 140, 60)
+local TIN = Color3.fromRGB(185, 190, 200)
+local LAMP = Color3.fromRGB(255, 226, 150)
+local LAMP_CHASE = Color3.fromRGB(255, 70, 60)
+local QUESTION = Color3.fromRGB(255, 214, 60)
+local BANG = Color3.fromRGB(255, 60, 60)
+
+local GuardDogs = {}
+
+export type Spec = {
+	kind: string,
+	at: CFrame,
+	patrol: { Vector3 }?,
+	startIndex: number?,
+	hunt: boolean?,
+	cooldown: number,
+}
+
+local function standIn(kind: string, cframe: CFrame): Model
+	local corgi = kind == "DogCorgi"
+	local fur = if corgi then CORGI else TIN
+	local model = Instance.new("Model")
+	model.Name = kind
+	local root = Instance.new("Part")
+	root.Name = "HumanoidRootPart"
+	root.Size = Vector3.new(2, 1.6, 3)
+	root.CFrame = cframe
+	root.Transparency = 1
+	root.Parent = model
+	local function piece(name: string, size: Vector3, offset: Vector3, color: Color3)
+		local part = Instance.new("Part")
+		part.Name = name
+		part.Size = size
+		part.CFrame = cframe * CFrame.new(offset)
+		part.Color = color
+		part.CanCollide = false
+		part.Massless = true
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = root
+		weld.Part1 = part
+		weld.Parent = part
+		part.Parent = model
+	end
+	piece("Body", Vector3.new(2, 1.6, if corgi then 3.4 else 4.4), Vector3.zero, fur)
+	piece("Head", Vector3.new(1.6, 1.6, 1.6), Vector3.new(0, 1, -2.2), fur)
+	if corgi then
+		piece("PatrolSled", Vector3.new(2.6, 0.4, 4.4), Vector3.new(0, -1, 0), Color3.fromRGB(215, 40, 50))
+	else
+		piece("WindUpKey", Vector3.new(0.3, 1.4, 1.4), Vector3.new(0, 1.2, 0.8), Color3.fromRGB(240, 190, 60))
+	end
+	local humanoid = Instance.new("Humanoid")
+	humanoid.HipHeight = 1
+	humanoid.RequiresNeck = false
+	humanoid.BreakJointsOnDeath = false
+	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+	humanoid.Parent = model
+	model.PrimaryPart = root
+	return model
+end
+
+-- "?" while it's suspicious, "!" while it chases.
+local function addIndicator(root: BasePart)
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "DogAlert"
+	gui.Size = UDim2.fromOffset(44, 44)
+	gui.StudsOffset = Vector3.new(0, 3.5, 0)
+	gui.AlwaysOnTop = true
+	gui.MaxDistance = 140
+	gui.Enabled = false
+	local label = Instance.new("TextLabel")
+	label.Name = "Mark"
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Text = "?"
+	label.TextScaled = true
+	label.Font = Enum.Font.FredokaOne
+	label.TextColor3 = QUESTION
+	label.TextStrokeTransparency = 0
+	label.Parent = gui
+	gui.Parent = root
+	return gui, label
+end
+
+-- The tin dog's head lamp: shows players exactly where it's looking.
+local function addLamp(root: BasePart, kind: string)
+	if not DogBrain.kind(kind).Sweep then
+		return nil, nil
+	end
+	local eye = Instance.new("Attachment")
+	eye.Name = "DogLamp"
+	eye.Position = Vector3.new(0, 0.8, -2.2)
+	local light = Instance.new("SpotLight")
+	light.Name = "Lamp"
+	light.Angle = DogBrain.kind(kind).Fov
+	light.Range = math.min(60, AI.SightRange.Lit * DogBrain.kind(kind).SightScale)
+	light.Brightness = 4
+	light.Color = LAMP
+	light.Face = Enum.NormalId.Front
+	light.Shadows = false
+	light.Parent = eye
+	eye.Parent = root
+	return eye, light
+end
+
+local function buildDog(parent: Instance, spec: Spec)
+	local model = Assets.clone(spec.kind, { "Humanoid", "HumanoidRootPart" }) or standIn(spec.kind, spec.at)
+	model:PivotTo(spec.at)
+	local humanoid = model:FindFirstChildOfClass("Humanoid") :: Humanoid
+	local root = model:FindFirstChild("HumanoidRootPart", true) :: BasePart
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.Anchored = false
+		end
+	end
+	humanoid.WalkSpeed = Config.Canal.Dogs.Speed
+	model.Parent = parent
+	pcall(function()
+		root:SetNetworkOwner(nil) -- the server drives the dogs
+	end)
+	local gui, label = addIndicator(root)
+	local eye, lamp = addLamp(root, spec.kind)
+	return {
+		spec = spec,
+		kind = spec.kind,
+		model = model,
+		humanoid = humanoid,
+		root = root,
+		anim = RigAnimator.new(model), -- no-op on the stand-in
+		mover = Mover.new(
+			humanoid,
+			root,
+			{ AgentRadius = 2, AgentHeight = 3, AgentCanJump = true },
+			Config.Noise.Alarm.RepathSeconds
+		),
+		brain = DogBrain.new(
+			spec.kind,
+			{ patrol = spec.patrol, startIndex = spec.startIndex, hunt = spec.hunt }
+		),
+		gui = gui,
+		label = label,
+		mark = "",
+		eye = eye,
+		lamp = lamp,
+		lampChase = false,
+		lastMode = "Patrol",
+		hitAt = {} :: { [Player]: number },
+		barked = false,
+	}
+end
+
+-- Line of sight from a dog's eyes to a Santa, ignoring dogs and Santas.
+local function sightLine(ignore: { Instance })
+	local params = nil
+	pcall(function()
+		params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = ignore
+	end)
+	return function(from: Vector3, to: Vector3): boolean
+		if not params then
+			return true
+		end
+		local eye = from + Vector3.new(0, 1.5, 0)
+		local ok, hit = pcall(function()
+			return workspace:Raycast(eye, to - eye, params)
+		end)
+		return not (ok and hit)
+	end
+end
+
+local function setMark(dog, intent)
+	local mark = ""
+	if intent.mode == "Chase" then
+		mark = "!"
+	elseif intent.mode ~= "Stunned" and intent.awareness >= AI.AlertAt then
+		mark = "?"
+	end
+	if mark ~= dog.mark then
+		dog.mark = mark
+		dog.gui.Enabled = mark ~= ""
+		dog.label.Text = if mark == "" then "?" else mark
+		dog.label.TextColor3 = if mark == "!" then BANG else QUESTION
+	end
+end
+
+local function setLamp(dog, intent)
+	if not dog.eye then
+		return
+	end
+	local look = dog.root.CFrame:VectorToObjectSpace(intent.look)
+	local yaw = math.atan2(-look.X, -look.Z)
+	dog.eye.CFrame = CFrame.new(dog.eye.Position) * CFrame.Angles(0, yaw, 0)
+	local chase = intent.mode == "Chase"
+	if chase ~= dog.lampChase then
+		dog.lampChase = chase
+		dog.lamp.Color = if chase then LAMP_CHASE else LAMP
+	end
+	dog.lamp.Enabled = intent.mode ~= "Stunned"
+end
+
+-- Lets dogs loose on this stop. Returns their cleanup.
+-- isSafe(position): aboard at the Sleigh Stop (MapBuilder.isAboard; passed in
+-- because CanalTown, which MapBuilder loads, starts the market dogs).
+function GuardDogs.start(
+	run,
+	specs: { Spec },
+	parent: Instance,
+	isSafe: (position: Vector3) -> boolean
+): () -> ()
+	local dogs = {}
+	for _, spec in specs do
+		local ok, dog = pcall(buildDog, parent, spec)
+		if ok then
+			table.insert(dogs, dog)
+		else
+			warn("[GuardDogs] couldn't build " .. spec.kind .. ": " .. tostring(dog))
+		end
+	end
+	local ignore = {}
+	for _, dog in dogs do
+		table.insert(ignore, dog.model)
+	end
+	local clear = sightLine(ignore)
+	local dropper = DogBump.dropper(run, parent)
+	local trails: { [Player]: { DogBrain.Crumb } } = {}
+	local crumbAt: { [Player]: number } = {}
+	local spottedBanner: { [Player]: number } = {}
+	local loud: { DogBrain.Loud } = {}
+	local lastNoisePos = run.lastNoisePos
+	local scentKeep = 0
+	for _, kind in AI.Kinds do
+		scentKeep = math.max(scentKeep, kind.ScentSeconds)
+	end
+	local alive = true
+	local lastThink = Util.now()
+
+	local function think()
+		local t = Util.now()
+		local dt = math.clamp(t - lastThink, 0, 1)
+		lastThink = t
+		local tiptoe = run.phase == "Sneak"
+		local santas = {}
+		for player in run.players do
+			local root = Util.rootOf(player)
+			if root and run:_free(player) then
+				local position = root.Position
+				local v = root.AssemblyLinearVelocity
+				local santa = {
+					player = player,
+					root = root,
+					position = position,
+					speed = Vector3.new(v.X, 0, v.Z).Magnitude,
+					safe = isSafe(position),
+					tiptoe = tiptoe,
+				}
+				table.insert(santas, santa)
+				-- Scent: a crumb a second, never on canal ice or at the sleigh.
+				local character = player.Character
+				local skating = character ~= nil
+					and character:GetAttribute(SantaMoves.SKATE_ATTRIBUTE) == true
+				if
+					not santa.safe
+					and not skating
+					and t - (crumbAt[player] or -math.huge) >= AI.ScentEvery
+				then
+					crumbAt[player] = t
+					local trail = trails[player] or {}
+					trails[player] = trail
+					table.insert(trail, { position = position, at = t })
+				end
+			end
+		end
+		for player, trail in trails do
+			while trail[1] and t - trail[1].at > scentKeep do
+				table.remove(trail, 1)
+			end
+			if not run.players[player] then
+				trails[player] = nil
+			end
+		end
+		-- Grabs and gasps the run heard about since last think.
+		if run.lastNoisePos and run.lastNoisePos ~= lastNoisePos then
+			table.insert(loud, { position = run.lastNoisePos, at = t })
+		end
+		lastNoisePos = run.lastNoisePos
+		while loud[1] and t - loud[1].at > 2 do
+			table.remove(loud, 1)
+		end
+
+		local world = {
+			now = t,
+			dt = dt,
+			lit = run.phase ~= "Sneak",
+			noise = (run.noise or 0) / Config.Noise.Max,
+			santas = santas,
+			trails = trails,
+			loud = loud,
+			clear = clear,
+		}
+		for _, dog in dogs do
+			if not dog.model.Parent then
+				continue
+			end
+			local pos = dog.root.Position
+			local facing = dog.root.CFrame.LookVector
+			local intent = DogBrain.step(dog.brain, pos, facing, world)
+			local corgi = dog.kind == "DogCorgi"
+			if intent.goal then
+				dog.humanoid.WalkSpeed = intent.speed
+				dog.mover:moveTo(intent.goal)
+				dog.anim:play("Walk")
+			else
+				dog.mover:stop()
+				dog.anim:play("Idle")
+			end
+			setMark(dog, intent)
+			setLamp(dog, intent)
+
+			-- "?": it heard or glimpsed something.
+			if intent.mode == "Alert" and dog.lastMode ~= "Alert" then
+				SoundPlayer.at(if corgi then "CorgiGrowl" else "TinDogWhirr", dog.root)
+			end
+			-- "!": spotted. Bark, call the pack, and the street gets noisier.
+			local spotted = intent.spotted
+			if spotted then
+				SoundPlayer.at(if corgi then "CorgiWoof" else "TinDogWhirr", dog.root)
+				table.insert(loud, { position = pos, at = t })
+				for _, other in dogs do
+					if other ~= dog and (other.root.Position - pos).Magnitude <= AI.PackRadius then
+						DogBrain.alert(other.brain, spotted.position, t)
+					end
+				end
+				run:_addNoise(AI.BarkNoise)
+				local player = spotted.player
+				if (spottedBanner[player] or -math.huge) + AI.SpottedBannerCooldown < t then
+					spottedBanner[player] = t
+					run:_banner(
+						player,
+						"SPOTTED! Break its line of sight, hide, skate the canal or get to the sleigh!",
+						2.5
+					)
+				end
+			end
+			dog.lastMode = intent.mode
+			if intent.mode == "Stunned" then
+				continue
+			end
+
+			-- Bumps: any Santa it reaches (walking into a patrol counts too).
+			for _, santa in santas do
+				local root = santa.root
+				local offset = (root.Position - pos) * Vector3.new(1, 0, 1)
+				if santa.safe then
+					continue
+				end
+				if
+					Sounds.dogWarns(
+						offset.Magnitude,
+						Config.Canal.Dogs.HitRadius,
+						Config.Canal.Dogs.WarnRadius
+					)
+				then
+					SoundPlayer.at(if corgi then "CorgiGrowl" else "TinDogWhirr", dog.root)
+				end
+				if
+					(dog.hitAt[santa.player] or -math.huge) + dog.spec.cooldown < t
+					and CanalRules.inReach(root.Position, pos, Config.Canal.Dogs.HitRadius)
+				then
+					dog.hitAt[santa.player] = t
+					local pause =
+						DogBump.hit(run, dropper, dog.kind, santa.player, root, pos, facing, dog.root)
+					if pause > 0 then
+						DogBrain.stun(dog.brain, pause, t)
+					else
+						DogBrain.tire(dog.brain, t)
+					end
+					dog.mover:stop()
+					break
+				end
+			end
+		end
+	end
+
+	task.spawn(function()
+		while alive do
+			local ok, err = pcall(think)
+			if not ok then
+				warn("[GuardDogs] " .. tostring(err))
+			end
+			task.wait(TICK)
+		end
+	end)
+
+	return function()
+		alive = false
+		for _, dog in dogs do
+			dog.model:Destroy()
+		end
+		dropper.cleanup()
+	end
+end
+
+return GuardDogs
