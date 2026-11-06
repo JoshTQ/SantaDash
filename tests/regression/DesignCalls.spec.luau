@@ -229,3 +229,19 @@ describe("in a real run", function()
 		expect(loot.Misses).toBe(300 + 50)
 	end)
 end)
+
+describe("lights on has a consequence (Josh, 6 Nov 2026)", function()
+	it(
+		"lit houses check for Santas on street stops, never in Krampus's Lair, and spotting costs a present",
+		function()
+			local world = headless()
+			local Config = world.load("ReplicatedStorage.Shared.Config")
+			local LightsCheck = world.load("ServerScriptService.Server.LightsCheck")
+			expect(Config.LightsCheck.Enabled).toBe(true)
+			expect(LightsCheck.applies("Street")).toBe(true)
+			expect(LightsCheck.applies("Finale")).toBe(false)
+			expect(Config.LightsCheck.Noise > 0).toBeTruthy()
+			expect(Config.LightsCheck.WarnSeconds >= 2).toBeTruthy() -- always time to hide or get out
+		end
+	)
+end)
