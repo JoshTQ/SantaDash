@@ -19,6 +19,7 @@ local CONTRACTS = {
 		clips = { "Idle", "Walk", "Sneak", "Grab", "Cheer" }, -- shared/SantaMoves.luau
 	},
 	SantaSack = { primary = "Sack", parts = { "Sack" } },
+	SkateBoots = { primary = "Root", parts = { "Root", "LeftBoot", "RightBoot" }, follow = true },
 	Krampus = {
 		primary = "HumanoidRootPart",
 		parts = { "Humanoid", "HumanoidRootPart", "Basket" },
@@ -133,6 +134,14 @@ describe("assets/models", function()
 					end
 					expect(model.PrimaryPart.Name).toBe(contract.primary)
 				end)
+
+				if contract.follow then
+					it("is gear: each boot follows a foot bone", function()
+						local model = load(name)[1]
+						expect(model.LeftBoot:GetAttribute("FollowBone")).toBe("LeftFoot")
+						expect(model.RightBoot:GetAttribute("FollowBone")).toBe("RightFoot")
+					end)
+				end
 
 				it("names its animations after the clips the game plays", function()
 					local model = load(name)[1]

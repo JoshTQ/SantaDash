@@ -28,15 +28,17 @@ local function withReady(fn)
 end
 
 describe("BootRules", function()
-	it("keeps Blade Skates hidden until the model is approved and imported", function()
+	it("hides boots that aren't ready, and never sells them", function()
 		local boot = BootRules.get("SkateBoots")
 		expect(boot).never.toBeNil()
-		expect(boot.ready).toBe(false)
+		local was = boot.ready
+		boot.ready = false
 		local data = PlayerDefaults.new()
 		data.coal = 99999
 		expect(select(2, BootRules.buy(data, "SkateBoots"))).toBe("notReady")
 		expect(#BootRules.list(data)).toBe(0)
 		expect(data.coal).toBe(99999)
+		boot.ready = was
 	end)
 
 	it("starts players with no boots", function()

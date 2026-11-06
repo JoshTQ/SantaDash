@@ -587,7 +587,7 @@ Config.Boots = {
 			hoopSpeed = 48, -- WalkSpeed after a boost hoop with boots (40 without)
 			blurb = "Zoom across the ice faster than anyone. Yours for good.",
 			trail = Color3.fromRGB(255, 217, 102), -- the gold scratch line
-			ready = false, -- 3D preview awaiting Josh's approval, then Meshy + import
+			ready = true, -- approved 6 Nov 2026, made in Meshy (art/meshy/SkateBoots.json)
 		},
 	},
 }

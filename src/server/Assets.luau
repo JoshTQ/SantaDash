@@ -7,6 +7,9 @@
 	Santa     the player character (SantaCharacter.luau): Humanoid (R15),
 	          HumanoidRootPart, mesh "Body", Animations Idle/Walk/Sneak/Grab/Cheer
 	SantaSack PrimaryPart "Sack", welded to Santa's back
+	SkateBoots  boots over any suit (server/Boots.luau): PrimaryPart "Root" at
+	          Santa's HumanoidRootPart, LeftBoot/RightBoot with FollowBone
+	          LeftFoot/RightFoot (shared/GearAttach.luau)
 	ElfA/ElfD Humanoid, HumanoidRootPart
 	Sleigh    PrimaryPart "Body", Seat1-Seat6, "Horn", "Lantern", "Hitch"
 	Reindeer  PrimaryPart "Body", Head, LegFL/LegFR/LegBL/LegBR on Motor6Ds
