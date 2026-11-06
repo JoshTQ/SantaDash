@@ -19,6 +19,9 @@ local Config = require(script.Parent.Config)
 local SantaMoves = {}
 
 SantaMoves.LOOPS = { "Idle", "Walk", "Sneak" }
+-- Looping clips the Meshy spec doesn't make yet: played if the model has them.
+-- Swim (the Lair lake): without it he paddles along with Walk.
+SantaMoves.OPTIONAL_LOOPS = { "Swim" }
 SantaMoves.REQUIRED = { "Idle", "Walk" } -- without these, players keep the default avatar
 
 -- One-shots: playback speed over the trimmed clip (Grab 2.1 s, Cheer 3.2 s).
@@ -35,8 +38,17 @@ SantaMoves.SKIN_ATTRIBUTE = "SantaSkin" -- the suit he wears (Config.Skins id, s
 -- Below this ground speed (studs/s) Santa stands still: idle.
 SantaMoves.MOVING = 0.5
 
--- Which looping clip a Santa plays: standing, walking or tiptoeing.
-function SantaMoves.loopFor(speed: number, sneaking: boolean, has: { [string]: boolean }): string
+-- Which looping clip a Santa plays: standing, walking, tiptoeing or swimming
+-- (in the Lair lake; without a Swim clip he paddles along with Walk).
+function SantaMoves.loopFor(
+	speed: number,
+	sneaking: boolean,
+	has: { [string]: boolean },
+	swimming: boolean?
+): string
+	if swimming then
+		return if has.Swim then "Swim" else "Walk"
+	end
 	if speed < SantaMoves.MOVING then
 		return "Idle"
 	end

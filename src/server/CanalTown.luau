@@ -30,6 +30,7 @@ local CanalRules = require(script.Parent.CanalRules)
 local Boots = require(script.Parent.Boots)
 local Knockback = require(script.Parent.Knockback)
 local Loot = require(script.Parent.Loot)
+local Swimming = require(script.Parent.Swimming)
 
 local C = Config.Canal
 local CanalTown = {}
@@ -825,12 +826,13 @@ end
 function CanalTown.waterUnder(zones: { BasePart }, root: BasePart, standHeight: number): BasePart?
 	local at = root.CFrame.Position
 	for _, zone in zones do
-		if zone:GetAttribute("Broken") then
+		-- Swim water (the Lair lake) is real water: you swim, no SPLOOSH.
+		if zone:GetAttribute("Broken") and not zone:GetAttribute("SwimWater") then
 			local boxes = floeBoxes[zone]
 			if not boxes then
 				boxes = {} -- floes are anchored: measure them once
 				for _, floe in floesFor[zone] or {} do
-					table.insert(boxes, { cframe = floe.CFrame, size = floe.Size })
+					table.insert(boxes, CanalTown.floeBox(floe))
 				end
 				floeBoxes[zone] = boxes
 			end
@@ -861,36 +863,59 @@ function CanalTown.splash(run, player: Player, zone: BasePart)
 	end
 end
 
+-- A floe part as a CanalRules.Box: round floes are flat cylinders.
+function CanalTown.floeBox(floe: BasePart): CanalRules.Box
+	if floe.Shape == Enum.PartType.Cylinder then
+		return { cframe = floe.CFrame, size = floe.Size, radius = floe.Size.Z / 2 }
+	end
+	return { cframe = floe.CFrame, size = floe.Size }
+end
+
 -- Turns an IceZone part into water with hoppable floes. Safe to call twice.
--- Returns the floes. Used by the Lair's floe hop and the Thin Ice event.
+-- Returns the floe parts (one per disc: floes are round and lumpy). Used by
+-- the Lair's floe hop and the Thin Ice event. A zone marked SwimWater (the
+-- Lair lake) has real terrain water under it, so the ice just goes and you
+-- swim (server/Swimming); other zones turn into a water-coloured slab.
 function CanalTown.breakZone(zone: BasePart, rng: Random?): { BasePart }
 	if zone:GetAttribute("Broken") then
 		return floesFor[zone] or {}
 	end
 	zone:SetAttribute("Broken", true)
-	zone.Color = WATER
-	zone.Material = Enum.Material.Glass
-	zone.Transparency = 0.15
+	if zone:GetAttribute("SwimWater") then
+		zone.Transparency = 1
+		zone.CanCollide = false
+		zone.CanQuery = false
+		zone.CanTouch = false
+	else
+		zone.Color = WATER
+		zone.Material = Enum.Material.Glass
+		zone.Transparency = 0.15
+	end
 	local r = rng or Random.new()
 	local floes = {}
 	local folder = Instance.new("Folder")
 	folder.Name = "Floes"
 	for _, f in CanalRules.floeLayout(zone.Size.X, zone.Size.Z, r, keepoutsFor[zone]) do
-		local floe = Instance.new("Part")
-		floe.Name = "Floe"
-		floe.Anchored = true
-		floe.Size = Vector3.new(f.sizeX, C.FloeTop, f.sizeZ)
-		floe.CFrame = zone.CFrame
-			* CFrame.new(f.x, C.FloeTop / 2 - zone.Size.Y / 2, f.z)
-			* CFrame.Angles(0, r:NextNumber(-0.08, 0.08), 0)
-		floe.Color = Color3.fromRGB(225, 242, 252)
-		floe.Material = Enum.Material.Ice
-		floe.TopSurface = Enum.SurfaceType.Smooth
-		floe.BottomSurface = Enum.SurfaceType.Smooth
-		floe:SetAttribute("IceZone", true)
-		floe:SetAttribute("Floe", true)
-		floe.Parent = folder
-		table.insert(floes, floe)
+		for k, disc in f.discs do
+			local floe = Instance.new("Part")
+			floe.Name = "Floe"
+			floe.Shape = Enum.PartType.Cylinder
+			floe.Anchored = true
+			-- lobes sit a hair lower so overlapping tops don't flicker
+			local height = C.FloeTop - (k - 1) * 0.04
+			floe.Size = Vector3.new(height, disc.r * 2, disc.r * 2)
+			floe.CFrame = zone.CFrame
+				* CFrame.new(disc.x, height / 2 - zone.Size.Y / 2, disc.z)
+				* CFrame.Angles(0, 0, math.pi / 2)
+			floe.Color = Color3.fromRGB(225, 242, 252)
+			floe.Material = Enum.Material.Ice
+			floe.TopSurface = Enum.SurfaceType.Smooth
+			floe.BottomSurface = Enum.SurfaceType.Smooth
+			floe:SetAttribute("IceZone", true)
+			floe:SetAttribute("Floe", true)
+			floe.Parent = folder
+			table.insert(floes, floe)
+		end
 	end
 	folder.Parent = zone
 	floesFor[zone] = floes
@@ -1903,6 +1928,7 @@ function FloeLake.build(ctx)
 	)
 	lake:SetAttribute("IceZone", true)
 	lake:SetAttribute("CrackZone", false) -- only Krampus's stomp breaks the lake
+	lake:SetAttribute("SwimWater", true) -- real water under it: Santas swim (server/Swimming)
 	table.insert(state.iceZones, lake)
 	table.insert(state.splashZones, lake)
 	state.lake = lake
@@ -1916,6 +1942,24 @@ function FloeLake.build(ctx)
 		Enum.Material.Snow
 	)
 	island.Shape = Enum.PartType.Cylinder
+	-- A collar of thick shore ice round the island that never breaks: the fire
+	-- pots stand on it and swimmers climb out onto it to warm up.
+	local collar = ctx.newPart(
+		ctx.model,
+		"IslandIce",
+		Vector3.new(0.4, (f.islandRadius + 9) * 2, (f.islandRadius + 9) * 2),
+		ctx.origin * CFrame.new(f.island + Vector3.new(0, 0.2, 0)) * CFrame.Angles(0, 0, math.pi / 2),
+		ICE,
+		Enum.Material.Ice
+	)
+	collar.Shape = Enum.PartType.Cylinder
+	state.swim = {
+		island = (ctx.origin * CFrame.new(f.island)).Position,
+		warmRadius = f.islandRadius + Config.BodyHeat.FireRadius,
+		bridgeFrom = (ctx.origin * CFrame.new(0, 0, f.from - 6)).Position,
+		bridgeTo = (ctx.origin * CFrame.new(0, 0, f.island.Z - f.islandRadius + 4)).Position,
+		islandRadius = f.islandRadius,
+	}
 
 	-- The bell bridge: never breaks; ring-able bells hang along it.
 	local bridgeFrom, bridgeTo = f.from - 6, f.island.Z - f.islandRadius + 4
@@ -1981,14 +2025,23 @@ function FloeLake.start(ctx)
 	if not (stop.canal and stop.canal.lake) then
 		return nil
 	end
+	local lake = stop.canal.lake
+	local unfill = Swimming.fillWater(lake)
+	local stopSwimming = Swimming.start(run, stop.canal.swim)
 	local thread = task.delay(C.StompDelay, function()
-		run:_banner(nil, "KRAMPUS STOMPS! The lake cracks into floes. Hop across or take the bell bridge!", 4)
-		SoundPlayer.at("KrampusStomp", stop.canal.lake)
-		SoundPlayer.at("IceCrack", stop.canal.lake)
-		CanalTown.breakZone(stop.canal.lake)
+		run:_banner(
+			nil,
+			"KRAMPUS STOMPS! The ice breaks up. Hop the floes, swim, or take the bell bridge!",
+			4
+		)
+		SoundPlayer.at("KrampusStomp", lake)
+		SoundPlayer.at("IceCrack", lake)
+		CanalTown.breakZone(lake)
 	end)
 	return function()
 		pcall(task.cancel, thread)
+		stopSwimming()
+		unfill()
 	end
 end
 
