@@ -5,14 +5,14 @@
     "Humanoid",
     "HumanoidRootPart"
   ],
-  "imageAssetId": 84117376718229,
+  "imageAssetId": 128406492316509,
   "meshParts": 1,
   "meshStuds": [
     3.5,
     5.7,
     4.4
   ],
-  "modelAssetId": 106377206842438,
+  "modelAssetId": 116837743148922,
   "name": "DogCorgi",
   "primaryPart": "HumanoidRootPart",
   "removed": 1,

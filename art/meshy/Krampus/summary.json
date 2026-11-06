@@ -7,14 +7,14 @@
     "Humanoid",
     "HumanoidRootPart"
   ],
-  "imageAssetId": 124442626237163,
+  "imageAssetId": 77167698198769,
   "meshParts": 2,
   "meshStuds": [
     9.4,
     11,
     4.3
   ],
-  "modelAssetId": 119895958354246,
+  "modelAssetId": 104843336843283,
   "name": "Krampus",
   "primaryPart": "HumanoidRootPart",
   "removed": 2,
