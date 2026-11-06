@@ -25,6 +25,7 @@
 	               transparency?, neon? } }  (invisible unless a colour is given)
 	  attachments { <Name> = { on, at } }
 	  particles  { on = <attachment>, color, rate }
+	  attributes { <PartName> = { <Attribute> = value } }  (e.g. FollowBone on gear)
 	  primary    part name (PrimaryPart; pivot = origin)
 	  humanoid   { hip, root = {x,y,z} }  (adds HumanoidRootPart + Humanoid,
 	             welds everything to the root, unanchored)
@@ -282,6 +283,14 @@ for attName, opts in plan.attachments or {} do
 	attachment.Name = attName
 	attachment.CFrame = on.CFrame:Inverse() * CFrame.new(vec(opts.at))
 	attachment.Parent = on
+end
+
+-- Attributes on parts, e.g. FollowBone for gear (shared/GearAttach.luau).
+for partName, attrs in plan.attributes or {} do
+	local on = find(partName)
+	for key, value in attrs do
+		on:SetAttribute(key, value)
+	end
 end
 
 if plan.particles then

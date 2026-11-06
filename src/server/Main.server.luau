@@ -17,6 +17,7 @@ local Onboarding = require(script.Parent.Onboarding)
 local RunHost = require(script.Parent.RunHost)
 local SantaCharacter = require(script.Parent.SantaCharacter)
 local Skins = require(script.Parent.Skins)
+local Boots = require(script.Parent.Boots)
 local Store = require(script.Parent.Store)
 
 local Config = require(ReplicatedStorage.Shared.Config)
@@ -67,6 +68,7 @@ effect(
 PlayerData.start()
 Store.start({ runServer = isRunPlace or Config.Places.Run == 0 })
 Skins.start() -- each player's chosen Santa suit
+Boots.start() -- boots over any suit (bought with Coal)
 
 local hub = LobbyMap.build(workspace)
 if isRunPlace then
