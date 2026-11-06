@@ -281,6 +281,62 @@ function HouseKit.build(ctx: Context): CFrame?
 		})
 	end
 
+	-- Secret room (HouseBuilder's Room Mix): a Search prompt on the bookcase /
+	-- rug / hatch, a few gold sparkles, and (cellar, attic) a climb in and out
+	-- like a chimney. Everything stays shut until Run:_findSecret.
+	local secretModel = model:FindFirstChild("Secret")
+	local secretTrigger = secretModel and secretModel:FindFirstChild("SecretTrigger")
+	local secret = nil
+	if secretModel and secretTrigger and secretTrigger:IsA("BasePart") then
+		local kind = secretModel:GetAttribute("Kind") or "Bookcase"
+		local what = HouseKit.SecretObject[kind] or "Something odd"
+		secret = {
+			kind = kind,
+			model = secretModel,
+			trigger = secretTrigger,
+			prompt = h.addPrompt(secretTrigger, "Search", what, Config.Houses.Secret.SearchSeconds),
+			house = plan,
+			found = false,
+			present = nil,
+			climb = nil,
+		}
+		local sparkle = Instance.new("ParticleEmitter")
+		sparkle.Name = "SecretSparkle"
+		sparkle.Color = ColorSequence.new(Color3.fromRGB(255, 214, 90))
+		sparkle.LightEmission = 1
+		sparkle.Rate = 1.5
+		sparkle.Lifetime = NumberRange.new(1.2, 2)
+		sparkle.Speed = NumberRange.new(0.5, 1.2)
+		sparkle.Size = NumberSequence.new(0.25)
+		sparkle.Parent = secretTrigger
+		local inside = HouseKit.find(model, "SecretInside")
+		local outside = HouseKit.find(model, "SecretOutside")
+		if inside and outside then
+			local where = if kind == "Cellar" then "Cellar" else "Attic"
+			local down =
+				h.addPrompt(secretTrigger, if kind == "Cellar" then "Climb down" else "Climb up", where)
+			local up =
+				h.addPrompt(secretTrigger, if kind == "Cellar" then "Climb up" else "Climb down", where)
+			-- The way back sits on the ladder / by the hatch inside the room.
+			local back = secretModel:FindFirstChild("SecretLadder") or secretModel:FindFirstChild("Trunk")
+			if back and back:IsA("BasePart") then
+				up.Parent = back
+			end
+			down.Enabled = false
+			up.Enabled = false
+			local inAt, outAt = topOf(inside), topOf(outside)
+			secret.climb = {
+				down = down,
+				up = up,
+				inside = CFrame.new(inAt + Vector3.new(0, 3, 0)),
+				roof = CFrame.new(outAt + Vector3.new(0, 3, 0)),
+			}
+			table.insert(stop.chimneys, secret.climb)
+		end
+		stop.secrets = stop.secrets or {}
+		table.insert(stop.secrets, secret)
+	end
+
 	-- Presents: on the spawn points first, then scattered across the floor.
 	local spawns = {}
 	for i = 1, 8 do
@@ -294,7 +350,10 @@ function HouseKit.build(ctx: Context): CFrame?
 	local nextSpawn = 1
 	for _, presentPlan in plan.presents do
 		local at: Vector3
-		if presentPlan.naughtyList and pedestal then
+		local secretSpawn = presentPlan.secret and secret and HouseKit.find(model, "SecretSpawn")
+		if secretSpawn then
+			at = topOf(secretSpawn)
+		elseif presentPlan.naughtyList and pedestal then
 			at = topOf(pedestal)
 		elseif spawns[nextSpawn] then
 			at = spawns[nextSpawn]
@@ -308,6 +367,12 @@ function HouseKit.build(ctx: Context): CFrame?
 		end
 		local present = h.buildPresent(model, rng, at, presentPlan)
 		present.inVault = plan.locked or nil
+		if secretSpawn and secret then
+			-- Sealed in the secret room until someone finds it.
+			present.hidden = true
+			present.prompt.Enabled = false
+			secret.present = present
+		end
 		table.insert(stop.presents, present)
 	end
 
@@ -319,6 +384,9 @@ function HouseKit.build(ctx: Context): CFrame?
 	end
 	return nil
 end
+
+-- What the Search prompt names on each secret room's trigger.
+HouseKit.SecretObject = { Bookcase = "Bookcase", Cellar = "Rug", Attic = "Ceiling hatch" }
 
 -- Every approved present variant: Assets.Present models plus an Assets.Presents folder.
 function HouseKit.presentVariants(assets: Instance?): { Model }

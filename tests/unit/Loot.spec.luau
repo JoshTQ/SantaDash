@@ -89,7 +89,9 @@ test("Risky houses get an extra present", function()
 		local plan = Loot.planStop(rng, 2)
 		for _, house in plan.houses do
 			if house.typeName == "Risky" then
-				expect(#house.presents).toBe(Config.Houses.PresentsPerHouse[house.ring] + 1)
+				-- (+1 more when the house rolled a secret room)
+				local secret = if house.secret then 1 else 0
+				expect(#house.presents).toBe(Config.Houses.PresentsPerHouse[house.ring] + 1 + secret)
 			end
 		end
 	end

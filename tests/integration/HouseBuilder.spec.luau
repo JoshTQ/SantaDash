@@ -58,7 +58,9 @@ test("every style and layout follows the HouseKit contract", function()
 		for i = 1, 8 do
 			expect(house:FindFirstChild("PresentSpawn" .. i, true) ~= nil).toBeTruthy()
 		end
-		expect(house:FindFirstChild("Stairs") ~= nil).toBe(layout == "Two-storey")
+		local upstairs = layout == "Two-storey"
+			or (layout == "Room Mix" and house:GetAttribute("Floors") == 2)
+		expect(house:FindFirstChild("Stairs") ~= nil).toBe(upstairs)
 		expect(house:FindFirstChild("InnerDoorway") ~= nil).toBe(layout == "L-shape")
 		expect(house:GetAttribute("Style")).toBe(style)
 		expect(house:GetAttribute("Layout")).toBe(layout)
@@ -108,7 +110,8 @@ test("a house fits its 28-stud plot between the garden hedges, inside the phone 
 	local plot = Config.Map.HouseSize
 	each(function(house, style, layout)
 		local parts = partsOf(house)
-		expect(#parts).toBeLessThan(160)
+		-- Room Mix houses have 5-7 rooms; the route budget (RenderBudget.spec) pays for them.
+		expect(#parts).toBeLessThan(if layout == "Room Mix" then 185 else 175)
 		for _, p in parts do
 			local pos, half = p.CFrame.Position, p.Size.Magnitude / 2
 			if
@@ -186,7 +189,9 @@ test("forPlan: Far ring houses are Alpine, the vault is a Cottage, the sign matc
 		expect(h:GetAttribute("HouseType")).toBe("Snowflake")
 	end
 	expect(styles.candy and styles.alpine).toBeTruthy()
-	expect(layouts.Cottage and layouts["Two-storey"] and layouts["L-shape"]).toBeTruthy()
+	-- Every robbable house is a Room Mix house now (Josh, 6 Nov 2026).
+	expect(layouts["Room Mix"]).toBeTruthy()
+	expect(layouts.Cottage or layouts["Two-storey"] or layouts["L-shape"]).toBeFalsy()
 end)
 
 describe("on the Frozen Canal street", function()

@@ -64,6 +64,10 @@ test("hiding spots and chimneys match the plan", function()
 			chimneys += if house.chimney then 1 else 0
 		end
 		expect(#stop.hideSpots).toBe(spots)
+		-- Cellar and attic secret rooms are climbed in and out like chimneys.
+		for _, secret in stop.secrets do
+			chimneys += if secret.climb then 1 else 0
+		end
 		expect(#stop.chimneys).toBe(chimneys)
 	end
 end)

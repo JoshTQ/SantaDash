@@ -202,33 +202,35 @@ export type BuiltPresent = {
 	plan: any,
 	taken: boolean?,
 	inVault: boolean?, -- behind a locked vault door until someone buys it open
+	hidden: boolean?, -- in a secret room nobody has found yet (not counted, not grabbable)
 	house: RobHouse?, -- the house it sits in (its gift marker counts it)
 }
 
 -- A house you can rob: its presents and the gift marker floating over it.
-export type RobHouse = { plan: any, presents: { any }, marker: TextLabel, locked: boolean }
+export type RobHouse = { plan: any, presents: { any }, marker: TextLabel, locked: boolean, secret: any? }
 
 -- What a house's gift marker says: presents left, or that the vault is shut.
 function MapBuilder.markerText(house: RobHouse, vaultShut: boolean): string
 	local left = 0
 	for _, present in house.presents do
-		if not present.taken then
+		if not present.taken and not present.hidden then
 			left += 1
 		end
 	end
+	local found = if house.secret and house.secret.found then "\n★ SECRET FOUND" else ""
 	if left == 0 then
-		return "EMPTY"
+		return "EMPTY" .. found
 	elseif house.locked and vaultShut then
 		return string.format("VAULT · %d GIFTS\n%d Jingle to open", left, Config.Buys.VaultDoor.Cost)
 	end
-	return string.format("ROB ME · %d GIFT%s", left, if left == 1 then "" else "S")
+	return string.format("ROB ME · %d GIFT%s", left, if left == 1 then "" else "S") .. found
 end
 
 -- Refreshes a house's gift marker (Run calls it when a present goes or the vault opens).
 function MapBuilder.refreshMarker(house: RobHouse, vaultShut: boolean)
 	local text = MapBuilder.markerText(house, vaultShut)
 	house.marker.Text = text
-	local empty = text == "EMPTY"
+	local empty = string.sub(text, 1, 5) == "EMPTY"
 	house.marker.TextColor3 = if empty then Color3.fromRGB(170, 175, 190) else GOLD
 	local gui = house.marker.Parent :: BillboardGui
 	gui.AlwaysOnTop = not empty -- an emptied house stops shouting through walls
@@ -276,6 +278,7 @@ export type Stop = {
 	krampusSpawn: CFrame,
 	doors: { Door }, -- approved houses' front doors (Run swings them)
 	houses: { RobHouse }, -- the houses you can rob, with their gift markers
+	secrets: { any }, -- secret rooms (HouseKit): trigger, prompt, present, climb, found
 	origin: CFrame, -- stop space: +Z runs down the street from the landing house
 }
 
@@ -606,6 +609,7 @@ local function buildStop(
 		cocoaPrompt = nil :: any,
 		doors = {},
 		houses = {},
+		secrets = {},
 		krampusSpawn = origin * CFrame.new(0, 6, far + map.StreetOverrun - 20), -- past the vault
 		origin = origin,
 	}
@@ -635,6 +639,11 @@ local function buildStop(
 			for i = firstPresent, #stop.presents do
 				table.insert(entry.presents, stop.presents[i])
 				stop.presents[i].house = entry
+			end
+			for _, secret in stop.secrets do
+				if secret.house == house then
+					entry.secret = secret
+				end
 			end
 			entry.marker = buildHouseMarker(model, cf, house, entry)
 			table.insert(stop.houses, entry)

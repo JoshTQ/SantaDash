@@ -310,7 +310,7 @@ local function lamps(ctx, zEnd: number, ranges)
 			end
 			-- Lights strung across the canal between each pair of lamps.
 			local x = half + C.Promenade - 0.8
-			strand(ctx, Vector3.new(-x, 10, z), Vector3.new(x, 10, z), 2.5, 3)
+			strand(ctx, Vector3.new(-x, 10, z), Vector3.new(x, 10, z), 2.5, 4)
 		end
 		z += 44
 	end
@@ -856,7 +856,7 @@ function SkateCanal.build(ctx)
 			glow(lamp, Color3.fromRGB(255, 210, 150), 24)
 			if prev then
 				local from = (frame * CFrame.new(prev, 0, sz * (C.Width / 2 + 3))).Position
-				strand(ctx, from + Vector3.new(0, 9.6, 0), at + Vector3.new(0, 9.6, 0), 3, 3.2)
+				strand(ctx, from + Vector3.new(0, 9.6, 0), at + Vector3.new(0, 9.6, 0), 3, 4.2)
 			end
 		end
 		prev = d
