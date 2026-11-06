@@ -52,5 +52,7 @@ globals:
     any: true
   warn:
     any: true
+  RaycastParams:
+    any: true
   UserSettings:
     any: true

@@ -19,7 +19,7 @@ stand-in (a model missing a required part is skipped with a warning):
 | `KrampusLair` | `Floor`, `ListPedestal`, `KrampusSpawn`, `HideSpot1`-`2` (optional: `Fireplace` + `ChimneyTop`, its own `Ladder`, `PresentSpawn1`-`8`) | The approved Cuckoo Clock Den built from parts (`src/server/LairBuilder.luau`) |
 | `VaultDoor` | `Frame`, `Door` (hinged on its left edge) | Gold block door |
 | `CocoaMachine` | `Body`, `BuyPrompt` attachment | Brown block |
-| `DogCorgi`, `DogTin` | `Humanoid`, `HumanoidRootPart` (anchored and moved along the patrol) | Block dogs |
+| `DogCorgi`, `DogTin` | `Humanoid`, `HumanoidRootPart` (unanchored, walked by the server with pathfinding; the tin dog gets a `DogLamp` head lamp) | Block dogs |
 | `Present` (any number, or an `Assets.Presents` folder) | `Box` (recoloured per present), `Ribbon`, `Bow` | Box with ribbons; scaled so the Box's longest side matches the present's size |
 | `NaughtyList` | a PrimaryPart (the `Book`) | Gold scroll |
 
@@ -79,7 +79,11 @@ Krampus and the sleigh. `Maps/SnowyStreet.luau` is the reference shape.
   with pavements, front gardens, picket fences, hedges and bollard barriers
   with ICE gaps; a main canal with hoops joins the stops along the on-foot
   path. Stop 1 Christmas Market with security dogs (`DogCorgi` rams you and
-  knocks a present out to grab back, `DogTin` bonks then winds down 3 s);
+  knocks a present out to grab back, `DogTin` bonks then winds down 3 s).
+  The dogs see (a cone, blocked by walls, further once the lights are on),
+  hear footsteps (louder as the NOISE meter fills) and follow scent trails;
+  "?" = suspicious, "!" = chasing, and a spotting bark calls the pack
+  (`Config.DogAI`, `src/server/DogBrain.luau`);
   Stop 2 Ice Rink Square with the ice polisher (scoops you into a snowbank);
   Stop 3 the Lair on a lake island with the bell bridge, and 8 s in Krampus
   stomps the lake into floes (fall in = SPLOOSH back onto a floe).

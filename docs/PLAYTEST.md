@@ -34,6 +34,9 @@ in the server's command bar, `require(game.ReplicatedStorage.Shared.Config).Run.
 | 2 | Stop 1: walk into a **corgi** with presents in your sack | You're shoved ~6-10 studs away with a small hop; a red present drops; you can grab it back; results screen grabs count doesn't go up for the re-grab | The 4 Nov knockback bug: only a real client shows if the push lands |
 | 3 | Walk into a **tin dog** | BONK banner, a small shove, the dog stops for 3 s | Same |
 | 4 | Stand on a garden wall or roof above a dog's path | No bumps | Height check |
+| 4b | Walk past in front of a dog, then behind one, then tiptoe behind one in the first 45 s | In front: "?" then "!" within about a second, a bark, and it runs you down. Behind: a "?" from your footsteps and it turns to look. Tiptoeing behind it: nothing | Sight, hearing |
+| 4c | Get chased, then break line of sight round a stall or house; also try skating up the canal | It runs to where it last saw you, sniffs, follows your trail (not along the ice), gives up after ~5 s. A chasing corgi pants after 4 s: that's your gap | Pathfinding on the real street, raycasts against real walls |
+| 4d | After the lights come on | Dogs spot you from much further, the tin dog's head lamp sweeps the street and goes red when it chases | Lighting |
 | 5 | Skate on a canal, fly through a gold **hoop** | Faster on ice (24), much faster for 1.5 s after a hoop (40), back to 16 on snow | FloorMaterial on a client-owned body |
 | 6 | Stop 2: stand in the **ice polisher**'s path | WHOOSH, you land by a snowbank | |
 | 7 | Stop 3, after the stomp: hop the round floes; then drop into the water and **swim** | The lake ice vanishes and leaves water; you swim (no snap back onto a floe), with a BODY HEAT meter under the timer that empties in ~10 s. You can climb out onto a floe, the island's shore ice and the bridge | Terrain water and Roblox's swimming only exist in a real engine |
