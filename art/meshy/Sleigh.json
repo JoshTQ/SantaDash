@@ -7,10 +7,10 @@
   "shape_prompt": "Stylized 3D game prop, chunky vinyl-toy style, smooth sculpted rounded forms. A beat-up old Christmas sleigh for six riders: classic curved sleigh body with a high back and a tall curled front, sewn-on fabric patches with visible stitching, one small crack, crooked trim along the top edges and a belt line. Three rows of two cushioned seats inside, open top. Metal runners that curl up at the front, with short struts. A bulb horn on the front curl, a small dented lantern on a bent pole at the back, two sacks strapped behind the back seat. No reindeer, no characters, no base.",
   "texture_prompt": "Bright saturated colours, smooth soft vinyl-toy finish, clean hand-painted look. Faded glossy red paint with darker muted red sewn-on patches, crooked brass trim and brass belt line, green cushioned seats, silver-blue metal runners, brass bulb horn with a black rubber bulb, dented brass lantern with a warm yellow glow, tan burlap sacks. No text, no logos.",
   "assemble": {
-    "_note": "Meshy's sleigh is long on X with its tall curled front at +X; yaw 90 turns that to -Z (game forward). Deck centre = pivot; the mesh stands on its runners at y -1.3, like the stand-in.",
+    "_note": "Meshy's sleigh is long on X. Yaw 90 put its curled front at +Z (backwards: Josh's lobby playtest, 6 Nov 2026, after the import turn fix), so yaw -90 turns the front to -Z (game forward), towards the Hitch and reindeer. Deck centre = pivot; the mesh stands on its runners at y -1.3, like the stand-in.",
     "mesh": {
       "name": "Shell",
-      "yaw": 90,
+      "yaw": -90,
       "fit": {
         "axis": "Z",
         "studs": 14
