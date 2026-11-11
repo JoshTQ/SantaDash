@@ -294,6 +294,8 @@ export type Stop = {
 	houses: { RobHouse }, -- the houses you can rob, with their gift markers
 	secrets: { any }, -- secret rooms (HouseKit): trigger, prompt, present, climb, found
 	searchSpots: { any }, -- Gingerbread Mansion (HouseKit.wireSearch): spots, tree boxes, piano
+	popIns: { any }, -- filler townhouses with pop-in rooms (CanalTown, PopInHouses)
+	buildPresent: (parent: Instance, rng: Random, position: Vector3, plan: any) -> BuiltPresent,
 	origin: CFrame, -- stop space: +Z runs down the street from the landing house
 }
 
@@ -634,6 +636,8 @@ local function buildStop(
 		houses = {},
 		secrets = {},
 		searchSpots = {},
+		popIns = {},
+		buildPresent = buildPresent,
 		krampusSpawn = origin * CFrame.new(0, 6, far + map.StreetOverrun - 20), -- past the vault
 		origin = origin,
 	}

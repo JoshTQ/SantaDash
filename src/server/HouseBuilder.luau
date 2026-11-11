@@ -37,7 +37,8 @@ local SX, SY = HouseBuilder.ScaleH, HouseBuilder.ScaleV
 local ROOT = CFrame.Angles(0, math.pi, 0) -- the preview's front is +Z; Roblox's is -Z
 
 local FH, T = 3.2, 0.3 -- floor height and wall thickness (preview units)
-local DOOR_GAP = { w = 1.7, h = 2.7 } -- wider than the preview's 1.3 x 2.4: Krampus fits
+local DOOR_GAP = { w = 2.3, h = 2.85 } -- 7.8 x 11.4 studs (Josh, 11 Nov 2026: doors felt cramped; was 1.7 x 2.7)
+HouseBuilder.DoorGap = DOOR_GAP
 local BASE = 0.3 -- top of the Floor slab
 
 local SMOOTH = Enum.Material.SmoothPlastic
@@ -769,7 +770,7 @@ end
 -- bay window, balcony or garage. About half get a secret room.
 ----------------------------------------------------------------------------
 
-local CW, CD = 3.0, 3.2 -- cell width and depth (preview units: ~10 x 11 studs)
+local CW, CD = 3.35, 3.8 -- cell width and depth (preview units: ~11.4 x 12.9 studs; Josh, 11 Nov 2026: rooms felt cramped, was 3.0 x 3.2)
 HouseBuilder.Cell = { W = CW, D = CD }
 HouseBuilder.SecretKinds = { "Bookcase", "Cellar", "Attic" }
 

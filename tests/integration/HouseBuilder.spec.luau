@@ -284,3 +284,13 @@ describe("on the Frozen Canal street", function()
 		end
 	end)
 end)
+
+test("doorways and rooms are roomy enough to steer a Santa and his camera (Josh, 11 Nov 2026)", function()
+	local SX, SY = HouseBuilder.ScaleH, HouseBuilder.ScaleV
+	expect(HouseBuilder.DoorGap.w * SX >= 7.5).toBeTruthy() -- was 5.8 studs
+	expect(HouseBuilder.DoorGap.h * SY >= 11).toBeTruthy()
+	expect(HouseBuilder.Cell.W * SX >= 11).toBeTruthy() -- was ~10 x 11 studs
+	expect(HouseBuilder.Cell.D * SX >= 12.5).toBeTruthy()
+	-- A doorway leaves wall either side of it in the smallest cell.
+	expect(HouseBuilder.Cell.W - HouseBuilder.DoorGap.w >= 0.8).toBeTruthy()
+end)
