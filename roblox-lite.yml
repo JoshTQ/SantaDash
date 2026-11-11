@@ -52,6 +52,8 @@ globals:
     any: true
   warn:
     any: true
+  OverlapParams:
+    any: true
   RaycastParams:
     any: true
   UserSettings:

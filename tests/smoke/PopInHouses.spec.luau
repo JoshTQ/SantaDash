@@ -93,7 +93,10 @@ it("rooms all pack away when the sleigh leaves the stop", function()
 		world.wait(0.5)
 		local stop = run.route.stops[1]
 		local entry = stop.popIns[2]
-		Util.teleport(santa, CFrame.new(entry.door.CFrame.Position + entry.frame.LookVector * 3 + Vector3.new(0, 3, 0)))
+		Util.teleport(
+			santa,
+			CFrame.new(entry.door.CFrame.Position + entry.frame.LookVector * 3 + Vector3.new(0, 3, 0))
+		)
 		world.wait(1)
 		expect(entry.room ~= nil).toBeTruthy()
 		while run.stopIndex == 1 do

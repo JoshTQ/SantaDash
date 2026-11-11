@@ -52,7 +52,10 @@ local function overlaps(cf: CFrame, size: Vector3, part: BasePart): boolean
 	for _, sx in { -1, 1 } do
 		for _, sy in { -1, 1 } do
 			for _, sz in { -1, 1 } do
-				table.insert(corners, cf:PointToObjectSpace(part.CFrame * Vector3.new(sx * half.X, sy * half.Y, sz * half.Z)))
+				table.insert(
+					corners,
+					cf:PointToObjectSpace(part.CFrame * Vector3.new(sx * half.X, sy * half.Y, sz * half.Z))
+				)
 			end
 		end
 	end
@@ -226,21 +229,24 @@ test("the route stays inside the phone budget with MaxOpen rooms open on a stop"
 	end
 end)
 
-test("pop-in rooms are kept out of Detail's culling and nothing in them casts a shadow it shouldn't", function()
-	local e = allEntries()[2]
-	PopInHouses.open(e.entry, e.stop.buildPresent)
-	expect(e.entry.room:GetAttribute("KeepDetail")).toBe(true)
-	expect(e.entry.block:GetAttribute("KeepDetail")).toBe(true)
-	expect(e.entry.door:GetAttribute("KeepDetail")).toBe(true)
-	for _, p in e.entry.room:GetDescendants() do
-		if p:IsA("BasePart") then
-			expect(p.Anchored).toBe(true)
-			if p.Material == Enum.Material.Neon then
-				expect(p.CastShadow).toBe(false)
+test(
+	"pop-in rooms are kept out of Detail's culling and nothing in them casts a shadow it shouldn't",
+	function()
+		local e = allEntries()[2]
+		PopInHouses.open(e.entry, e.stop.buildPresent)
+		expect(e.entry.room:GetAttribute("KeepDetail")).toBe(true)
+		expect(e.entry.block:GetAttribute("KeepDetail")).toBe(true)
+		expect(e.entry.door:GetAttribute("KeepDetail")).toBe(true)
+		for _, p in e.entry.room:GetDescendants() do
+			if p:IsA("BasePart") then
+				expect(p.Anchored).toBe(true)
+				if p.Material == Enum.Material.Neon then
+					expect(p.CastShadow).toBe(false)
+				end
+			elseif p:IsA("Light") then
+				expect(p.Shadows).toBe(false)
 			end
-		elseif p:IsA("Light") then
-			expect(p.Shadows).toBe(false)
 		end
+		PopInHouses.close(e.entry)
 	end
-	PopInHouses.close(e.entry)
-end)
+)

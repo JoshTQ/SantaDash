@@ -100,7 +100,13 @@ function PopInHouses.buildRoom(entry: Entry, parent: Instance, buildPresent: any
 	local frontZ = -D / 2 + T / 2
 
 	-- Shell. Same outside as the block, so the street doesn't change.
-	part("Floor", Vector3.new(W - 2 * T, 0.4, D - 2 * T), CFrame.new(0, 0.2, 0), FLOOR, Enum.Material.WoodPlanks)
+	part(
+		"Floor",
+		Vector3.new(W - 2 * T, 0.4, D - 2 * T),
+		CFrame.new(0, 0.2, 0),
+		FLOOR,
+		Enum.Material.WoodPlanks
+	)
 	part("WallBack", Vector3.new(W, H, T), CFrame.new(0, H / 2, D / 2 - T / 2), wall)
 	for _, sx in { -1, 1 } do
 		part("WallSide", Vector3.new(T, H, D - 2 * T), CFrame.new(sx * (W / 2 - T / 2), H / 2, 0), wall)
@@ -158,7 +164,8 @@ function PopInHouses.buildRoom(entry: Entry, parent: Instance, buildPresent: any
 		present = buildPresent(room, Random.new(entry.seed), at, gift)
 	else
 		-- Somebody ate the gift money: a plate of cookies on a little table.
-		local table_ = part("Table", Vector3.new(3, 2.6, 3), CFrame.new(tx - 4.5, 1.7, tz), TRUNK, Enum.Material.Wood)
+		local table_ =
+			part("Table", Vector3.new(3, 2.6, 3), CFrame.new(tx - 4.5, 1.7, tz), TRUNK, Enum.Material.Wood)
 		local plate = Parts.new(
 			room,
 			"Cookies",
