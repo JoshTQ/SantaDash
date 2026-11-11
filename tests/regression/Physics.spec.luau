@@ -171,6 +171,45 @@ describe("security dogs", function()
 		end)
 	end)
 
+	-- 11 Nov 2026 (Josh: "their AI is pretty poor"): the sight ray only ignored
+	-- dogs, so it hit the Santa's own body and every Santa read as behind a
+	-- wall. Real rays here (engine.raycasts).
+	it("with real rays a dog sees a Santa in front of it, not one behind a wall", function()
+		local world, engine, _, Run, players = boot({ "A" })
+		local santa = players[1]
+		engine.raycasts = true
+		world.run(function()
+			local run = startAtStop(world, Run, players, 1)
+			local corgi = findAll(run.route.model, "DogCorgi")[1]
+			local pivot = corgi:GetPivot()
+			local spot = pivot.Position + pivot.LookVector * 12
+			engine:teleport(santa, Vector3.new(spot.X, pivot.Position.Y, spot.Z))
+			world.wait(1.5)
+			expect(banners(engine, santa, "SPOTTED")).toBe(1)
+			run.ended = true
+		end)
+
+		local world2, engine2, _, Run2, players2 = boot({ "B" })
+		local hidden = players2[1]
+		engine2.raycasts = true
+		world2.run(function()
+			local run = startAtStop(world2, Run2, players2, 1)
+			local corgi = findAll(run.route.model, "DogCorgi")[1]
+			local pivot = corgi:GetPivot()
+			local wall = world2.engine.Instance.new("Part")
+			wall.Name = "TestWall"
+			wall.Size = Vector3.new(30, 30, 1)
+			wall.Anchored = true
+			wall.CFrame = CFrame.lookAt(pivot.Position + pivot.LookVector * 6, pivot.Position)
+			wall.Parent = world2.engine.workspace
+			local spot = pivot.Position + pivot.LookVector * 14
+			engine2:teleport(hidden, Vector3.new(spot.X, pivot.Position.Y, spot.Z))
+			world2.wait(0.6) -- stood still behind the wall: unseen (and unheard)
+			expect(banners(engine2, hidden, "SPOTTED")).toBe(0)
+			run.ended = true
+		end)
+	end)
+
 	it("a Santa hiding in a wardrobe is never sniffed out", function()
 		local world, engine, _, Run, players = boot({ "A" })
 		local santa = players[1]

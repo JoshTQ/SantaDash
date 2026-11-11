@@ -171,18 +171,26 @@ local function buildDog(parent: Instance, spec: Spec)
 		lampChase = false,
 		lastMode = "Patrol",
 		hitAt = {} :: { [Player]: number },
-		barked = false,
+		pathing = false,
 	}
 end
 
 -- Line of sight from a dog's eyes to a Santa, ignoring dogs and Santas.
-local function sightLine(ignore: { Instance })
+-- Bug fixed 11 Nov 2026 (Josh: "their AI is pretty poor"): only the dogs were
+-- ignored, so every ray hit the Santa's own body on the way to its root and
+-- read as a wall. In a real server the dogs never saw anyone, only heard.
+-- setIgnore is called every think with the dogs and every Santa's character.
+local function sightLine()
 	local params = nil
 	pcall(function()
 		params = RaycastParams.new()
 		params.FilterType = Enum.RaycastFilterType.Exclude
-		params.FilterDescendantsInstances = ignore
 	end)
+	local function setIgnore(ignore: { Instance })
+		if params then
+			params.FilterDescendantsInstances = ignore
+		end
+	end
 	return function(from: Vector3, to: Vector3): boolean
 		if not params then
 			return true
@@ -192,22 +200,69 @@ local function sightLine(ignore: { Instance })
 			return workspace:Raycast(eye, to - eye, params)
 		end)
 		return not (ok and hit)
+	end,
+		setIgnore
+end
+
+-- The mark over its head (Josh, 11 Nov 2026: the "?" goes red on alert):
+--   faint yellow "?"  it's noticed something (awareness building)
+--   red "?"           on alert: coming to look, or sniffing round for you
+--   red "!"           chasing
+function GuardDogs.markFor(intent): string
+	if intent.mode == "Chase" then
+		return "!"
+	elseif intent.mode == "Stunned" then
+		return ""
+	elseif intent.mode == "Alert" or intent.mode == "Search" or intent.awareness >= AI.AlertAt then
+		return "alert?"
+	elseif intent.awareness >= AI.NoticeAt then
+		return "?"
 	end
+	return ""
 end
 
 local function setMark(dog, intent)
-	local mark = ""
-	if intent.mode == "Chase" then
-		mark = "!"
-	elseif intent.mode ~= "Stunned" and intent.awareness >= AI.AlertAt then
-		mark = "?"
-	end
+	local mark = GuardDogs.markFor(intent)
 	if mark ~= dog.mark then
 		dog.mark = mark
 		dog.gui.Enabled = mark ~= ""
-		dog.label.Text = if mark == "" then "?" else mark
-		dog.label.TextColor3 = if mark == "!" then BANG else QUESTION
+		dog.label.Text = if mark == "!" then "!" else "?"
+		dog.label.TextColor3 = if mark == "" or mark == "?" then QUESTION else BANG
+		dog.gui.Size = if mark == "!" then UDim2.fromOffset(56, 56) else UDim2.fromOffset(44, 44)
 	end
+	if mark == "?" then
+		-- fades in as it gets more suspicious
+		dog.label.TextTransparency = math.clamp(0.6 - intent.awareness * 2, 0, 0.6)
+	elseif dog.label.TextTransparency ~= 0 then
+		dog.label.TextTransparency = 0
+	end
+end
+
+-- Walks the dog toward the intent's goal. A dog chasing a Santa it can see
+-- runs straight at them; otherwise it follows a path, computed in its own
+-- thread so one dog's path doesn't hold up the others' thinking.
+local function steer(dog, intent, pos: Vector3, clear)
+	local goal = intent.goal
+	if not goal then
+		dog.mover:stop()
+		dog.anim:play("Idle")
+		return
+	end
+	dog.humanoid.WalkSpeed = intent.speed
+	dog.anim:play("Walk")
+	local near = Vector3.new(goal.X - pos.X, 0, goal.Z - pos.Z).Magnitude <= AI.DirectChase
+	if intent.direct and near and clear(pos, goal) then
+		dog.humanoid:MoveTo(goal)
+		return
+	end
+	if dog.pathing then
+		return -- still working out the last path: keep walking it
+	end
+	dog.pathing = true
+	task.spawn(function()
+		pcall(dog.mover.moveTo, dog.mover, goal)
+		dog.pathing = false
+	end)
 end
 
 local function setLamp(dog, intent)
@@ -243,11 +298,7 @@ function GuardDogs.start(
 			warn("[GuardDogs] couldn't build " .. spec.kind .. ": " .. tostring(dog))
 		end
 	end
-	local ignore = {}
-	for _, dog in dogs do
-		table.insert(ignore, dog.model)
-	end
-	local clear = sightLine(ignore)
+	local clear, setIgnore = sightLine()
 	local dropper = DogBump.dropper(run, parent)
 	local trails: { [Player]: { DogBrain.Crumb } } = {}
 	local crumbAt: { [Player]: number } = {}
@@ -267,6 +318,16 @@ function GuardDogs.start(
 		lastThink = t
 		local tiptoe = run.phase == "Sneak"
 		local santas = {}
+		local ignore = {}
+		for _, dog in dogs do
+			table.insert(ignore, dog.model)
+		end
+		for player in run.players do
+			if player.Character then
+				table.insert(ignore, player.Character)
+			end
+		end
+		setIgnore(ignore)
 		for player in run.players do
 			local root = Util.rootOf(player)
 			if root and run:_free(player) then
@@ -277,6 +338,7 @@ function GuardDogs.start(
 					root = root,
 					position = position,
 					speed = Vector3.new(v.X, 0, v.Z).Magnitude,
+					velocity = v,
 					safe = isSafe(position),
 					tiptoe = tiptoe,
 				}
@@ -332,14 +394,7 @@ function GuardDogs.start(
 			local facing = dog.root.CFrame.LookVector
 			local intent = DogBrain.step(dog.brain, pos, facing, world)
 			local corgi = dog.kind == "DogCorgi"
-			if intent.goal then
-				dog.humanoid.WalkSpeed = intent.speed
-				dog.mover:moveTo(intent.goal)
-				dog.anim:play("Walk")
-			else
-				dog.mover:stop()
-				dog.anim:play("Idle")
-			end
+			steer(dog, intent, pos, clear)
 			setMark(dog, intent)
 			setLamp(dog, intent)
 

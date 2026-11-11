@@ -35,6 +35,7 @@ export type Santa = {
 	player: any,
 	position: Vector3,
 	speed: number, -- flat studs/s
+	velocity: Vector3?, -- where they're heading (a chase leads them)
 	safe: boolean, -- aboard at the Sleigh Stop
 	tiptoe: boolean, -- the stop's sneak phase
 }
@@ -61,6 +62,7 @@ export type Intent = {
 	look: Vector3, -- where its eyes (the tin dog's lamp) point
 	awareness: number,
 	spotted: Santa?, -- set on the tick a chase starts
+	direct: boolean?, -- chasing a Santa it can see: steer straight, no path
 }
 
 local function flat(v: Vector3): Vector3
@@ -201,6 +203,23 @@ function DogBrain.leashDistance(points: { Vector3 }?, p: Vector3): number
 		best = math.min(best, (flat(p) - (a + ab * t)).Magnitude)
 	end
 	return best
+end
+
+-- Where a chase runs: a little ahead of where the Santa is going.
+function DogBrain.chaseGoal(santa: Santa): Vector3
+	local v = santa.velocity
+	if not v then
+		return santa.position
+	end
+	return santa.position + flat(v) * AI.Lead
+end
+
+-- Chase speed, with a pounce for the last few studs.
+function DogBrain.chaseSpeed(dog, from: Vector3, goal: Vector3?): number
+	if goal and flatDistance(goal, from) <= AI.PounceRange then
+		return math.max(dog.cfg.ChaseSpeed, AI.PounceSpeed)
+	end
+	return dog.cfg.ChaseSpeed
 end
 
 -- Another dog barked at `position`: come and look (unless already chasing).
@@ -378,11 +397,19 @@ function DogBrain.step(dog, from: Vector3, facing: Vector3, world: World): Inten
 		elseif now - dog.chaseStarted > cfg.ChaseBurst then
 			DogBrain.tire(dog, now)
 		else
-			local goal = if seen and seen.player == dog.target then seen.position else dog.lastSeen
-			if not (seen and seen.player == dog.target) and goal and flatDistance(goal, from) < REACHED then
+			local inSight = seen ~= nil and seen.player == dog.target
+			local goal = if inSight then DogBrain.chaseGoal(seen) else dog.lastSeen
+			if not inSight and goal and flatDistance(goal, from) < REACHED then
 				startSearch(dog, goal, now) -- lost them where it last saw them
 			else
-				return { mode = "Chase", goal = goal, speed = cfg.ChaseSpeed, look = look, awareness = 1 }
+				return {
+					mode = "Chase",
+					goal = goal,
+					speed = DogBrain.chaseSpeed(dog, from, goal),
+					look = look,
+					awareness = 1,
+					direct = inSight,
+				}
 			end
 		end
 	end
@@ -394,7 +421,15 @@ function DogBrain.step(dog, from: Vector3, facing: Vector3, world: World): Inten
 		if seen and dog.awareness >= 1 then
 			dog.mode = "Chase"
 			dog.chaseStarted = now
-			return { mode = "Chase", goal = seen.position, speed = cfg.ChaseSpeed, look = look, awareness = 1 }
+			local goal = DogBrain.chaseGoal(seen)
+			return {
+				mode = "Chase",
+				goal = goal,
+				speed = DogBrain.chaseSpeed(dog, from, goal),
+				look = look,
+				awareness = 1,
+				direct = true,
+			}
 		end
 		startSearch(dog, dog.lastSeen, now)
 	end
@@ -405,13 +440,15 @@ function DogBrain.step(dog, from: Vector3, facing: Vector3, world: World): Inten
 		dog.chaseStarted = now
 		dog.investigate = nil
 		spotted = seen
+		local goal = DogBrain.chaseGoal(seen)
 		return {
 			mode = "Chase",
-			goal = seen.position,
-			speed = cfg.ChaseSpeed,
+			goal = goal,
+			speed = DogBrain.chaseSpeed(dog, from, goal),
 			look = look,
 			awareness = 1,
 			spotted = spotted,
+			direct = true,
 		}
 	end
 
