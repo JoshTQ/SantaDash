@@ -25,7 +25,18 @@ function HudLayout.scale(viewport: Vector2?): number
 	return math.max(HudLayout.MinScale, s)
 end
 
-export type Spots = { snow: UDim2, quit: UDim2 }
+-- One column under the stop timer: the map event chip, body heat, banners
+-- and first-time tips stack in this order and only take room while shown,
+-- so none of them can cover another (Hud.client builds it, Tips.client
+-- puts its card in it).
+HudLayout.TopStack = {
+	name = "TopStack",
+	y = 98, -- px from the top: just under the 84 px stop panel at y 8
+	width = 560,
+	order = { event = 1, heat = 2, banner = 3, tip = 4 },
+}
+
+export type Spots = { snow: UDim2, bone: UDim2, quit: UDim2, music: UDim2, musicHub: UDim2 }
 
 -- Positions for the controls that would otherwise sit under the touch
 -- thumbstick (quit) or the jump button (throw).
@@ -33,9 +44,15 @@ function HudLayout.spots(touch: boolean): Spots
 	return {
 		-- Snowballs: bottom-right on keyboard; above the jump button on touch.
 		snow = if touch then UDim2.new(1, -12, 1, -260) else UDim2.new(1, -12, 1, -110),
+		-- Dog treats: just left of the snowballs.
+		bone = if touch then UDim2.new(1, -192, 1, -260) else UDim2.new(1, -192, 1, -110),
 		-- Back to hub: under the stats panel (top-left) everywhere, so a thumb
 		-- on the stick never quits the run.
 		quit = UDim2.fromOffset(12, 112),
+		-- Music on/off: beside Back to hub in a run (the Shop button sits
+		-- under it at y 150), top-left in the hub.
+		music = UDim2.fromOffset(148, 112),
+		musicHub = UDim2.fromOffset(12, 8),
 	}
 end
 

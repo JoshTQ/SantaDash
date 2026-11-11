@@ -163,7 +163,7 @@ end
 function handlers.Results(data)
 	local mine
 	for _, row in data.rows do
-		if row.name == player.DisplayName then
+		if if row.userId then row.userId == player.UserId else row.name == player.DisplayName then
 			mine = row
 		end
 	end
@@ -191,6 +191,13 @@ hud.OnClientEvent:Connect(function(kind: string, data)
 end)
 
 refreshMusic()
+
+-- The HUD's Music button (saved by server/Settings as this attribute).
+local function applyMusicSetting()
+	SoundPlayer.setGroupMuted("Music", player:GetAttribute("MusicOff") == true)
+end
+player:GetAttributeChangedSignal("MusicOff"):Connect(applyMusicSetting)
+applyMusicSetting()
 
 ----------------------------------------------------------------------------
 -- Ten times a second: the sleigh countdown and Krampus's heartbeat

@@ -195,39 +195,46 @@ describe("in a real run", function()
 		end)
 	end)
 
-	it("missing the final sleigh keeps half the sack, escaping doubles, in the results", function()
-		local world, engine, Run, players = runWith({ "Escapes", "Misses" })
-		local escapes, misses = players[1], players[2]
-		local done = false
-		world.run(function()
-			local run = Run.new(1, players, function()
-				done = true
+	-- Josh, 11 Nov 2026: escaping doubles only with the Naughty List aboard.
+	it(
+		"missing the final sleigh keeps half the sack, escaping with the List doubles, in the results",
+		function()
+			local world, engine, Run, players = runWith({ "Escapes", "Misses" })
+			local escapes, misses = players[1], players[2]
+			local done = false
+			world.run(function()
+				local run = Run.new(1, players, function()
+					done = true
+				end)
+				run:start()
+				while not run.krampus do
+					world.wait(0.5)
+				end
+				run.krampus.stunnedUntil = math.huge
+				run.cuckoo = nil
+				for _, p in players do
+					local st = run.players[p]
+					st.banked = 300
+					st.sackValue = 100
+					st.sackCount = 1
+				end
+				run.list:take(escapes)
+				engine:teleport(escapes, run.route.stops[3].deckCFrame.Position + Vector3.new(0, 3, 0))
+				engine:teleport(misses, run.route.stops[3].deckCFrame.Position + Vector3.new(0, 0, 200))
+				while not done do
+					world.wait(1)
+				end
 			end)
-			run:start()
-			while not run.krampus do
-				world.wait(0.5)
+			local results = engine:hudMessages(escapes, "Results")
+			local rows = results[#results].data.rows
+			local loot = {}
+			for _, row in rows do
+				loot[row.name] = row.loot
 			end
-			run.krampus.stunnedUntil = math.huge
-			for _, p in players do
-				local st = run.players[p]
-				st.banked = 300
-				st.sackValue = 100
-				st.sackCount = 1
-			end
-			engine:teleport(misses, run.route.stops[3].deckCFrame.Position + Vector3.new(0, 0, 200))
-			while not done do
-				world.wait(1)
-			end
-		end)
-		local results = engine:hudMessages(escapes, "Results")
-		local rows = results[#results].data.rows
-		local loot = {}
-		for _, row in rows do
-			loot[row.name] = row.loot
+			expect(loot.Escapes).toBe((300 + 100 + 250) * 2) -- the List itself is worth 250
+			expect(loot.Misses).toBe(300 + 50)
 		end
-		expect(loot.Escapes).toBe((300 + 100) * 2)
-		expect(loot.Misses).toBe(300 + 50)
-	end)
+	)
 end)
 
 describe("lights on has a consequence (Josh, 6 Nov 2026)", function()
@@ -244,4 +251,22 @@ describe("lights on has a consequence (Josh, 6 Nov 2026)", function()
 			expect(Config.LightsCheck.WarnSeconds >= 2).toBeTruthy() -- always time to hide or get out
 		end
 	)
+end)
+
+describe("Krampus's magic tricks (Josh, 6 Nov: Top 3 + Grumpy Meter)", function()
+	local M = Config.Krampus.Magic
+	it("is on, with Frost Zap, Frost Stomp and Bell Blink unlocking over the Lair", function()
+		expect(M.Enabled).toBe(true)
+		expect(M.Grumpy.Tricks[1]).toEqual({ "FrostZap" })
+		expect(table.find(M.Grumpy.Tricks[2], "FrostStomp")).never.toBeNil()
+		expect(table.find(M.Grumpy.Tricks[3], "BellBlink")).never.toBeNil()
+	end)
+	it("never zaps point blank, so a teammate always has time to smash the ice", function()
+		local secondsToReach = (M.FrostZap.MinRange - Config.Krampus.CatchRange) / M.Grumpy.Speed[3]
+		expect(secondsToReach > 1).toBe(true)
+	end)
+	it("is slower than a Santa until Furious, and Peppermint Rush always outruns him", function()
+		expect(M.Grumpy.Speed[1] < Config.Player.WalkSpeed).toBe(true)
+		expect(M.Grumpy.Speed[3] < Config.Buys.PeppermintRush.WalkSpeed).toBe(true)
+	end)
 end)

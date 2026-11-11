@@ -14,6 +14,8 @@ globals:
     any: true
   CFrame:
     any: true
+  RaycastParams:
+    any: true
   TweenInfo:
     any: true
   Color3:
@@ -51,6 +53,8 @@ globals:
   RBXScriptConnection:
     any: true
   warn:
+    any: true
+  OverlapParams:
     any: true
   RaycastParams:
     any: true

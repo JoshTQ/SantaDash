@@ -37,6 +37,11 @@ local function group(name: string): SoundGroup
 	return g
 end
 
+-- Client: mute or restore a whole group (the HUD's Music button).
+function SoundPlayer.setGroupMuted(name: string, muted: boolean)
+	group(name).Volume = if muted then 0 else (Config.Audio.Groups[name] or 0.7)
+end
+
 local function template(key: string): Sound?
 	local folder = ReplicatedStorage:FindFirstChild(Config.Audio.FolderName)
 	local found = folder and folder:FindFirstChild(key)

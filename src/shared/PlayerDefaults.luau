@@ -25,6 +25,9 @@ function PlayerDefaults.new()
 			done = {}, -- [lessonId] = true
 			tipsOff = false, -- the player's "no more tips" switch
 		},
+		settings = {
+			musicOff = false, -- the HUD's Music button (server/Settings.luau)
+		},
 	}
 end
 

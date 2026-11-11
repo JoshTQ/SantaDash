@@ -409,7 +409,9 @@ function CutscenePlayer.play(data)
 
 		local pop = Cutscenes.popAt(scene, t)
 		if pop then
-			state.pop.Text = (string.gsub(pop.text, "{map}", data.map or ""))
+			-- data.swap replaces a whole pop (the Getaway's "LOOT x2" without the List).
+			local text = if data.swap and data.swap[pop.text] then data.swap[pop.text] else pop.text
+			state.pop.Text = (string.gsub(text, "{map}", data.map or ""))
 			state.pop.TextColor3 = Cutscenes.Colors[pop.color] or Cutscenes.Colors.snow
 			local grow = math.clamp((t - pop.at) / 0.12, 0, 1) -- slams in
 			state.pop.Size = UDim2.fromScale(0.9, 0.16 * (pop.size or 1) * (0.6 + 0.4 * grow))
