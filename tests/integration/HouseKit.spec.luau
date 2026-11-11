@@ -125,6 +125,48 @@ test("the Lair model sets Krampus's spawn, hide spots and the Naughty List pedes
 	expect(list ~= nil).toBeTruthy()
 end)
 
+-- Like the real import (tools/meshy/to_rbxm.luau): Meshy props never collide.
+local function importedVaultDoor()
+	local m = fakeVaultDoor()
+	for _, d in m:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.CanCollide = false
+		end
+	end
+	return m
+end
+
+-- Regression (Josh, 11 Nov 2026): you could walk straight through the vault.
+for _, greybox in { false, true } do
+	local how = if greybox then "greybox" else "kit"
+	test(
+		"a shut vault blocks its doorway even though its model doesn't collide (" .. how .. " house)",
+		function()
+			local route = build({ houses = {}, vaultDoor = importedVaultDoor(), greybox = greybox }, 4)
+			local checked = 0
+			for _, stop in route.stops do
+				if stop.vaultPrompt then
+					checked += 1
+					local blocker = stop.vaultBlocker
+					expect(blocker ~= nil).toBeTruthy()
+					expect(blocker.CanCollide).toBe(true)
+					expect(blocker.Anchored).toBe(true)
+					expect(blocker.Transparency).toBe(1)
+					expect(blocker:IsDescendantOf(route.model)).toBe(true)
+					-- Fills the doorway the vault door sits in: taller and wider than a Santa.
+					expect(blocker.Size.Y).toBeGreaterThan(6)
+					expect(blocker.Size.X).toBeGreaterThan(3)
+					local offset = blocker.CFrame:PointToObjectSpace(stop.vaultDoor.CFrame.Position)
+					expect(math.abs(offset.X)).toBeLessThan(blocker.Size.X / 2)
+					expect(math.abs(offset.Y)).toBeLessThan(blocker.Size.Y / 2)
+					expect(math.abs(offset.Z)).toBeLessThan(1.5)
+				end
+			end
+			expect(checked).toBeGreaterThan(0)
+		end
+	)
+end
+
 test("the approved vault door goes in the vault doorway and swings open", function()
 	local route = build({ houses = {}, vaultDoor = fakeVaultDoor() }, 4)
 	local door = route.stops[1].vaultDoor

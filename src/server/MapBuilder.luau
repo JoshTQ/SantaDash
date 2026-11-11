@@ -184,10 +184,15 @@ end
 
 -- True if a position is inside the Sleigh Stop clearing around the sleigh
 -- (deckCFrame), or riding on it.
-function MapBuilder.isAboard(deckCFrame: CFrame, position: Vector3): boolean
+-- Within the Sleigh Stop clearing (plus `margin` studs) on the floor plan, at any height.
+function MapBuilder.inSleighStop(deckCFrame: CFrame, position: Vector3, margin: number?): boolean
 	local rel = deckCFrame:PointToObjectSpace(position)
-	local flat = Vector3.new(rel.X, 0, rel.Z).Magnitude
-	return flat <= Config.Map.SleighStopRadius and rel.Y >= -4 and rel.Y <= 12
+	return Vector3.new(rel.X, 0, rel.Z).Magnitude <= Config.Map.SleighStopRadius + (margin or 0)
+end
+
+function MapBuilder.isAboard(deckCFrame: CFrame, position: Vector3): boolean
+	local y = deckCFrame:PointToObjectSpace(position).Y
+	return MapBuilder.inSleighStop(deckCFrame, position) and y >= -4 and y <= 12
 end
 
 ----------------------------------------------------------------------------
@@ -277,6 +282,7 @@ export type Stop = {
 	wardrobePrompts: { [string]: ProximityPrompt }, -- server/Wardrobe stand, empty while off
 	vaultPrompt: ProximityPrompt?,
 	vaultDoor: BasePart?,
+	vaultBlocker: BasePart?, -- invisible wall in the vault doorway while it's shut (approved model)
 	krampusSpawn: CFrame,
 	doors: { Door }, -- approved houses' front doors (Run swings them)
 	houses: { RobHouse }, -- the houses you can rob, with their gift markers
@@ -461,7 +467,13 @@ local function buildHouse(
 		local vaultDoor = kit
 			and kit.vaultDoor
 			and HouseKit.placeVaultDoor(model, kit.vaultDoor, cframe * CFrame.new(0, FLOOR_TOP, frontZ))
-		if not vaultDoor then
+		if vaultDoor then
+			stop.vaultBlocker = HouseKit.vaultBlocker(
+				model,
+				cframe * CFrame.new(0, FLOOR_TOP + door.Y / 2, frontZ),
+				Vector3.new(door.X, door.Y, t + 0.4)
+			)
+		else
 			vaultDoor = newPart(
 				model,
 				"VaultDoor",
