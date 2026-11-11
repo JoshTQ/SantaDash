@@ -403,6 +403,45 @@ Config.Krampus = {
 	},
 }
 
+-- The Naughty List heist (Josh, 11 Nov 2026: "Naughty book is underwhelming,
+-- make it more important, more challenging"; he picked options 1, 2 and 4).
+-- Option 1: the List IS the escape bonus. Only a sleigh that leaves the Lair
+-- with the List aboard doubles the crew's loot; without it the sack banks at
+-- x1 like any stop. Whoever carries it is Marked: the book hovers over their
+-- head, rattles (noise, so Bell Blink finds them), slows them to 15 (Peppermint
+-- Rush doesn't help) and stops them hiding. They can pass it to a friend.
+-- Snatched = it drops where they were grabbed. It can't get wet: swim and it
+-- bobs on the water, then flies home to its pedestal.
+Config.NaughtyList = {
+	Enabled = true, -- false = the old rule: any escape doubles loot
+	NoListMultiplier = 1, -- escaping without the List
+	CarrierWalkSpeed = 15, -- a Santa runs 16, Krampus 14 / 15 / 16.5 by grumpiness
+	RattleNoisePerSecond = 1,
+	PassRange = 20, -- studs to the friend who catches it
+	HoverHeight = 4.5, -- studs above the carrier's root
+	LooseSeconds = 15, -- dropped on land: then it flies home
+	WetSeconds = 5, -- bobbing on the lake: then it flies home
+}
+
+-- Option 2: Cuckoo Watch, the Lair's PvE as a rule (red light, green light).
+-- About every 12 s, after a tick-tock warning, the approved cuckoo pops out of
+-- the clock and looks round the den. Any free Santa inside the den who moves
+-- faster than a shuffle while it looks is spotted: "CUCKOO!", noise, and
+-- Krampus Bell Blinks to them (whatever his grumpiness). Freeze and you're safe.
+-- Hidden, snatched, iced and frozen Santas, and anyone outside the den, are safe.
+Config.CuckooWatch = {
+	Enabled = true,
+	FirstAfter = 8, -- seconds after Krampus's arrival hold ends
+	Interval = 12, -- seconds from one look to the next warning...
+	Jitter = 2, -- ...give or take
+	WarnSeconds = 1.25, -- tick-tock: time to stop
+	LookSeconds = 1.5,
+	MoveTolerance = 3, -- studs/s: standing still or a nudge is fine
+	SpottedNoise = 8,
+	SummonMinRange = 14, -- closer than this he's on you anyway: no blink
+	DenPadding = 2, -- studs added round the Lair's footprint
+}
+
 -- Random map events (game-design.md "Random map events"). One roll per run;
 -- a hit plays one event from the map's own pool at one stop. Rules: one big
 -- moment per stop, never in a Krampus stop, never blocks the way back to the
