@@ -65,7 +65,8 @@ function DogBump.dropper(run, parent: Instance): Dropper
 end
 
 -- A dog of `kind` at `dogPos` (facing `facing`) bumps `player`. Returns the
--- seconds the dog should pause afterwards (a tin dog winds down).
+-- seconds the dog should pause afterwards (a tin dog winds down), and with
+-- `steal` the value of the present a corgi took (it carries it, not dropped).
 function DogBump.hit(
 	run,
 	dropper: Dropper,
@@ -74,8 +75,9 @@ function DogBump.hit(
 	root: BasePart,
 	dogPos: Vector3,
 	facing: Vector3,
-	emitter: any
-): number
+	emitter: any,
+	steal: boolean?
+): (number, number?)
 	local corgi = kind == "DogCorgi"
 	local offset = (root.CFrame.Position - dogPos) * Vector3.new(1, 0, 1)
 	local push = Knockback.velocity(offset, facing, C.Dogs.Knockback)
@@ -88,7 +90,13 @@ function DogBump.hit(
 	end
 	local st = run.players[player]
 	local value = st and Loot.dropOne(st)
-	if value then
+	if value and steal then
+		-- Fetch (Josh, 11 Nov 2026): the corgi runs off with it; GuardDogs
+		-- drops it when someone catches the corgi or it gets bored.
+		run:_sendPlayer(player)
+		run:_banner(player, "WOOF! A corgi stole a present from your sack! Catch it!", 2.5)
+		return 0, value
+	elseif value then
 		run:_sendPlayer(player)
 		dropper.drop(root.CFrame.Position + away * 6 - Vector3.new(0, 2.5, 0), value)
 		run:_banner(player, "WOOF! A corgi knocked a present out of your sack. Grab it back!", 2.5)

@@ -17,6 +17,10 @@ export type PresentPlan = {
 	naughtyList: boolean?,
 	regrab: boolean?, -- a present a security dog knocked out of a sack: not a new grab
 	secret: boolean?, -- sits in a secret room until someone finds it
+	floor: number?, -- Gingerbread Mansion: hidden on this floor (0 ground .. 3 attic)
+	tree: boolean?, -- Gingerbread Mansion: the real box under the hall tree
+	jingle: number?, -- Jingle for grabbing it, instead of JinglePerGrab x ring (pop-in houses)
+	popIn: boolean?, -- in a filler townhouse's pop-in room (PopInHouses)
 }
 
 export type HousePlan = {
@@ -123,6 +127,21 @@ local function planHouse(
 	local count = houseType.Presents
 		or (Config.Houses.PresentsPerHouse[ring] + (houseType.ExtraPresents or 0))
 	local presents = {}
+	if houseType.Mansion then
+		-- Hidden in the furniture: bigger gifts higher up (Config.Mansion).
+		count = 0
+		for _, row in Config.Mansion.Gifts do
+			for _ = 1, row.count do
+				local present = planPresent(rng, row.size, mult, houseType.Threats)
+				present.floor = row.floor
+				table.insert(presents, present)
+			end
+		end
+		local tree = planPresent(rng, Config.Mansion.TreeGiftSize, mult, houseType.Threats)
+		tree.floor = 0
+		tree.tree = true
+		table.insert(presents, tree)
+	end
 	for _ = 1, count do
 		table.insert(presents, planPresent(rng, houseType.PresentSize, mult, houseType.Threats))
 	end
@@ -130,6 +149,7 @@ local function planHouse(
 	local secret = not isLanding
 		and not houseType.Locked
 		and not houseType.NaughtyList
+		and not houseType.Mansion
 		and rng:NextNumber() < Config.Houses.Secret.Chance
 	if secret then
 		local present = planPresent(rng, Config.Houses.Secret.PresentSize, mult, houseType.Threats)
@@ -179,6 +199,10 @@ function Loot.planStop(rng: Random, stopIndex: number, streetSlots: { any }?): S
 		local distance = Config.Rings[slot.Ring].Distance + slot.Extra
 		table.insert(houses, planHouse(rng, typeName, slot.Ring, slot.Side, distance, i == 1))
 	end
+	local M = Config.Mansion
+	if M.Enabled and table.find(M.Stops, stopIndex) then
+		table.insert(houses, planHouse(rng, "Mansion", M.Ring, M.Side, M.Distance, false))
+	end
 	local endType = Config.Houses.Types[kind.EndHouse]
 	table.insert(
 		houses,
@@ -191,6 +215,16 @@ function Loot.planStop(rng: Random, stopIndex: number, streetSlots: { any }?): S
 		escapeMultiplier = kind.EscapeMultiplier,
 		houses = houses,
 	}
+end
+
+-- The small gift in a filler townhouse's pop-in room (Config.PopIn): always
+-- a size-1 Near-ring present with a token of Jingle, so the gold ROB ME
+-- houses stay the ones worth the risk.
+function Loot.planPopIn(): PresentPlan
+	local plan = planPresent(nil :: any, 1, Config.Rings.Near.LootMultiplier, 0)
+	plan.jingle = Config.PopIn.Jingle
+	plan.popIn = true
+	return plan
 end
 
 -- Hidden loot along the walk between two stops.
@@ -237,7 +271,7 @@ function Loot.grab(state: PlayerState, present: PresentPlan): boolean
 	if not present.regrab then
 		state.grabs += 1
 	end
-	state.jingle += Loot.jingleForGrab(present.ringMultiplier)
+	state.jingle += present.jingle or Loot.jingleForGrab(present.ringMultiplier)
 	return true
 end
 

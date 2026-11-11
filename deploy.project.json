@@ -28,6 +28,9 @@
       }
     },
     "StarterPlayer": {
+      "$properties": {
+        "DevCameraOcclusionMode": "Invisicam"
+      },
       "StarterPlayerScripts": {
         "Client": {
           "$path": "build/deploy-src/client"
