@@ -21,6 +21,7 @@ local BootRules = require(ReplicatedStorage.Shared.BootRules)
 local GearAttach = require(ReplicatedStorage.Shared.GearAttach)
 local Assets = require(script.Parent.Assets)
 local PlayerData = require(script.Parent.PlayerData)
+local Analytics = require(script.Parent.Analytics)
 
 local Boots = {}
 
@@ -114,10 +115,14 @@ end
 -- Buys boots with Coal. Returns ok, or false and BootRules' reason.
 function Boots.buy(player: Player, id: any): (boolean, string?)
 	local ok, reason = false, "loading"
+	local spent, balance = 0, 0
 	PlayerData.update(player, function(data)
+		local before = data.coal or 0
 		ok, reason = BootRules.buy(data, id)
+		spent, balance = before - (data.coal or 0), data.coal or 0
 	end)
 	if ok then
+		Analytics.coal(player, "Sink", spent, balance, "Shop", tostring(id))
 		task.spawn(PlayerData.saveNow, player) -- Coal was spent: save straight away
 	end
 	return ok, reason

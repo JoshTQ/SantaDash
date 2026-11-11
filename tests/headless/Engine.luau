@@ -886,6 +886,15 @@ function Engine.new()
 		return engine:_newPath()
 	end
 
+	-- Unique ids (analytics funnel sessions, crews). Cloud.luau swaps in its own.
+	local http = self:service("HttpService")
+	local guids = 0
+	props(http).GenerateGUID = function(_, wrap)
+		guids += 1
+		local guid = string.format("00000000-0000-4000-9000-%012d", guids)
+		return if wrap == false then guid else "{" .. guid .. "}"
+	end
+
 	local teleport = self:service("TeleportService")
 	props(teleport).TeleportAsync = function(_, placeId, players, options)
 		table.insert(engine.teleports, { placeId = placeId, players = players, options = options })

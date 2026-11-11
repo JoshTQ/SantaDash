@@ -22,6 +22,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local SoundPlayer = require(ReplicatedStorage.Shared.SoundPlayer)
 local Util = require(ReplicatedStorage.Shared.Util)
 local Wardrobe = require(ReplicatedStorage.Shared.Wardrobe)
+local Analytics = require(script.Parent.Analytics)
 
 local H = Config.BodyHeat
 local Swimming = {}
@@ -159,6 +160,7 @@ function Swimming.start(run, swim: Swim?): () -> ()
 			return
 		end
 		st.frozen = true
+		Analytics.note(run, player, "Frozen")
 		st.swimming = false
 		root.Anchored = true
 		cubes[player] = Swimming.iceCube(root)

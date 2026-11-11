@@ -49,15 +49,18 @@ card.AnchorPoint = Vector2.new(0.5, 0)
 card.BackgroundColor3 = GOLD
 card.Visible = false
 card.LayoutOrder = HudLayout.TopStack.order.tip
-local hudGui = player.PlayerGui:WaitForChild("SleighHeistHud", 5)
-local topStack = hudGui and hudGui:WaitForChild(HudLayout.TopStack.name, 5)
-if topStack then
-	card.Position = UDim2.new()
-	card.AnchorPoint = Vector2.zero
-	card.Parent = topStack -- scaled by the HUD's UIScale
-else
-	card.Parent = gui
-end
+card.Parent = gui
+-- Moves into the HUD's column once it exists. Never blocks the script: the
+-- server holds tips (and logs "Loaded in") until TipsReady below.
+task.spawn(function()
+	local hudGui = player.PlayerGui:WaitForChild("SleighHeistHud", 5)
+	local topStack = hudGui and hudGui:WaitForChild(HudLayout.TopStack.name, 5)
+	if topStack then
+		card.Position = UDim2.new()
+		card.AnchorPoint = Vector2.zero
+		card.Parent = topStack -- scaled by the HUD's UIScale
+	end
+end)
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(0, 14)
 corner.Parent = card

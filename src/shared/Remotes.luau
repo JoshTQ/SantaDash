@@ -12,6 +12,8 @@
 		"TipsReady" / "TipsOff" (first-time tips).
 	Store (both ways): see server/Store.luau.
 	ClientError (client -> server): a client script error, for Telemetry.
+	ClientStats (client -> server): device, load time, frame rate and
+		cutscene freezes (shared/ClientStats.luau), for Analytics.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -20,7 +22,7 @@ local RunService = game:GetService("RunService")
 local Remotes = {}
 
 local FOLDER_NAME = "Remotes"
-local NAMES = { "Hud", "LeaveCrew", "Input", "Store", "ClientError" }
+local NAMES = { "Hud", "LeaveCrew", "Input", "Store", "ClientError", "ClientStats" }
 
 local function serverFolder(): Folder
 	local folder = ReplicatedStorage:FindFirstChild(FOLDER_NAME)

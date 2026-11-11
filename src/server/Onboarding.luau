@@ -24,6 +24,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Tutorial = require(ReplicatedStorage.Shared.Tutorial)
 local Util = require(ReplicatedStorage.Shared.Util)
+local Analytics = require(script.Parent.Analytics)
 
 export type Store = {
 	waitFor: (player: Player, timeout: number?) -> any,
@@ -149,6 +150,7 @@ end
 -- The player's Tips script is listening: send what was held back.
 function Onboarding.clientReady(player: Player)
 	ready[player] = true
+	Analytics.loadedIn(player)
 	local waiting = pending[player]
 	pending[player] = nil
 	for _, m in waiting or {} do
@@ -180,6 +182,7 @@ function Onboarding.teach(player: Player, id: string, guideAt: Vector3?): boolea
 	shown[id] = t
 	local lesson = Tutorial.get(id) :: Tutorial.Lesson
 	send(player, "Tip", { id = id, seconds = lesson.seconds })
+	Analytics.tip(player, "Shown", id)
 	if guideAt then
 		send(player, "Guide", { at = guideAt })
 	end
@@ -201,6 +204,7 @@ function Onboarding.complete(player: Player, id: string)
 	local state = states[player]
 	if state and Tutorial.complete(state, id) then
 		send(player, "TipDone", { id = id })
+		Analytics.tip(player, "Done", id)
 		Onboarding.clearGuide(player)
 		save(player, state)
 		refreshNew(player)
@@ -217,6 +221,7 @@ function Onboarding.tipsOff(player: Player)
 	local state = states[player]
 	if state and not state.tipsOff then
 		state.tipsOff = true
+		Analytics.tip(player, "Off")
 		send(player, "Guide", {})
 		save(player, state)
 		refreshNew(player)

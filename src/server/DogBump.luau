@@ -10,6 +10,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local SoundPlayer = require(ReplicatedStorage.Shared.SoundPlayer)
+local Analytics = require(script.Parent.Analytics)
 local Knockback = require(script.Parent.Knockback)
 local Loot = require(script.Parent.Loot)
 
@@ -79,6 +80,7 @@ function DogBump.hit(
 	steal: boolean?
 ): (number, number?)
 	local corgi = kind == "DogCorgi"
+	Analytics.note(run, player, "DogBump")
 	local offset = (root.CFrame.Position - dogPos) * Vector3.new(1, 0, 1)
 	local push = Knockback.velocity(offset, facing, C.Dogs.Knockback)
 	local away = Vector3.new(push.X, 0, push.Z).Unit

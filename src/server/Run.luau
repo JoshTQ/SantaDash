@@ -32,7 +32,7 @@ local NaughtyList = require(script.Parent.NaughtyList)
 local KrampusBrain = require(script.Parent.KrampusBrain)
 local Krampus = require(script.Parent.Krampus)
 local MapBuilder = require(script.Parent.MapBuilder)
-local Telemetry = require(script.Parent.Telemetry)
+local Analytics = require(script.Parent.Analytics)
 local MapEventBrain = require(script.Parent.MapEventBrain)
 local MapEvents = require(script.Parent.MapEvents)
 local MapFeatures = require(script.Parent.MapFeatures)
@@ -190,6 +190,7 @@ function Run:_cutscene(id: string, target: Player | { Player } | nil, data: { [s
 	end
 	data.id = id
 	data.startedAt = now()
+	Analytics.moment(id, scene.seconds) -- a long server frame now is blamed on this scene
 	if type(target) == "table" then
 		for _, player in target do
 			self:_send(player, "Cutscene", data)
@@ -558,12 +559,19 @@ function Run:_collect(player: Player, st: PlayerState, present, from: Vector3)
 	if present.taken then
 		return
 	end
+	local jingleBefore = st.jingle
 	if not Loot.grab(st, present.plan) then
 		self:_banner(player, "Sack full! Get back on the sleigh to bank it.", 2)
 		SoundPlayer.at("SackFull", from)
 		return
 	end
 	present.taken = true
+	Analytics.grabbed(
+		self,
+		player,
+		st.jingle - jingleBefore,
+		if present.plan.naughtyList then "NaughtyList" elseif present.plan.regrab then "Regrab" else "Presents"
+	)
 	self.lastNoisePos = from
 	present.model:Destroy()
 	if present.house then
@@ -644,8 +652,9 @@ function Run:_removeElves(owner: Player?)
 	end
 end
 
--- Spends Jingle; returns true on success. Callers send the Player update.
-function Run:_spend(player: Player, cost: number): boolean
+-- Spends Jingle on sku (for analytics); returns true on success. Callers
+-- send the Player update.
+function Run:_spend(player: Player, cost: number, sku: string?): boolean
 	local st = self:_free(player)
 	if not st then
 		return false
@@ -656,6 +665,7 @@ function Run:_spend(player: Player, cost: number): boolean
 		return false
 	end
 	st.jingle -= cost
+	Analytics.spendJingle(player, cost, st.jingle, sku or "Other")
 	self:_addNoise(Config.Noise.PerBuy)
 	return true
 end
@@ -665,7 +675,7 @@ function Run:_buyPeppermintRush(player: Player)
 	if st and st.perks.PeppermintRush then
 		self:_banner(player, "You already have Peppermint Rush", 2)
 		self:_sfx(player, "Nope")
-	elseif st and self:_spend(player, Config.Buys.PeppermintRush.Cost) then
+	elseif st and self:_spend(player, Config.Buys.PeppermintRush.Cost, "PeppermintRush") then
 		st.perks.PeppermintRush = true
 		local root = rootOf(player)
 		if root then
@@ -691,7 +701,7 @@ function Run:_buyBone(player: Player)
 	if st and (st.bones or 0) >= B.Max then
 		self:_banner(player, "Your pockets are full of bones (" .. B.Max .. ")", 2)
 		self:_sfx(player, "Nope")
-	elseif st and self:_spend(player, B.Cost) then
+	elseif st and self:_spend(player, B.Cost, "DogBone") then
 		st.bones = (st.bones or 0) + 1
 		self:_sendPlayer(player)
 		self:_sendBones(player)
@@ -736,7 +746,7 @@ end
 
 function Run:_buyVault(player: Player, stop)
 	local prompt = stop.vaultPrompt
-	if prompt.Enabled and self:_spend(player, Config.Buys.VaultDoor.Cost) then
+	if prompt.Enabled and self:_spend(player, Config.Buys.VaultDoor.Cost, "VaultDoor") then
 		prompt.Enabled = false
 		for _, house in stop.houses or {} do
 			if house.locked then
@@ -801,11 +811,12 @@ function Run:_findSecret(player: Player, stop, secret)
 		end
 	end
 	st.jingle += Config.Houses.Secret.FinderJingle
+	Analytics.earnJingle(player, Config.Houses.Secret.FinderJingle, "SecretRoom")
+	Analytics.secretFound(self, player, secret.kind)
 	SoundPlayer.at("SecretFound", secret.trigger)
 	self:_sfx(player, "JingleGain")
 	self:_sendPlayer(player)
 	self:_banner(nil, player.DisplayName .. " found a secret room! The best gift in the house is inside.", 3)
-	Telemetry.count("SecretFound", secret.kind)
 end
 
 -- Someone held Search on a Gingerbread Mansion spot (HouseKit.wireSearch).
@@ -820,7 +831,6 @@ function Run:_searchSpot(player: Player, stop, spot)
 	local M = Config.Mansion
 	spot.searched = true
 	spot.prompt.Enabled = false
-	Telemetry.count("MansionSearch", spot.kind)
 	if spot.kind == "Piano" then
 		SoundPlayer.at("PianoPlonk", spot.trigger)
 		self:_addNoise(M.PianoNoise)
@@ -874,6 +884,7 @@ function Run:_searchSpot(player: Player, stop, spot)
 		emit("Puff", 14)
 		SoundPlayer.at("DustPuff", spot.trigger)
 		st.jingle += M.EmptyJingle
+		Analytics.earnJingle(player, M.EmptyJingle, "MansionSearch")
 		self:_sfx(player, "JingleGain")
 		self:_sendPlayer(player)
 		self:_banner(player, "Just dust... +" .. M.EmptyJingle .. " Jingle", 2)
@@ -902,6 +913,7 @@ function Run:_hide(player: Player, spot)
 	root.Anchored = true
 	root.CFrame = spot.inside
 	SoundPlayer.at("HideIn", spot.inside.Position)
+	Analytics.note(self, player, "Hid")
 	self:_send(player, "Hide", { hidden = true, breath = 1 })
 	Onboarding.teach(player, "Hide")
 end
@@ -1034,6 +1046,7 @@ function Run:onSnatched(player: Player)
 			"Krampus snatched " .. player.DisplayName .. ". The Naughty List fell on the floor!"
 		)
 	end
+	Analytics.snatched(self, player)
 	st.captive = true
 	st.perks = {} -- cocoa perks are lost when snatched
 	self:_applyPerks(player)
@@ -1063,6 +1076,7 @@ end
 -- Instant Break-out (already paid for): out of the basket now.
 function Run:_breakOut(player: Player)
 	if self.krampus then
+		Analytics.freedBy(player, "Break-out")
 		self.krampus:release()
 		self:_banner(nil, player.DisplayName .. " burst out of the basket!", 2)
 	end
@@ -1074,6 +1088,7 @@ function Run:onReleased(player: Player, at: CFrame)
 		return
 	end
 	st.captive = false
+	Analytics.released(self, player)
 	local root = rootOf(player)
 	if root then
 		root.Anchored = false
@@ -1094,6 +1109,7 @@ function Run:_startKrampus(stop)
 		then introSeconds + Config.Cutscenes.KrampusGrace
 		else Config.Krampus.WarningSeconds
 	self:_banner(nil, "KRAMPUS IS COMING!", hold)
+	Analytics.crewMoment(self, "KrampusArrived", if self.noiseFull then "Too noisy" else "On time")
 	self.krampus = Krampus.new(self, stop, hold)
 	self:_lairCue(stop, "BellsAt")
 	self.cuckoo = CuckooWatch.start(self, stop, now() + hold + Config.CuckooWatch.FirstAfter)
@@ -1231,6 +1247,7 @@ function Run:_startEvent(stop, endsAt: number)
 		return
 	end
 	self.eventCleanup = cleanup
+	Analytics.crewMoment(self, "MapEvent", plan.kind)
 	self:_send(nil, "MapEvent", { label = Config.MapEvents.Events[plan.kind].Label, endsAt = endsAt })
 end
 
@@ -1383,6 +1400,9 @@ function Run:_playStop(stop): { Player }
 	if #self.elfVariants > 0 then
 		self:_spawnElves() -- elves hop off with their Santa at the first stop
 	end
+	Analytics.stopReached(self, plan.index, function(player)
+		return self.players[player]
+	end)
 	self:_startFeatures(stop)
 	if YardDogs.applies(plan.index, plan.kindName) then
 		local ok, cleanup = pcall(YardDogs.start, self, stop)
@@ -1478,6 +1498,7 @@ function Run:_playStop(stop): { Player }
 		end
 		if self.noiseFull and not alarmed and NoiseAlarm.applies(plan.index, plan.kindName) then
 			alarmed = true
+			Analytics.crewMoment(self, "NoiseAlarm", self.phase)
 			local ok, cleanup = pcall(AlarmDogs.start, self, stop)
 			if ok then
 				table.insert(self.featureCleanups, cleanup)
@@ -1568,6 +1589,9 @@ function Run:_playStop(stop): { Player }
 			self:_leftBehind(player, stop)
 		end
 	end
+	Analytics.stopLeft(self, plan.index, aboard, function(player)
+		return self.players[player]
+	end)
 	return aboard
 end
 
@@ -1636,6 +1660,7 @@ function Run:_main()
 	for player in self.players do
 		self:_sendPlayer(player)
 	end
+	Analytics.runStarted(self)
 
 	local stops = self.route.stops
 	local marks = {}
@@ -1676,6 +1701,10 @@ function Run:_main()
 			endsAt = now() + Config.Run.ResultsSeconds + Config.Run.RequeueSeconds,
 		})
 		Onboarding.teachAll(self.order, "Done")
+		Analytics.runFinished(self, function(player)
+			local st = self.players[player]
+			return st and Loot.finalLoot(st)
+		end)
 		for player, st in self.players do
 			if st.banked > 0 then
 				SantaMoves.play(player.Character, "Cheer") -- got away with it
