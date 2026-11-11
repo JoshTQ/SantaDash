@@ -214,8 +214,11 @@ function HouseKit.build(ctx: Context): CFrame?
 			-- The approved VaultDoor's meshes import with CanCollide off (Meshy
 			-- props never collide), and the Frame's ring has a hole in it anyway,
 			-- so an invisible blocker fills the doorway until the vault is bought.
-			stop.vaultBlocker =
-				HouseKit.vaultBlocker(model, door.CFrame, Vector3.new(door.Size.X + 0.1, door.Size.Y + 0.1, 1))
+			stop.vaultBlocker = HouseKit.vaultBlocker(
+				model,
+				door.CFrame,
+				Vector3.new(door.Size.X + 0.1, door.Size.Y + 0.1, 1)
+			)
 			door:Destroy()
 		else
 			vault = door
