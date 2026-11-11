@@ -37,6 +37,8 @@ Magic.__index = Magic
 export type Cube = { part: BasePart, hits: number, taps: number }
 
 -- An invisible anchored part that holds a trick's adornments and particles.
+local SUMMON_SECONDS = 2 -- a summon he can't act on by then is forgotten
+
 local function anchor(name: string, at: CFrame): BasePart
 	local part = Instance.new("Part")
 	part.Name = name
@@ -121,6 +123,8 @@ function Magic.new(krampus, arrivedAt: number)
 	self.token = 0
 	self.temp = {} :: { Instance } -- telegraphs and effects to clear on cancel
 	self.alive = true
+	self.summoned = nil :: Player? -- the Cuckoo Watch's spotted Santa (summon)
+	self.summonedAt = 0
 	local run = self.run
 	self.safe = function(at: Vector3)
 		return run:nearSleighStop(at, M.BellBlink.SafeMargin)
@@ -166,6 +170,21 @@ function Magic:think(t: number, candidates: { KrampusBrain.Candidate }): boolean
 	if self.casting then
 		return true
 	end
+	local summoned, summonedAt = self.summoned, self.summonedAt
+	self.summoned = nil
+	if summoned and t - summonedAt <= SUMMON_SECONDS then
+		local target = KrampusBrain.summonTarget({
+			now = t,
+			from = self.krampus.body.root.Position,
+			candidates = candidates,
+			hitAt = self.hitAt,
+			safe = self.safe,
+		}, summoned)
+		if target then
+			self:_cast("BellBlink", target, t)
+			return true
+		end
+	end
 	local level = self:level(t)
 	if t < self.arrivedAt + M.FirstCastAfter or t - self.lastCastAt < M.Grumpy.Cooldown[level] then
 		return false
@@ -184,6 +203,11 @@ function Magic:think(t: number, candidates: { KrampusBrain.Candidate }): boolean
 	if not trick or not target then
 		return false
 	end
+	self:_cast(trick, target, t)
+	return true
+end
+
+function Magic:_cast(trick: string, target: KrampusBrain.Candidate, t: number)
 	self.lastCastAt = t
 	self.lastTrick = trick
 	self.casting = trick
@@ -198,7 +222,15 @@ function Magic:think(t: number, candidates: { KrampusBrain.Candidate }): boolean
 			self:_clearTemp()
 		end
 	end)
-	return true
+end
+
+-- The Cuckoo Watch spotted `player` moving: at his next free moment he Bell
+-- Blinks to them, whatever his grumpiness and cooldown (KrampusBrain.summonTarget).
+function Magic:summon(player: Player)
+	if self.alive then
+		self.summoned = player
+		self.summonedAt = Util.now()
+	end
 end
 
 -- Waits `seconds`; false if the trick was cancelled (bells) or he's gone.

@@ -238,3 +238,46 @@ describe("magic tricks", function()
 		expect(Brain.skidSpeed(16)).toBe(16 * M.FrostStomp.SkidSpeed)
 	end)
 end)
+
+-- Cuckoo Watch (Josh, 11 Nov 2026): the cuckoo summons a Bell Blink to the Santa it saw.
+describe("a cuckoo summon", function()
+	local M = K.Magic
+	local function ctx(candidates, extra)
+		local c = {
+			now = 100,
+			from = Vector3.zero,
+			candidates = candidates,
+			hitAt = {},
+			safe = function()
+				return false
+			end,
+		}
+		for k, v in extra or {} do
+			c[k] = v
+		end
+		return c
+	end
+	local min = Config.CuckooWatch.SummonMinRange
+
+	test("blinks to the spotted Santa at any distance from SummonMinRange to MaxRange", function()
+		local spotted = candidate("Spotted", min + 1)
+		local other = candidate("Other", 50)
+		expect(Brain.summonTarget(ctx({ other, spotted }), "Spotted")).toBe(spotted)
+		expect(Brain.summonTarget(ctx({ candidate("Spotted", M.BellBlink.MaxRange + 1) }), "Spotted")).toBeNil()
+	end)
+
+	test("not when he's already on top of them, or they're hidden, iced or just hit", function()
+		expect(Brain.summonTarget(ctx({ candidate("S", min - 1) }), "S")).toBeNil()
+		expect(Brain.summonTarget(ctx({ candidate("S", 30, { hidden = true }) }), "S")).toBeNil()
+		expect(Brain.summonTarget(ctx({ candidate("S", 30, { iced = true }) }), "S")).toBeNil()
+		expect(Brain.summonTarget(ctx({ candidate("S", 30) }, { hitAt = { S = 95 } }), "S")).toBeNil()
+		expect(Brain.summonTarget(ctx({ candidate("S", 30) }), "Nobody")).toBeNil()
+	end)
+
+	test("never lands by the Sleigh Stop", function()
+		local safe = function()
+			return true
+		end
+		expect(Brain.summonTarget(ctx({ candidate("S", 30) }, { safe = safe }), "S")).toBeNil()
+	end)
+end)

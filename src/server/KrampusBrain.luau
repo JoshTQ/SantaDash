@@ -216,6 +216,40 @@ function chooser.BellBlink(ctx: TrickContext): Candidate?
 	end)
 end
 
+export type SummonContext = {
+	now: number,
+	from: Vector3,
+	candidates: { Candidate },
+	hitAt: { [any]: number },
+	safe: (Vector3) -> boolean,
+}
+
+-- The Cuckoo Watch's spotted Santa, if he can Bell Blink to them now: sensed,
+-- not hit by a trick within RehitSeconds, far enough away that a blink means
+-- something (CuckooWatch.SummonMinRange), within the BellBlink range, and not
+-- landing by the Sleigh Stop.
+function KrampusBrain.summonTarget(ctx: SummonContext, player: any): Candidate?
+	for _, c in ctx.candidates do
+		if c.player == player then
+			if not sensed(c, ctx.now) or c.iced then
+				return nil
+			end
+			if ctx.now - (ctx.hitAt[c.player] or -math.huge) < M.RehitSeconds then
+				return nil
+			end
+			local d = flat(c.position, ctx.from)
+			if d < Config.CuckooWatch.SummonMinRange or d > M.BellBlink.MaxRange then
+				return nil
+			end
+			if ctx.safe(KrampusBrain.blinkSpot(ctx.from, c.position)) then
+				return nil
+			end
+			return c
+		end
+	end
+	return nil
+end
+
 -- Which trick to cast now, and on whom; nil while on cooldown or nobody fits.
 -- Tries the level's tricks in order, but the one he just used goes last.
 function KrampusBrain.pickTrick(ctx: TrickContext): (string?, Candidate?)

@@ -146,6 +146,22 @@ Sounds.Defs = {
 		volume = 0.8,
 		range = { 20, 160 },
 	},
+	-- Cuckoo Watch (server/CuckooWatch). Stand-in ids until Josh picks real
+	-- ones: the countdown jingle for the tick-tock, the slide whistle for the pop.
+	CuckooTick = {
+		id = 72124849536326,
+		find = "clock tick tock fast",
+		group = "Sfx",
+		volume = 0.7,
+		range = { 30, 160 },
+	},
+	CuckooCall = {
+		id = 116483177192462,
+		find = "cuckoo clock call",
+		group = "Sfx",
+		volume = 0.9,
+		range = { 30, 200 },
+	},
 	SackFull = {
 		id = 98909911567144,
 		find = "cartoon grunt thud",
