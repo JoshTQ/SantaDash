@@ -138,6 +138,15 @@ Config.Houses = {
 			NoChimney = true,
 			Extra = 60,
 		},
+		-- The Gingerbread Mansion (Josh approved, 6 Nov 2026): one per route,
+		-- 4 floors of search spots. Gifts come from Config.Mansion.Gifts.
+		Mansion = {
+			Threats = 1,
+			Label = "GINGERBREAD MANSION",
+			RoofColor = Color3.fromRGB(127, 227, 192),
+			Size = Vector3.new(80, 60, 40), -- X along the street, Z deep
+			Mansion = true,
+		},
 		Lair = {
 			Threats = 2,
 			Label = "KRAMPUS'S LAIR",
@@ -168,6 +177,31 @@ Config.Houses = {
 		FinderJingle = 100,
 		SearchSeconds = 1, -- hold Search on the bookcase / rug / hatch
 	},
+}
+
+-- The Gingerbread Mansion: a 4-floor house where you hold Search on the
+-- furniture (Josh picked option C then "make it multiple floors", approved
+-- 6 Nov 2026). The higher the floor, the bigger the gift. One per route, at
+-- Stop 2 between the landing house and the Ice Rink, for the phone budget.
+Config.Mansion = {
+	Enabled = true,
+	Stops = { 2 },
+	Ring = "Mid", -- loot multiplier; it stands nearer than the Mid ring proper
+	Side = 1, -- across the canal from the landing house, a short walk from the sleigh
+	Distance = 115, -- clear of the Sleigh Stop plaza and the Ice Rink (z 176+)
+	-- Hidden gifts per floor (0 ground, 1 first, 2 second, 3 attic) and their size.
+	Gifts = {
+		{ floor = 0, count = 2, size = 1 },
+		{ floor = 1, count = 2, size = 1.5 },
+		{ floor = 2, count = 1, size = 1.5 },
+		{ floor = 3, count = 2, size = 2 },
+	},
+	TreeGiftSize = 1, -- the one real box under the hall tree
+	SearchSeconds = 1, -- hold Search on a cupboard, drawer or trunk
+	EmptyJingle = 10, -- a dust puff and a tip for an empty spot
+	TreeBoxSeconds = 0.5,
+	PopNoise = 8, -- a decoy box under the tree goes POP
+	PianoNoise = 15, -- the piano on the 2nd floor is a noisy trap
 }
 
 -- Present value follows the size-squared rule: value = BaseValue * size^2.
@@ -236,30 +270,52 @@ Config.Noise = {
 Config.DogAI = {
 	-- Sight: a cone in front of the dog, blocked by walls (a raycast).
 	-- Lit streets show you up: after the lights come on dogs see much further.
-	SightRange = { Sneak = 30, Lit = 52 },
+	SightRange = { Sneak = 38, Lit = 60 },
 	CloseSense = 7, -- studs: a dog notices a moving Santa this close behind it
 	StillSight = 0.55, -- a Santa standing still is seen at this share of the range
-	SpotSeconds = 1.2, -- in view at the edge of its sight: "!" after this long
+	SpotSeconds = 0.8, -- in view at the edge of its sight: "!" after this long
 	-- (twice as fast up close, so walking right past its nose is a chase)
 	Forget = 0.3, -- awareness lost per second with nothing to see, hear or smell
 	AlertAt = 0.3, -- awareness at which it stops patrolling to look ("?")
 	HearCap = 0.65, -- footsteps alone make it suspicious, never certain
 	-- Hearing: footsteps in this radius, louder as the street's NOISE fills
 	-- (x2 at a full meter). Tiptoeing in the sneak phase is quiet.
-	Footsteps = { Walk = 15, Tiptoe = 5 },
+	Footsteps = { Walk = 16, Tiptoe = 7 },
 	HearRate = 0.6, -- awareness per second while it can hear you
 	LoudRange = 45, -- grabs, gasps and barks this close bring it to look (x2 full meter)
 	-- Scent: Santas leave a trail (one crumb a second, not on canal ice).
 	ScentEvery = 1,
 	ScentRadius = 6, -- a dog this close to a crumb picks up the trail
-	SearchSeconds = 5, -- sniffing round where it lost you before giving up
+	SearchSeconds = 8, -- sniffing round where it lost you before giving up
 	-- The pack: a dog that spots you barks; dogs this close come running,
 	-- and the bark adds to the NOISE meter (once per chase).
 	PackRadius = 70,
 	BarkNoise = 4,
-	AlertSpeed = 11, -- walking over to look
-	LeashRange = 70, -- market dogs give up past this far from their patrol path
+	AlertSpeed = 14, -- trotting over to look
+	LeashRange = 90, -- market dogs give up past this far from their patrol path
 	LookAroundSeconds = 1.5, -- a patrol stops and looks round at each end
+	-- Josh, 11 Nov 2026 ("underwhelming"): a chasing dog runs at where you're
+	-- GOING (Lead seconds ahead), steers straight at you when it can see you
+	-- (no pathfinding lag), and pounces for the last few studs.
+	Lead = 0.4,
+	DirectChase = 35, -- studs: in sight this close = run straight at you
+	PounceRange = 10,
+	PounceSpeed = 30,
+	NoticeAt = 0.1, -- a faint yellow "?" from here; red "?" once it's on alert
+	-- Josh, 11 Nov 2026 ("All of them"): the four follow-ups.
+	-- 1. Fetch: a corgi that bumps you steals a present and runs off with it.
+	--    It's slower than a Santa, so the crew can catch it: touch it and it
+	--    drops the present (not in its first Grace s, so the bump itself
+	--    doesn't count). After Seconds it drops it wherever it is.
+	Fetch = { Speed = 14, Seconds = 10, CatchRadius = 5, Grace = 1, StunAfter = 1.5, FleeFrom = 40 },
+	-- 2. Yard dogs on later stops: one per richer house (Far ring or a secret
+	--    room), pacing its front garden, leashed close to home.
+	Yard = { Stops = { 2 }, Count = 3, Leash = 40, Garden = 7 },
+	-- 3. Dog treats: buy a bone at the Sleigh Stop (GREYBOX tin, art round
+	--    pending), throw it (G) and dogs near where it lands go and chew it.
+	Bone = { Cost = 200, Max = 2, Throw = 30, Radius = 50, ChewSeconds = 8, GiveUp = 6 },
+	-- 4. Dog flaps: dogs go through closed front doors (GREYBOX flap).
+	Flaps = true,
 	-- One spotted banner per Santa this often, so it reads without spamming.
 	SpottedBannerCooldown = 8,
 	Kinds = {
@@ -269,9 +325,9 @@ Config.DogAI = {
 			SightScale = 0.85,
 			HearScale = 1.2,
 			ScentSeconds = 12,
-			ChaseSpeed = 18, -- quicker than a walking Santa (16) ...
-			ChaseBurst = 4, -- ... for this long, then it pants
-			TiredSeconds = 2.5,
+			ChaseSpeed = 20, -- quicker than a walking Santa (16) ...
+			ChaseBurst = 5, -- ... for this long, then it pants
+			TiredSeconds = 1.5,
 		},
 		-- Tin Sausage Dog: lamp eyes that sweep the street, poor nose,
 		-- slower but keeps going.
@@ -280,8 +336,8 @@ Config.DogAI = {
 			SightScale = 1.25,
 			HearScale = 0.7,
 			ScentSeconds = 5,
-			ChaseSpeed = 15,
-			ChaseBurst = 9,
+			ChaseSpeed = 17,
+			ChaseBurst = 10,
 			TiredSeconds = 1.5,
 			Sweep = 40, -- degrees its head lamp swings either side
 			SweepSeconds = 3, -- one full swing and back
@@ -346,6 +402,100 @@ Config.Krampus = {
 	BreathPerTap = 0.08,
 	MaxTapsPerSecond = 8,
 	Height = 11, -- about 2.2x a Santa
+	-- Magic tricks (Josh, 6 Nov 2026: "Krampus is too easy"; picked Frost Zap,
+	-- Frost Stomp, Bell Blink + the Grumpy Meter). Every trick is telegraphed,
+	-- one at a time, never twice on the same Santa within RehitSeconds, never
+	-- into the Sleigh Stop, and never costs loot. Effects are particles and
+	-- handle adornments: at most 3 short-lived parts at once.
+	Magic = {
+		Enabled = true,
+		FirstCastAfter = 4, -- seconds after his arrival hold before the first trick
+		RehitSeconds = 10,
+		-- Grumpy Meter: seconds since he arrived. Each bell ring adds a level.
+		Grumpy = {
+			At = { 0, 30, 75 }, -- levels: Grumpy, Cross, Furious
+			Speed = { 14, 15, 16.5 }, -- a Santa runs 16; Peppermint Rush 22
+			Cooldown = { 12, 10, 8 }, -- seconds between tricks
+			Tricks = {
+				{ "FrostZap" },
+				{ "FrostZap", "FrostStomp" },
+				{ "BellBlink", "FrostZap", "FrostStomp" },
+			},
+		},
+		FrostZap = {
+			WindUp = 0.8, -- blue glowing hands, frosty breath
+			MinRange = 30, -- never point blank: there's always time for a rescue
+			MaxRange = 60,
+			OrbSpeed = 26,
+			OrbFlight = 3, -- seconds before a miss melts
+			HitRadius = 3.5,
+			FrozenSeconds = 2.5,
+			SmashHits = 3, -- a teammate's hits on the cube
+			CrackTaps = 6, -- or the frozen Santa taps their way out
+			SlideStuds = 4, -- the cube skids like a hockey puck
+		},
+		FrostStomp = {
+			WindUp = 1, -- hoof up, bells shaking
+			Trigger = 28, -- stomps when a Santa is this close
+			Radius = 35,
+			Seconds = 1.6, -- the ring's roll out to Radius
+			RingWidth = 2.5,
+			SkidSeconds = 3,
+			SkidSpeed = 0.5, -- of a Santa's walk speed
+			Patches = 3, -- frost patches left behind, also skiddy
+			PatchRadius = 5,
+			PatchSeconds = 10,
+			JumpClearance = 2.5, -- studs above where you stood when he stomped
+		},
+		BellBlink = {
+			WindUp = 1.5, -- a ring of gold bells shows where he'll land
+			MinRange = 40, -- only when you've got away from him
+			MaxRange = 100,
+			LandBeside = 8, -- studs from the Santa, on his side
+			SafeMargin = 12, -- extra studs kept clear of the Sleigh Stop
+			LungeSpeed = 22,
+			LungeSeconds = 1,
+		},
+	},
+}
+
+-- The Naughty List heist (Josh, 11 Nov 2026: "Naughty book is underwhelming,
+-- make it more important, more challenging"; he picked options 1, 2 and 4).
+-- Option 1: the List IS the escape bonus. Only a sleigh that leaves the Lair
+-- with the List aboard doubles the crew's loot; without it the sack banks at
+-- x1 like any stop. Whoever carries it is Marked: the book hovers over their
+-- head, rattles (noise, so Bell Blink finds them), slows them to 15 (Peppermint
+-- Rush doesn't help) and stops them hiding. They can pass it to a friend.
+-- Snatched = it drops where they were grabbed. It can't get wet: swim and it
+-- bobs on the water, then flies home to its pedestal.
+Config.NaughtyList = {
+	Enabled = true, -- false = the old rule: any escape doubles loot
+	NoListMultiplier = 1, -- escaping without the List
+	CarrierWalkSpeed = 15, -- a Santa runs 16, Krampus 14 / 15 / 16.5 by grumpiness
+	RattleNoisePerSecond = 1,
+	PassRange = 20, -- studs to the friend who catches it
+	HoverHeight = 4.5, -- studs above the carrier's root
+	LooseSeconds = 15, -- dropped on land: then it flies home
+	WetSeconds = 5, -- bobbing on the lake: then it flies home
+}
+
+-- Option 2: Cuckoo Watch, the Lair's PvE as a rule (red light, green light).
+-- About every 12 s, after a tick-tock warning, the approved cuckoo pops out of
+-- the clock and looks round the den. Any free Santa inside the den who moves
+-- faster than a shuffle while it looks is spotted: "CUCKOO!", noise, and
+-- Krampus Bell Blinks to them (whatever his grumpiness). Freeze and you're safe.
+-- Hidden, snatched, iced and frozen Santas, and anyone outside the den, are safe.
+Config.CuckooWatch = {
+	Enabled = true,
+	FirstAfter = 8, -- seconds after Krampus's arrival hold ends
+	Interval = 12, -- seconds from one look to the next warning...
+	Jitter = 2, -- ...give or take
+	WarnSeconds = 1.25, -- tick-tock: time to stop
+	LookSeconds = 1.5,
+	MoveTolerance = 3, -- studs/s: standing still or a nudge is fine
+	SpottedNoise = 8,
+	SummonMinRange = 14, -- closer than this he's on you anyway: no blink
+	DenPadding = 2, -- studs added round the Lair's footprint
 }
 
 -- Random map events (game-design.md "Random map events"). One roll per run;
@@ -857,7 +1007,7 @@ Config.Canal = {
 		Inner = 90, -- forest starts this far from the street's centre line
 		Edge = 160, -- forest depth around the outside of the town
 		TreeSpacing = 30,
-		TreeChance = 0.55,
+		TreeChance = 0.47, -- thinned ~15% to pay for the Gingerbread Mansion (phone budget)
 		TreeHeight = { 16, 30 },
 		LitChance = 0.15, -- trees wrapped in Christmas lights
 		HillArea = 9000, -- one hill per this many square studs of forest

@@ -5,7 +5,9 @@
 
 	The server stamps two attributes on the Lair model (server clock, Util.now):
 	  CuckooAt  the sleigh horn: the cuckoo doors fly open, a little Krampus
-	            pops out on his spring, and every bell shakes
+	            pops out on his spring, and every bell shakes. The Cuckoo
+	            Watch (server/CuckooWatch) stamps it too, with CuckooHold set
+	            to its short look
 	  BellsAt   Krampus wakes up: the seven bells light up one by one and ring
 ]]
 
@@ -36,11 +38,13 @@ function LairMotion.gear(t: number, i: number, radius: number): number
 end
 
 -- 0 shut .. 1 wide open, `since` seconds after the horn (nil = never).
-function LairMotion.cuckoo(since: number?): number
+-- hold: seconds it stays wide open (default CuckooHoldSeconds); the Cuckoo
+-- Watch stamps a short one (CuckooHold) so it shuts when the look ends.
+function LairMotion.cuckoo(since: number?, hold: number?): number
 	if not since or since < 0 then
 		return 0
 	end
-	local o, h = LairMotion.CuckooOpenSeconds, LairMotion.CuckooHoldSeconds
+	local o, h = LairMotion.CuckooOpenSeconds, hold or LairMotion.CuckooHoldSeconds
 	if since < o then
 		return since / o
 	elseif since < o + h then
@@ -55,9 +59,15 @@ function LairMotion.pop(open: number): number
 end
 
 -- Bell i's swing (radians) and whether it glows.
-function LairMotion.bell(t: number, i: number, sinceCuckoo: number?, sinceBells: number?): (number, boolean)
+function LairMotion.bell(
+	t: number,
+	i: number,
+	sinceCuckoo: number?,
+	sinceBells: number?,
+	cuckooHold: number?
+): (number, boolean)
 	local swing = math.sin(t * 1.5 + i) * 0.05
-	local open = LairMotion.cuckoo(sinceCuckoo)
+	local open = LairMotion.cuckoo(sinceCuckoo, cuckooHold)
 	if open > 0 then
 		swing = open * math.sin(t * 10 + i) * 0.35
 	end

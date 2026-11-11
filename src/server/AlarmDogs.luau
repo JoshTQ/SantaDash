@@ -35,7 +35,7 @@ function AlarmDogs.start(run, stop): () -> ()
 	end
 	return GuardDogs.start(run, specs, run.route.model, function(position)
 		return MapBuilder.isAboard(stop.deckCFrame, position)
-	end)
+	end, stop)
 end
 
 return AlarmDogs

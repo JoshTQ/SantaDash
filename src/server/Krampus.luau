@@ -4,6 +4,8 @@
 	the bells behind him (or the captive wiggles free). Hidden Santas run out of
 	breath while he is near. Decisions live in KrampusBrain; this file moves him.
 
+	Magic tricks and the Grumpy Meter live in KrampusMagic.
+
 	Body: a Model named "Krampus" in ServerStorage.Assets if present (needs a
 	Humanoid, a HumanoidRootPart and a part named "Basket"), else the greybox
 	stand-in from MapBuilder.
@@ -18,6 +20,7 @@ local Cutscenes = require(ReplicatedStorage.Shared.Cutscenes)
 local SoundPlayer = require(ReplicatedStorage.Shared.SoundPlayer)
 local Util = require(ReplicatedStorage.Shared.Util)
 local KrampusBrain = require(script.Parent.KrampusBrain)
+local KrampusMagic = require(script.Parent.KrampusMagic)
 local MapBuilder = require(script.Parent.MapBuilder)
 local Mover = require(script.Parent.Mover)
 local RigAnimator = require(script.Parent.RigAnimator)
@@ -78,6 +81,9 @@ function Krampus.new(run, stop, holdSeconds: number?)
 	self.lastBellAt = -math.huge
 	self.dizzyUntil = -math.huge
 	self.anim = RigAnimator.new(self.body.model) -- no-op on the stand-in
+	self.lungeUntil = -math.huge
+	-- Magic tricks and the Grumpy Meter start once he has finished arriving.
+	self.magic = KrampusMagic.new(self, self.stunnedUntil)
 	self.alive = true
 	-- His bells give him away: a 3D loop on his body that everyone nearby hears.
 	-- It goes when his model is destroyed.
@@ -144,6 +150,7 @@ end
 
 -- Getaway: he gives up the hunt, leaps for the sleigh and belly-flops.
 function Krampus:playFlop(seconds: number, deck: Vector3)
+	self.magic:destroy() -- no more tricks, and any ice cubes thaw
 	self:release()
 	self.stunnedUntil = math.huge
 	self.mover:stop()
@@ -159,6 +166,7 @@ function Krampus:destroy()
 	end
 	self:release()
 	self.alive = false
+	self.magic:destroy()
 	for _, connection in self.connections do
 		connection:Disconnect()
 	end
@@ -218,9 +226,19 @@ function Krampus:_think(dt: number)
 		self:_show("moving")
 		return
 	end
-	self.body.humanoid.WalkSpeed = K.WalkSpeed
+	self.body.humanoid.WalkSpeed = if t < self.lungeUntil
+		then K.Magic.BellBlink.LungeSpeed
+		else KrampusBrain.speedFor(self.magic:level(t))
 
-	local target = KrampusBrain.pickTarget(root.Position, run:krampusCandidates(self.ignore), t)
+	-- A magic trick winding up: he stands still (KrampusMagic does the rest).
+	local candidates = run:krampusCandidates(self.ignore)
+	if self.magic:think(t, candidates) then
+		self.mover:stop()
+		self:_show("waiting")
+		return
+	end
+
+	local target = KrampusBrain.pickTarget(root.Position, candidates, t)
 	if target then
 		if KrampusBrain.canCatch(root.Position, target.position) then
 			self:_snatch(target.player)
@@ -239,6 +257,7 @@ function Krampus:_think(dt: number)
 end
 
 function Krampus:_snatch(player: Player)
+	self.magic:thaw(player, true) -- an ice cube is scooped up, ice and all
 	self.captive = player
 	self.wiggles = 0
 	self.anim:oneShot("Snatch", 2.5) -- the pick-up clip, sped up to a grab
@@ -285,6 +304,7 @@ function Krampus:_ringBells(player: Player)
 		return
 	end
 	self.lastBellAt = t
+	self.magic:onBells() -- cancels a trick, and he gets grumpier
 	self.stunnedUntil = t + K.StunSeconds
 	self.dizzyUntil = self.stunnedUntil
 	-- He spins round to find the bells.

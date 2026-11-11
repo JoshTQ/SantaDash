@@ -65,6 +65,9 @@ describe("gift markers", function()
 					expect(
 						string.find(house.marker.Text, tostring(Config.Buys.VaultDoor.Cost), 1, true) ~= nil
 					).toBeTruthy()
+				elseif house.plan.typeName == "Mansion" then
+					-- The mansion counts the gifts hidden in its furniture.
+					expect(house.marker.Text).toBe(string.format("SEARCH ME · %d GIFTS", #house.presents))
 				else
 					-- A secret room's present isn't counted until someone finds it.
 					local shown = 0

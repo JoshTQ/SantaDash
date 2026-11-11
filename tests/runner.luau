@@ -176,6 +176,12 @@ do
 	builtins[name] = (roblox :: any)[name]
 end
 -- Lune has no TweenInfo; tweens in headless worlds jump to their goal.
+-- RaycastParams: a plain table; the headless workspace:Raycast reads it.
+builtins.RaycastParams = {
+	new = function()
+		return { FilterType = nil, FilterDescendantsInstances = {} }
+	end,
+}
 builtins.TweenInfo = {
 	new = function(
 		time: number?,

@@ -333,3 +333,149 @@ describe("Krampus in his Lair", function()
 		end)
 	end)
 end)
+
+-- Magic tricks (Josh, 6 Nov 2026: Frost Zap, Frost Stomp, Bell Blink + the Grumpy Meter).
+describe("Krampus's magic tricks", function()
+	local function rootOf(player)
+		return player.Character:FindFirstChild("HumanoidRootPart")
+	end
+	local function humanoidOf(player)
+		return player.Character:FindFirstChildOfClass("Humanoid")
+	end
+	-- Lair, intro over, Krampus parked and ready to cast at `level`.
+	local function ready(world, engine, run, level)
+		atLair(world, run)
+		local intro = world.load("ReplicatedStorage.Shared.Cutscenes").get("KrampusArrives")
+		if world.load("ReplicatedStorage.Shared.Config").Cutscenes.Enabled and intro then
+			world.wait(intro.seconds + 0.25)
+		end
+		local krampus = run.krampus
+		local magic = krampus.magic
+		krampus.stunnedUntil = 0
+		magic.arrivedAt = engine.now - 1000 -- Furious by the clock...
+		magic.bellRings = 0
+		magic.lastCastAt = -math.huge
+		-- ...unless a level is asked for: rewind the clock to it.
+		local M = world.load("ReplicatedStorage.Shared.Config").Krampus.Magic
+		if level then
+			magic.arrivedAt = engine.now - M.Grumpy.At[level] - M.FirstCastAfter - 0.5
+		end
+		return krampus, magic, M
+	end
+
+	local function inFront(krampus, studs)
+		local root = krampus.body.root
+		return (root.CFrame * CFrame.new(0, 0, -studs)).Position
+	end
+
+	it("Frost Zap freezes a Santa into an ice cube, and a friend smashes them out", function()
+		local world, engine, Run, players = setup({ "Iced", "Smasher" })
+		local santa, friend = players[1], players[2]
+		world.run(function()
+			local run = startRun(world, Run, players)
+			local krampus, magic = ready(world, engine, run, 1)
+			engine:teleport(friend, krampus.body.root.Position + Vector3.new(0, 0, 400)) -- out of the way
+			engine:teleport(santa, inFront(krampus, 45))
+			waitUntil(world, function()
+				return run.players[santa].iced == true
+			end, 10, "the Frost Zap to hit")
+			expect(run:_free(santa)).toBeNil()
+			expect(sawBanner(engine, santa, "Iced is an ice cube! Smash them out!")).toBe(true)
+			krampus.stunnedUntil = math.huge -- hold him so the smash is the test
+			local cube = magic.cubes[santa].part
+			engine:teleport(friend, cube.Position + Vector3.new(4, 0, 0))
+			local prompt = cube:FindFirstChildOfClass("ProximityPrompt")
+			for _ = 1, 3 do
+				engine.trigger(prompt, friend)
+			end
+			expect(run.players[santa].iced).toBe(false)
+			expect(sawBanner(engine, santa, "Smasher smashed Iced out of the ice!")).toBe(true)
+			expect(rootOf(santa).Anchored).toBe(false)
+		end)
+	end)
+
+	it("a frozen Santa can tap their way out, and the cube melts on its own", function()
+		local world, engine, Run, players = setup({ "Cracker" })
+		local santa = players[1]
+		world.run(function()
+			local run = startRun(world, Run, players)
+			local krampus, magic, M = ready(world, engine, run, 1)
+			krampus.stunnedUntil = math.huge
+			magic:freeze(santa)
+			for _ = 1, M.FrostZap.CrackTaps do
+				run:onInput(santa, "Tap")
+				world.wait(0.2)
+			end
+			expect(run.players[santa].iced).toBe(false)
+			magic:freeze(santa)
+			world.wait(M.FrostZap.FrozenSeconds + 0.5)
+			expect(run.players[santa].iced).toBe(false)
+		end)
+	end)
+
+	it("he scoops up an ice cube, ice and all", function()
+		local world, engine, Run, players = setup({ "Scooped" })
+		local santa = players[1]
+		world.run(function()
+			local run = startRun(world, Run, players)
+			local krampus, magic = ready(world, engine, run, 1)
+			engine:teleport(santa, inFront(krampus, 4))
+			magic:freeze(santa)
+			waitUntil(world, function()
+				return run.players[santa].captive
+			end, 5, "the snatch")
+			expect(run.players[santa].iced).toBe(false)
+			expect(magic.cubes[santa]).toBeNil()
+		end)
+	end)
+
+	it("Frost Stomp skids a Santa on the ground, but not one who jumps it", function()
+		local world, engine, Run, players = setup({ "Skidder", "Jumper" })
+		local santa, jumper = players[1], players[2]
+		world.run(function()
+			local run = startRun(world, Run, players)
+			local krampus = ready(world, engine, run, 2)
+			engine:teleport(santa, inFront(krampus, 12))
+			engine:teleport(jumper, (krampus.body.root.CFrame * CFrame.new(12, 0, 0)).Position)
+			jumper.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Freefall)
+			waitUntil(world, function()
+				return (run.players[santa].skidUntil or 0) > engine.now
+			end, 5, "the frost ring")
+			expect(humanoidOf(santa).WalkSpeed < 16).toBe(true)
+			expect(run.players[jumper].skidUntil).toBeNil()
+		end)
+	end)
+
+	it("Bell Blink pops him out beside a Santa who ran away", function()
+		local world, engine, Run, players = setup({ "Runner" })
+		local santa = players[1]
+		world.run(function()
+			local run = startRun(world, Run, players)
+			local krampus = ready(world, engine, run, 3)
+			engine:teleport(santa, inFront(krampus, 80))
+			world.wait(2.5)
+			local gap = (krampus.body.root.Position - rootOf(santa).Position).Magnitude
+			expect(gap < 20).toBe(true)
+			expect(sawBanner(engine, santa, "Krampus popped up right next to you!")).toBe(true)
+		end)
+	end)
+
+	it("ringing his bells cancels a trick and makes him grumpier", function()
+		local world, engine, Run, players = setup({ "Target", "Ringer" })
+		local santa, ringer = players[1], players[2]
+		world.run(function()
+			local run = startRun(world, Run, players)
+			local krampus, magic = ready(world, engine, run, 1)
+			engine:teleport(santa, inFront(krampus, 40))
+			waitUntil(world, function()
+				return magic.casting ~= nil
+			end, 5, "a wind-up")
+			engine:teleport(ringer, (krampus.body.root.CFrame * CFrame.new(0, 0, 4)).Position)
+			engine.trigger(krampus.body.bellPrompt, ringer)
+			expect(magic.casting).toBeNil()
+			expect(magic.bellRings).toBe(1)
+			world.wait(3)
+			expect(run.players[santa].iced).never.toBe(true)
+		end)
+	end)
+end)
