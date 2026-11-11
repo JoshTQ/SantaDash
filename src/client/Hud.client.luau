@@ -9,6 +9,7 @@ local ContextActionService = game:GetService("ContextActionService")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -232,6 +233,72 @@ stroke.Thickness = 0
 stroke.Parent = vignette
 vignette.Parent = gui
 
+-- Krampus off screen and close: a red arrow on the screen edge points at him
+-- (HudFeedback.edgeArrow), with his name just inside it.
+local krampusArrow = Instance.new("Frame")
+krampusArrow.Name = "KrampusArrow"
+krampusArrow.Size = UDim2.fromOffset(56, 56)
+krampusArrow.AnchorPoint = Vector2.new(0.5, 0.5)
+krampusArrow.BackgroundTransparency = 1
+krampusArrow.Visible = false
+krampusArrow.Parent = gui
+local arrowShaft = Instance.new("Frame")
+arrowShaft.Size = UDim2.fromOffset(30, 12)
+arrowShaft.Position = UDim2.fromOffset(4, 22)
+arrowShaft.BackgroundColor3 = RED
+arrowShaft.BorderSizePixel = 0
+arrowShaft.Parent = krampusArrow
+local arrowHead = Instance.new("Frame") -- a square turned 45 degrees
+arrowHead.Size = UDim2.fromOffset(26, 26)
+arrowHead.Position = UDim2.fromOffset(24, 15)
+arrowHead.Rotation = 45
+arrowHead.BackgroundColor3 = RED
+arrowHead.BorderSizePixel = 0
+arrowHead.Parent = krampusArrow
+for _, part in { arrowShaft, arrowHead } do
+	local rim = Instance.new("UIStroke")
+	rim.Color = Color3.new(1, 1, 1)
+	rim.Thickness = 2
+	rim.Parent = part
+end
+local arrowLabel = label(gui, UDim2.fromOffset(110, 24), UDim2.new(), 18)
+arrowLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+arrowLabel.TextColor3 = RED
+arrowLabel.Text = "KRAMPUS!"
+arrowLabel.Visible = false
+
+local function hideKrampusArrow()
+	krampusArrow.Visible = false
+	arrowLabel.Visible = false
+end
+
+local function showKrampusArrow(target: Vector3, distance: number)
+	local camera = workspace.CurrentCamera
+	if not camera or distance > HudFeedback.ArrowRange or not (camera :: any).WorldToScreenPoint then
+		hideKrampusArrow()
+		return
+	end
+	local point, onScreen = camera:WorldToScreenPoint(target)
+	local size = gui.AbsoluteSize / math.max(uiScale.Scale, 0.01)
+	local spot = HudFeedback.edgeArrow(point, onScreen, size)
+	if not spot then
+		hideKrampusArrow()
+		return
+	end
+	krampusArrow.Position = UDim2.fromOffset(spot.x, spot.y)
+	krampusArrow.Rotation = spot.rotation
+	-- The name sits 48 px further in, towards the middle of the screen.
+	local inward = Vector2.new(size.X / 2 - spot.x, size.Y / 2 - spot.y)
+	local at = Vector2.new(spot.x, spot.y) + (if inward.Magnitude > 0 then inward.Unit * 48 else Vector2.zero)
+	arrowLabel.Position = UDim2.fromOffset(at.X, at.Y)
+	-- Brighter as he closes in.
+	local fade = math.clamp((distance - 30) / (HudFeedback.ArrowRange - 30), 0, 0.6)
+	arrowShaft.BackgroundTransparency = fade
+	arrowHead.BackgroundTransparency = fade
+	krampusArrow.Visible = true
+	arrowLabel.Visible = true
+end
+
 -- Under the stop timer, one column that only takes the room of what is
 -- showing: the map event chip, body heat, the banner and the tip card
 -- (Tips.client parents its card here). They used to sit at fixed heights,
@@ -332,6 +399,19 @@ quitButton = button(gui, QUIT_TEXT, UDim2.fromOffset(130, 30), spots.quit, funct
 end)
 quitButton.Visible = false
 
+-- Music on/off, saved with the player's data (server/Settings).
+local function musicText(): string
+	return if player:GetAttribute("MusicOff") == true then "Music: OFF" else "Music: ON"
+end
+local musicButton = button(gui, musicText(), UDim2.fromOffset(130, 30), spots.musicHub, function()
+	input:FireServer("Music", player:GetAttribute("MusicOff") == true)
+end)
+musicButton.TextSize = 18
+musicButton.BackgroundColor3 = Color3.fromRGB(60, 80, 140)
+player:GetAttributeChangedSignal("MusicOff"):Connect(function()
+	musicButton.Text = musicText()
+end)
+
 -- Under the stop timer: the running map event and its countdown.
 local eventPanel = panel(UDim2.fromOffset(240, 34), UDim2.new(0.5, 0, 0, 98), Vector2.new(0.5, 0))
 eventPanel.BackgroundColor3 = Color3.fromRGB(60, 110, 170)
@@ -384,7 +464,7 @@ splatLabel.TextColor3 = Color3.fromRGB(60, 110, 170)
 local resultsPanel = panel(UDim2.fromOffset(460, 340), UDim2.fromScale(0.5, 0.5), Vector2.new(0.5, 0.5))
 local resultsTitle = label(resultsPanel, UDim2.new(1, 0, 0, 44), UDim2.fromOffset(0, 8), 32)
 resultsTitle.TextColor3 = GOLD
-local resultsBody = label(resultsPanel, UDim2.new(1, -24, 1, -110), UDim2.fromOffset(12, 56), 20)
+local resultsBody = label(resultsPanel, UDim2.new(1, -24, 1, -170), UDim2.fromOffset(12, 56), 20)
 resultsBody.TextYAlignment = Enum.TextYAlignment.Top
 resultsBody.TextXAlignment = Enum.TextXAlignment.Left
 resultsBody.RichText = true
@@ -392,6 +472,9 @@ local resultsFooter = label(resultsPanel, UDim2.new(1, 0, 0, 36), UDim2.new(0, 0
 -- Your own haul, big, above the footer: the number a kid actually cares about.
 local resultsMine = label(resultsPanel, UDim2.new(1, 0, 0, 34), UDim2.new(0, 0, 1, -82), 26)
 resultsMine.TextColor3 = GOLD
+local resultsSummary = label(resultsPanel, UDim2.new(1, -24, 0, 44), UDim2.new(0, 12, 1, -128), 18)
+resultsSummary.TextWrapped = true
+local resultsToken = 0
 
 -- Floating "+12" numbers off the stats panel (HudFeedback.pops).
 local POP_COLOURS = {
@@ -495,6 +578,7 @@ local function setInRun(inRun: boolean)
 	statsPanel.Visible = inRun
 	noisePanel.Visible = inRun
 	quitButton.Visible = inRun
+	musicButton.Position = if inRun then spots.music else spots.musicHub
 end
 
 local function setTapMode(on: boolean)
@@ -589,6 +673,7 @@ function handlers.Krampus(data)
 	if not krampusModel then
 		setText(bellsLabel, "")
 		stroke.Thickness = 0
+		hideKrampusArrow()
 	end
 end
 
@@ -660,7 +745,28 @@ function handlers.Results(data)
 		table.insert(lines, if me then '<font color="#FFC83C">' .. line .. "</font>" else line)
 	end
 	resultsBody.Text = table.concat(lines, "\n")
-	resultsMine.Text = if mine then "You got +" .. mine.coal .. " Coal!" else ""
+	resultsSummary.Text = if mine
+		then HudFeedback.summary(mine, player:GetAttribute("FirstHeist") == true)
+		else ""
+	resultsMine.Text = ""
+	resultsToken += 1
+	local token = resultsToken
+	if mine then
+		-- Count the Coal up, with a swell when it lands.
+		local coal = mine.coal
+		task.spawn(function()
+			local started = Util.now()
+			while resultsToken == token do
+				local counted = HudFeedback.countUp(coal, Util.now() - started)
+				resultsMine.Text = "You got +" .. counted .. " Coal!"
+				if counted >= coal then
+					bump(resultsMine)
+					break
+				end
+				task.wait(0.03)
+			end
+		end)
+	end
 	resultsEndsAt = data.endsAt
 end
 
@@ -782,6 +888,27 @@ hud.OnClientEvent:Connect(function(kind: string, data)
 		handler(data)
 	end
 end)
+
+-- The Krampus arrow follows the camera every frame (the loop below is 10 Hz,
+-- which looks jumpy while you turn).
+local renderStepped = (RunService :: any).RenderStepped
+if renderStepped then
+	renderStepped:Connect(function()
+		local root = Util.rootOf(player)
+		if
+			krampusModel
+			and krampusModel.Parent
+			and root
+			and not tapMode
+			and not CutscenePlayer.isPlaying()
+		then
+			local at = krampusModel:GetPivot().Position
+			showKrampusArrow(at, (at - root.Position).Magnitude)
+		elseif krampusArrow.Visible then
+			hideKrampusArrow()
+		end
+	end)
+end
 
 -- Countdowns and Krampus distance change at most a few times a second, so the
 -- HUD refreshes every 0.1 s instead of every frame.

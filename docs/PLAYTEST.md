@@ -85,6 +85,9 @@ Staging.
 | 15 | The horn's last 10 s | The timer throbs, harder in the last 5 s |
 | 16 | Tap **Back to hub** once, wait; then twice | Once: "Tap again to leave", back to normal after 3 s, you stay in the run. Twice: you leave |
 | 17 | Results with two players | Your own row is gold and "You got +N Coal!" sits above the footer; the fanfare or trombone matches your own result |
+| 18 | **Music** button (top-left in the hub, beside Back to hub in a run): tap it, then rejoin | Music stops (sound effects and cutscenes keep playing), the button says Music: OFF, and it's still off after rejoining or teleporting to the run place |
+| 19 | Results | "You got +N Coal!" counts up and swells when it lands; under the list: "You grabbed N presents · escaped x2!"; on a first heist also "Spend Coal in the Shop" |
+| 20 | Lair: let Krampus get within ~100 studs while you look away from him, then turn round | A red arrow with KRAMPUS! on the screen edge points at him, follows smoothly as you turn, gets brighter as he closes in, and goes the moment he's on screen. Never shows while hiding, snatched or in a cutscene |
 
 ## 3. Lobby to Run place (Staging only)
 

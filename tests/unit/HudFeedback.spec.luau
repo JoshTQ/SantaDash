@@ -139,3 +139,69 @@ describe("Util.escapeRichText", function()
 		expect(Util.escapeRichText("Plain")).toBe("Plain")
 	end)
 end)
+
+describe("HudFeedback.countUp", function()
+	it("starts at 0, rises fast, and lands exactly on the total", function()
+		expect(HudFeedback.countUp(100, 0)).toBe(0)
+		local half = HudFeedback.countUp(100, HudFeedback.CountUpSeconds / 2)
+		expect(half > 50 and half < 100).toBe(true) -- eased out
+		expect(HudFeedback.countUp(100, HudFeedback.CountUpSeconds)).toBe(100)
+		expect(HudFeedback.countUp(100, 99)).toBe(100)
+		expect(HudFeedback.countUp(0, 0.5)).toBe(0)
+	end)
+end)
+
+describe("HudFeedback.summary", function()
+	it("says what you grabbed and whether you escaped", function()
+		expect(HudFeedback.summary({ grabs = 1, escaped = true }, false)).toBe(
+			"You grabbed 1 present · escaped x2!"
+		)
+		expect(HudFeedback.summary({ grabs = 4, escaped = false }, false)).toBe(
+			"You grabbed 4 presents · missed the sleigh"
+		)
+	end)
+
+	it("points a first heist at the Shop", function()
+		local text = HudFeedback.summary({ grabs = 0, escaped = true }, true)
+		expect(string.find(text, "Shop", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
+describe("HudFeedback.edgeArrow", function()
+	local size = Vector2.new(800, 400)
+
+	it("hides while Krampus is on screen in front", function()
+		expect(HudFeedback.edgeArrow(Vector3.new(300, 200, 20), true, size)).toBe(nil)
+	end)
+
+	it("sits on the right edge pointing right when he is off to the right", function()
+		local a = HudFeedback.edgeArrow(Vector3.new(2000, 200, 20), false, size)
+		expect(a.x).toBe(800 - HudFeedback.ArrowMargin)
+		expect(a.y).toBe(200)
+		expect(math.abs(a.rotation) < 1e-6).toBe(true)
+	end)
+
+	it("flips the direction when he is behind the camera", function()
+		local a = HudFeedback.edgeArrow(Vector3.new(2000, 200, -20), false, size)
+		expect(a.x).toBe(HudFeedback.ArrowMargin)
+		expect(math.abs(math.abs(a.rotation) - 180) < 1e-6).toBe(true)
+	end)
+
+	it("points down when he is straight behind", function()
+		local a = HudFeedback.edgeArrow(Vector3.new(400, 200, -5), false, size)
+		expect(a.y).toBe(400 - HudFeedback.ArrowMargin)
+		expect(a.rotation).toBe(90)
+	end)
+
+	it("always stays inside the margin", function()
+		for _, p in { Vector3.new(-900, -900, 5), Vector3.new(900, 50, 5), Vector3.new(10, 1000, -3) } do
+			local a = HudFeedback.edgeArrow(p, false, size)
+			expect(a.x >= HudFeedback.ArrowMargin - 1e-6 and a.x <= 800 - HudFeedback.ArrowMargin + 1e-6).toBe(
+				true
+			)
+			expect(a.y >= HudFeedback.ArrowMargin - 1e-6 and a.y <= 400 - HudFeedback.ArrowMargin + 1e-6).toBe(
+				true
+			)
+		end
+	end)
+end)

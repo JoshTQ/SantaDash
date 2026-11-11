@@ -94,6 +94,70 @@ function HudFeedback.deviceFor(inputTypeName: string?, touchEnabled: boolean): s
 	return if touchEnabled then "Touch" else "Keyboard"
 end
 
+-- Results: your Coal counts up from 0, fast then settling (ease-out).
+HudFeedback.CountUpSeconds = 1.2
+
+function HudFeedback.countUp(total: number, elapsed: number, duration: number?): number
+	local d = duration or HudFeedback.CountUpSeconds
+	if elapsed >= d or d <= 0 then
+		return total
+	end
+	local t = math.max(0, elapsed) / d
+	return math.floor(total * (1 - (1 - t) ^ 3))
+end
+
+-- Results: one line about your own run, plus where Coal goes on a first heist.
+function HudFeedback.summary(row: { grabs: number?, escaped: boolean }, firstHeist: boolean): string
+	local grabs = row.grabs or 0
+	local line = string.format(
+		"You grabbed %d %s · %s",
+		grabs,
+		if grabs == 1 then "present" else "presents",
+		if row.escaped then "escaped x2!" else "missed the sleigh"
+	)
+	if firstHeist then
+		line ..= "\nFirst heist! Spend Coal in the Shop."
+	end
+	return line
+end
+
+-- Krampus off screen: an arrow on the screen's edge pointing at him.
+-- point = Camera:WorldToScreenPoint (x, y in GUI px, z = depth; negative
+-- = behind the camera), size = the GUI's size in the same px. Returns nil
+-- while he is on screen, else where the arrow goes and its rotation in
+-- degrees (0 = pointing right, clockwise, like GuiObject.Rotation).
+HudFeedback.ArrowRange = 100 -- studs: only while he is this close
+HudFeedback.ArrowMargin = 48 -- px kept clear of the screen edge
+
+function HudFeedback.edgeArrow(
+	point: Vector3,
+	onScreen: boolean,
+	size: Vector2,
+	margin: number?
+): { x: number, y: number, rotation: number }?
+	if onScreen and point.Z > 0 then
+		return nil
+	end
+	local m = margin or HudFeedback.ArrowMargin
+	local cx, cy = size.X / 2, size.Y / 2
+	local dx, dy = point.X - cx, point.Y - cy
+	if point.Z <= 0 then
+		-- Behind the camera the projection is mirrored.
+		dx, dy = -dx, -dy
+	end
+	if math.abs(dx) < 1e-3 and math.abs(dy) < 1e-3 then
+		dy = 1 -- straight behind: point down
+	end
+	-- Push out to the inner rectangle's edge.
+	local hx, hy = math.max(1, cx - m), math.max(1, cy - m)
+	local scale = math.min(hx / math.max(math.abs(dx), 1e-6), hy / math.max(math.abs(dy), 1e-6))
+	return {
+		x = cx + dx * scale,
+		y = cy + dy * scale,
+		rotation = math.deg(math.atan2(dy, dx)),
+	}
+end
+
 HudFeedback.ConfirmSeconds = 3
 
 -- First tap arms Back to hub; a second tap before `armedUntil` leaves.
