@@ -410,7 +410,12 @@ local function pop(p: HudFeedback.Pop)
 		then jingleLabel
 		elseif big then bankedLabel
 		else sackLabel
-	local l = label(statsPanel, UDim2.fromOffset(90, 28), UDim2.new(1, -98, 0, row.Position.Y.Offset), if big then 28 else 24)
+	local l = label(
+		statsPanel,
+		UDim2.fromOffset(90, 28),
+		UDim2.new(1, -98, 0, row.Position.Y.Offset),
+		if big then 28 else 24
+	)
 	l.Name = "Pop"
 	l.TextXAlignment = Enum.TextXAlignment.Right
 	l.TextColor3 = POP_COLOURS[p.kind] or WHITE

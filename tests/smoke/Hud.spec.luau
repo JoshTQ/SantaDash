@@ -165,10 +165,18 @@ describe("the HUD", function()
 			local base = { jingle = 0, sackCount = 0, sackValue = 0, banked = 0, sackCapacity = 2 }
 			hud:FireClient(me, "Player", base)
 			world.wait(0.2)
-			hud:FireClient(me, "Player", { jingle = 5, sackCount = 2, sackValue = 30, banked = 0, sackCapacity = 2 })
+			hud:FireClient(
+				me,
+				"Player",
+				{ jingle = 5, sackCount = 2, sackValue = 30, banked = 0, sackCapacity = 2 }
+			)
 			world.wait(0.2)
 			expect(engine:guiShows("FULL")).toBe(true)
-			hud:FireClient(me, "Player", { jingle = 5, sackCount = 0, sackValue = 0, banked = 30, sackCapacity = 2 })
+			hud:FireClient(
+				me,
+				"Player",
+				{ jingle = 5, sackCount = 0, sackValue = 0, banked = 30, sackCapacity = 2 }
+			)
 			world.wait(0.2)
 			expect(engine:guiShows("Banked in sleigh: 30")).toBe(true)
 			expect(engine:guiShows("FULL")).toBe(false)
