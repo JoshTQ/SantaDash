@@ -633,13 +633,13 @@ local CUCKOO_TEXT = {
 
 function handlers.Cuckoo(data)
 	cuckooToken += 1
-	local shown = CUCKOO_TEXT[data.state]
-	cuckooLabel.Visible = shown ~= nil
-	if not shown then
+	local cue = CUCKOO_TEXT[data.state]
+	cuckooLabel.Visible = cue ~= nil
+	if not cue then
 		return
 	end
-	cuckooLabel.Text = shown[1]
-	cuckooLabel.TextColor3 = shown[2]
+	cuckooLabel.Text = cue[1]
+	cuckooLabel.TextColor3 = cue[2]
 	local token = cuckooToken
 	task.delay(data.seconds or 1.5, function()
 		if cuckooToken == token then
