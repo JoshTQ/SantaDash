@@ -29,6 +29,13 @@ describe("LairMotion", function()
 		expect(LairMotion.pop(1)).toBe(1)
 	end)
 
+	it("the Cuckoo Watch's short look shuts the doors sooner (Josh, 11 Nov 2026)", function()
+		local o = LairMotion.CuckooOpenSeconds
+		expect(LairMotion.cuckoo(o + 1, 1.5)).toBe(1)
+		expect(LairMotion.cuckoo(o + 1.5 + o + 0.1, 1.5)).toBe(0)
+		expect(LairMotion.cuckoo(o + 1.5 + o + 0.1)).toBe(1) -- the horn's cuckoo holds longer
+	end)
+
 	it("sways the bells gently, shakes them on the horn", function()
 		local idle = LairMotion.bell(3, 1, nil, nil)
 		expect(math.abs(idle)).toBeLessThan(0.051)

@@ -184,10 +184,15 @@ end
 
 -- True if a position is inside the Sleigh Stop clearing around the sleigh
 -- (deckCFrame), or riding on it.
-function MapBuilder.isAboard(deckCFrame: CFrame, position: Vector3): boolean
+-- Within the Sleigh Stop clearing (plus `margin` studs) on the floor plan, at any height.
+function MapBuilder.inSleighStop(deckCFrame: CFrame, position: Vector3, margin: number?): boolean
 	local rel = deckCFrame:PointToObjectSpace(position)
-	local flat = Vector3.new(rel.X, 0, rel.Z).Magnitude
-	return flat <= Config.Map.SleighStopRadius and rel.Y >= -4 and rel.Y <= 12
+	return Vector3.new(rel.X, 0, rel.Z).Magnitude <= Config.Map.SleighStopRadius + (margin or 0)
+end
+
+function MapBuilder.isAboard(deckCFrame: CFrame, position: Vector3): boolean
+	local y = deckCFrame:PointToObjectSpace(position).Y
+	return MapBuilder.inSleighStop(deckCFrame, position) and y >= -4 and y <= 12
 end
 
 ----------------------------------------------------------------------------

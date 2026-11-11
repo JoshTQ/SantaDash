@@ -4,7 +4,8 @@
 	Each stop: 0:00-0:45 sneak, 0:45 lights on (the noise meter creeps up), 1:30 horn,
 	2:00 the sleigh leaves with or without you. Miss it and you run to the next
 	stop on foot. Krampus comes from Stop 3 (Config.Krampus.FirstStop), so in
-	the launch slice he is only in his Lair. Escaping the Lair doubles loot.
+	the launch slice he is only in his Lair. Escaping the Lair doubles loot,
+	but only with the Naughty List aboard (NaughtyList, CuckooWatch).
 ]]
 
 local Players = game:GetService("Players")
@@ -24,6 +25,9 @@ local Assets = require(script.Parent.Assets)
 local ElfBot = require(script.Parent.ElfBot)
 local ElfBrain = require(script.Parent.ElfBrain)
 local Loot = require(script.Parent.Loot)
+local CuckooWatch = require(script.Parent.CuckooWatch)
+local ListBrain = require(script.Parent.ListBrain)
+local NaughtyList = require(script.Parent.NaughtyList)
 local KrampusBrain = require(script.Parent.KrampusBrain)
 local Krampus = require(script.Parent.Krampus)
 local MapBuilder = require(script.Parent.MapBuilder)
@@ -59,6 +63,9 @@ type PlayerState = Loot.PlayerState & {
 	swimming: boolean?, -- in the Lair lake's water (server/Swimming)
 	frozen: boolean?, -- stuck in an ice cube after running out of body heat
 	soggyUntil: number?, -- slow after thawing
+	iced: boolean?, -- in a Frost Zap ice cube (server/KrampusMagic)
+	skidUntil: number?, -- skidding on Frost Stomp frost
+	carryingList: boolean?, -- Marked: the Naughty List hovers over their head
 }
 
 local TICK = 0.25
@@ -95,6 +102,8 @@ function Run.new(
 	self.eventInput = nil :: ((player: Player, action: string) -> ())?
 	self.flightSeats = nil :: { [BasePart]: CFrame }? -- set while the sleigh is flying
 	self.times = { departAt = 0 }
+	self.list = nil -- the finale's NaughtyList while that stop plays
+	self.cuckoo = nil -- the Lair's CuckooWatch while Krampus is home
 
 	local rng = Random.new()
 	local map = Maps.get(Maps.pick(rng, lastMap))
@@ -269,6 +278,9 @@ function Run:_addPlayer(player: Player)
 			if st.captive and self.krampus then
 				self.krampus:release()
 			end
+			if self.list then
+				self.list:forget(player) -- the old body took the book down with it
+			end
 			self:_applyPerks(player)
 			ServerWardrobe.dress(player, st.wardrobe) -- warm gear survives a respawn
 			local root = character:FindFirstChild("HumanoidRootPart")
@@ -300,6 +312,9 @@ function Run:removePlayer(player: Player)
 		self.krampus:release()
 	end
 	self:_unhide(player)
+	if self.list then
+		self.list:forget(player)
+	end
 	self:_removeElves(player)
 	st.characterConnection:Disconnect()
 	self.players[player] = nil
@@ -323,8 +338,14 @@ function Run:baseWalkSpeed(st: PlayerState): number
 	if st.swimming then
 		speed += Wardrobe.swimSpeed(st.wardrobe)
 	end
+	if st.carryingList then
+		speed = ListBrain.carrierSpeed(speed)
+	end
 	if (st.soggyUntil or 0) > now() then
 		speed = math.min(speed, Config.BodyHeat.SoggyWalkSpeed)
+	end
+	if (st.skidUntil or 0) > now() then
+		speed = KrampusBrain.skidSpeed(speed)
 	end
 	return speed
 end
@@ -355,7 +376,7 @@ end
 -- The state of a Santa who is free to act (not snatched, not in a wardrobe).
 function Run:_free(player: Player): PlayerState?
 	local st = self.players[player]
-	if st and not st.captive and not st.hidden and not st.frozen and not self.ended then
+	if st and not st.captive and not st.hidden and not st.frozen and not st.iced and not self.ended then
 		return st
 	end
 	return nil
@@ -434,6 +455,13 @@ function Run:_wirePrompts()
 end
 
 function Run:_grab(player: Player, present)
+	if present.plan.naughtyList and self.list and self.list.present == present then
+		if self:_free(player) then
+			self.list:take(player)
+			Onboarding.complete(player, "Grab")
+		end
+		return
+	end
 	local st = self:_free(player)
 	local root = rootOf(player)
 	if st and root then
@@ -568,6 +596,7 @@ function Run:presentCandidates(): { ElfBrain.PresentCandidate }
 				not present.taken
 				and not present.hidden
 				and not present.plan.secret
+				and not (present.plan.naughtyList and self.list)
 				and not (present.inVault and vaultShut)
 			then
 				table.insert(list, { present = present, position = present.model:GetPivot().Position })
@@ -714,6 +743,11 @@ function Run:_hide(player: Player, spot)
 	if not st or not root or spot.occupant then
 		return
 	end
+	if st.carryingList then
+		self:_banner(player, "The Naughty List rattles too much to hide! Pass it to a friend (Q).", 2)
+		self:_sfx(player, "Nope")
+		return
+	end
 	spot.occupant = player
 	st.hidden = spot
 	st.breath = 1
@@ -765,9 +799,15 @@ function Run:onInput(player: Player, action: string)
 		st.lastTapAt = t
 		if st.captive and self.krampus then
 			self.krampus:wiggle(player)
+		elseif st.iced and self.krampus then
+			self.krampus.magic:crack(player)
 		elseif st.hidden then
 			st.breath = KrampusBrain.tapBreath(st.breath)
 			self:_send(player, "Hide", { hidden = true, breath = st.breath })
+		end
+	elseif action == "PassList" then
+		if self.list and self:_free(player) then
+			self.list:pass(player)
 		end
 	elseif self.eventInput then
 		self.eventInput(player, action) -- e.g. "Throw" during a Blizzard
@@ -799,11 +839,17 @@ function Run:krampusCandidates(ignore: { [Player]: number }): { KrampusBrain.Can
 				captive = st.captive,
 				aboard = MapBuilder.isAboard(self.deck, root.Position),
 				inWater = st.swimming == true or st.frozen == true,
+				iced = st.iced == true,
 				ignoreUntil = ignore[player],
 			})
 		end
 	end
 	return list
+end
+
+-- Inside the Sleigh Stop (plus `margin` studs): Krampus's tricks never land there.
+function Run:nearSleighStop(at: Vector3, margin: number): boolean
+	return self.deck ~= nil and MapBuilder.inSleighStop(self.deck, at, margin)
 end
 
 -- Breath for every hidden Santa, given Krampus's position. Running out = a loud gasp.
@@ -832,6 +878,12 @@ function Run:onSnatched(player: Player)
 		return
 	end
 	self:_unhide(player)
+	if self.list and self.list.carrier == player then
+		self.list:drop(
+			false,
+			"Krampus snatched " .. player.DisplayName .. ". The Naughty List fell on the floor!"
+		)
+	end
 	st.captive = true
 	st.perks = {} -- cocoa perks are lost when snatched
 	self:_applyPerks(player)
@@ -894,6 +946,7 @@ function Run:_startKrampus(stop)
 	self:_banner(nil, "KRAMPUS IS COMING!", hold)
 	self.krampus = Krampus.new(self, stop, hold)
 	self:_lairCue(stop, "BellsAt")
+	self.cuckoo = CuckooWatch.start(self, stop, now() + hold + Config.CuckooWatch.FirstAfter)
 	self:_send(nil, "Krampus", { model = self.krampus.body.model })
 	Onboarding.teachAll(self.order, "Krampus")
 	if introSeconds > 0 then
@@ -915,10 +968,21 @@ function Run:_lairCue(stop, attribute: string)
 	local lair = self.route.model:FindFirstChild("LairHouse", true)
 	if lair then
 		lair:SetAttribute(attribute, now())
+		if attribute == "CuckooAt" then
+			lair:SetAttribute("CuckooHold", nil) -- the horn's long cuckoo, not the watch's
+		end
+	end
+end
+
+function Run:_stopCuckoo()
+	if self.cuckoo then
+		self.cuckoo:destroy()
+		self.cuckoo = nil
 	end
 end
 
 function Run:_stopKrampus()
+	self:_stopCuckoo()
 	if self.krampus then
 		self.krampus:destroy()
 		self.krampus = nil
@@ -1151,6 +1215,9 @@ function Run:_playStop(stop): { Player }
 	self:_startFeatures(stop)
 	self:_startSnores(stop)
 	self:_teachLanding(stop)
+	if plan.escapeMultiplier then
+		self.list = NaughtyList.find(self, stop)
+	end
 
 	-- The horn: at HornAt, or early when a full noise meter sets off the alarm
 	-- (NoiseAlarm). It sounds once per stop and only ever brings departure closer.
@@ -1224,6 +1291,12 @@ function Run:_playStop(stop): { Player }
 		if self.phase ~= "Sneak" then
 			self:_addNoise(Config.Noise.LightsOnPerSecond * TICK)
 		end
+		if self.list then
+			self.list:tick(TICK)
+		end
+		if self.cuckoo then
+			self.cuckoo:tick(t)
+		end
 		if self.noiseFull and not alarmed and NoiseAlarm.applies(plan.index, plan.kindName) then
 			alarmed = true
 			local ok, cleanup = pcall(AlarmDogs.start, self, stop)
@@ -1262,6 +1335,31 @@ function Run:_playStop(stop): { Player }
 		self:_stopKrampus() -- at the finale he stays for the Getaway belly-flop
 	end
 	self:_stopSnores()
+	self:_stopCuckoo()
+	-- The finale's bonus needs the Naughty List on the sleigh (Config.NaughtyList).
+	local escapeMultiplier = plan.escapeMultiplier
+	local listAboard = false
+	if escapeMultiplier and self.list then
+		listAboard = self.list:aboard(stop.deckCFrame)
+		escapeMultiplier = ListBrain.escapeMultiplier(escapeMultiplier, listAboard)
+		local carrier = self.list.carrier
+		local carrierSt = listAboard and carrier and self.players[carrier]
+		if carrierSt then
+			carrierSt.sackValue += self.list.present.plan.value -- the book's own loot
+			carrierSt.sackCount += 1
+			carrierSt.grabs += 1
+		end
+		self.listEscaped = listAboard
+		self:_banner(
+			nil,
+			if listAboard
+				then "You got away with the Naughty List! LOOT x" .. plan.escapeMultiplier .. "!"
+				else "No Naughty List on the sleigh... no bonus this time.",
+			4
+		)
+		self.list:destroy()
+		self.list = nil
+	end
 	local aboard = {}
 	for _, player in table.clone(self.order) do
 		local st = self.players[player]
@@ -1275,7 +1373,7 @@ function Run:_playStop(stop): { Player }
 				SantaMoves.play(player.Character, "Cheer")
 				Onboarding.teach(player, "Bank")
 			end
-			Loot.bank(st, plan.escapeMultiplier)
+			Loot.bank(st, escapeMultiplier)
 			self:_sendPlayer(player)
 		elseif st and plan.escapeMultiplier then
 			if st.sackCount > 0 then
@@ -1311,8 +1409,14 @@ end
 -- while Krampus belly-flops behind it. Runs after the finale's loot is banked.
 -- Only the riders see it; anyone who missed it is watching Left Behind.
 function Run:_getaway(stop, riders: { Player })
+	-- No List aboard: the stamp says so instead of LOOT x2.
+	local swap = if self.listEscaped == false then { ["LOOT x2"] = "NO LIST, NO x2" } else nil
 	local seconds = if #riders > 0
-		then self:_cutscene("Getaway", riders, { anchor = stop.deckCFrame, follow = self.route.sleigh })
+		then self:_cutscene(
+			"Getaway",
+			riders,
+			{ anchor = stop.deckCFrame, follow = self.route.sleigh, swap = swap }
+		)
 		else 0
 	if seconds <= 0 then
 		self:_stopKrampus()
@@ -1409,6 +1513,10 @@ function Run:_finish()
 	self:_stopFeatures()
 	self:_stopKrampus()
 	self:_stopSnores()
+	if self.list then
+		self.list:destroy()
+		self.list = nil
+	end
 	self:_removeElves()
 	self.unbindBreakout()
 	self.ended = true

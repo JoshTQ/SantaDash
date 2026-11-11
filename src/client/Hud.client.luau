@@ -270,6 +270,23 @@ button(snowPanel, "THROW (F)", UDim2.new(1, -20, 0, 50), UDim2.fromOffset(10, 38
 	input:FireServer("Throw")
 end)
 
+-- Above that: the Naughty List's pass button while you carry it (Q / L1 / tap; G and L2 are the dog bone).
+local listSpot =
+	UDim2.new(spots.snow.X.Scale, spots.snow.X.Offset, spots.snow.Y.Scale, spots.snow.Y.Offset - 106)
+local listPanel = panel(UDim2.fromOffset(190, 96), listSpot, Vector2.new(1, 0))
+local listLabel = label(listPanel, UDim2.new(1, 0, 0, 30), UDim2.fromOffset(0, 4), 20)
+listLabel.Text = "You have the List!"
+listLabel.TextColor3 = GOLD
+button(listPanel, "PASS LIST (Q)", UDim2.new(1, -20, 0, 50), UDim2.fromOffset(10, 38), function()
+	input:FireServer("PassList")
+end)
+
+-- Middle of the screen: the Lair's Cuckoo Watch (server/CuckooWatch).
+local cuckooLabel = label(gui, UDim2.fromOffset(520, 70), UDim2.fromScale(0.5, 0.3), 48)
+cuckooLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+cuckooLabel.Visible = false
+local cuckooToken = 0
+
 -- Full-screen splat when a crewmate's snowball hits you (cosmetic only).
 local splatFrame = Instance.new("Frame")
 splatFrame.Size = UDim2.fromScale(1, 1)
@@ -468,6 +485,20 @@ function handlers.Captive(data)
 	end
 end
 
+-- Frost Zap: frozen in an ice cube, tap to crack out (server/KrampusMagic).
+function handlers.Iced(data)
+	setTapMode(data.iced)
+	if data.iced then
+		krampusLabel.Text = "FROZEN! Tap to crack out"
+		setBar(
+			krampusFill,
+			data.taps / data.needed,
+			Color3.fromRGB(127, 227, 255),
+			Color3.fromRGB(120, 220, 120)
+		)
+	end
+end
+
 function handlers.Results(data)
 	setInRun(false)
 	stopState = nil
@@ -580,6 +611,43 @@ function handlers.Snowballs(data)
 	end
 end
 
+function handlers.List(data)
+	listPanel.Visible = data.carrying == true
+	if data.carrying then
+		ContextActionService:BindAction("SleighHeistPassList", function(_, state)
+			if state == Enum.UserInputState.Begin then
+				input:FireServer("PassList")
+			end
+			return Enum.ContextActionResult.Sink
+		end, false, Enum.KeyCode.Q, Enum.KeyCode.ButtonL1)
+	else
+		ContextActionService:UnbindAction("SleighHeistPassList")
+	end
+end
+
+local CUCKOO_TEXT = {
+	Warn = { "TICK TOCK... FREEZE!", GOLD },
+	Look = { "CUCKOO! DON'T MOVE!", Color3.fromRGB(255, 90, 90) },
+	Spotted = { "SPOTTED! KRAMPUS IS COMING!", Color3.fromRGB(255, 90, 90) },
+}
+
+function handlers.Cuckoo(data)
+	cuckooToken += 1
+	local cue = CUCKOO_TEXT[data.state]
+	cuckooLabel.Visible = cue ~= nil
+	if not cue then
+		return
+	end
+	cuckooLabel.Text = cue[1]
+	cuckooLabel.TextColor3 = cue[2]
+	local token = cuckooToken
+	task.delay(data.seconds or 1.5, function()
+		if cuckooToken == token then
+			cuckooLabel.Visible = false
+		end
+	end)
+end
+
 function handlers.Splat(data)
 	splatUntil = Util.now() + data.seconds
 	splatLabel.Text = "SPLAT! (" .. data.by .. ")"
@@ -594,6 +662,8 @@ function handlers.RunEnd()
 	handlers.MapEvent({})
 	handlers.Weather({})
 	handlers.Snowballs({ count = 0 })
+	handlers.List({ carrying = false })
+	handlers.Cuckoo({ state = "Off" })
 	setInRun(false)
 	setTapMode(false)
 	handlers.Krampus({})
