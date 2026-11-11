@@ -37,15 +37,27 @@ gui.Parent = player:WaitForChild("PlayerGui")
 local uiScale = Instance.new("UIScale")
 uiScale.Parent = gui
 
--- Top centre, under the stop timer and the event chip; clear of the phone
--- thumbstick and jump button corners.
+-- Top centre, in the HUD's column under the stop timer (after the event
+-- chip, body heat and banner, so none of them covers it); clear of the
+-- phone thumbstick and jump button corners. Without the HUD it sits alone
+-- at the same spot.
 local card = Instance.new("Frame")
+card.Name = "TipCard"
 card.Size = UDim2.fromOffset(440, 58)
-card.Position = UDim2.new(0.5, 0, 0, 140)
+card.Position = UDim2.new(0.5, 0, 0, HudLayout.TopStack.y)
 card.AnchorPoint = Vector2.new(0.5, 0)
 card.BackgroundColor3 = GOLD
 card.Visible = false
-card.Parent = gui
+card.LayoutOrder = HudLayout.TopStack.order.tip
+local hudGui = player.PlayerGui:WaitForChild("SleighHeistHud", 5)
+local topStack = hudGui and hudGui:WaitForChild(HudLayout.TopStack.name, 5)
+if topStack then
+	card.Position = UDim2.new()
+	card.AnchorPoint = Vector2.zero
+	card.Parent = topStack -- scaled by the HUD's UIScale
+else
+	card.Parent = gui
+end
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(0, 14)
 corner.Parent = card

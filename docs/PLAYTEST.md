@@ -90,6 +90,15 @@ Staging.
 | 9 | Level of detail on/off: in the Studio command bar run `workspace:SetAttribute("DetailOff", true)`, then `nil` | With it off the frame rate drops at Stop 1 (that's what the culler saves). If a part you can see up close vanishes with it on, note its name |
 | 10 | Respawn or get snatched by Krampus | Nothing missing under your feet when you land (a camera jump brings everything near back that frame) |
 | 11 | The Lair lake: swim | The water surface sits just under the floes and the island ice (no gap you can see under them), no frame hitch when the lake fills on landing |
+| 12 | **HUD polish (11 Nov)**: first run on a phone, through the Lair | Banners sit in a dark pill under the stop timer; a tip card, the map event chip and the BODY HEAT bar stack under it and never cover each other |
+| 13 | Buttons on a phone, then plug in a controller | Phone: "TAP!" and "THROW" with no keyboard keys; controller: "TAP! (A)" and "THROW (R2)" |
+| 14 | Grab, get bumped by a corgi, bank, buy cocoa | "+30" floats off the sack row, gold "+5" off Jingle, red "-1" on a knock-out, green "+90" on the banked row, orange "-20" when you spend. A full sack turns the row red with FULL |
+| 15 | The horn's last 10 s | The timer throbs, harder in the last 5 s |
+| 16 | Tap **Back to hub** once, wait; then twice | Once: "Tap again to leave", back to normal after 3 s, you stay in the run. Twice: you leave |
+| 17 | Results with two players | Your own row is gold and "You got +N Coal!" sits above the footer; the fanfare or trombone matches your own result |
+| 18 | **Music** button (top-left in the hub, beside Back to hub in a run): tap it, then rejoin | Music stops (sound effects and cutscenes keep playing), the button says Music: OFF, and it's still off after rejoining or teleporting to the run place |
+| 19 | Results | "You got +N Coal!" counts up and swells when it lands; under the list: "You grabbed N presents · escaped x2!"; on a first heist also "Spend Coal in the Shop" |
+| 20 | Lair: let Krampus get within ~100 studs while you look away from him, then turn round | A red arrow with KRAMPUS! on the screen edge points at him, follows smoothly as you turn, gets brighter as he closes in, and goes the moment he's on screen. Never shows while hiding, snatched or in a cutscene |
 
 ## 3. Lobby to Run place (Staging only)
 

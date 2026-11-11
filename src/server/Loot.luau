@@ -296,17 +296,25 @@ function Loot.finalLoot(state: PlayerState): number
 	return math.floor(state.banked * (state.escapeMultiplier or 1) * state.lootMultiplier)
 end
 
-export type ResultRow = { name: string, loot: number, coal: number, escaped: boolean, grabs: number }
+export type ResultRow = {
+	name: string,
+	userId: number?,
+	loot: number,
+	coal: number,
+	escaped: boolean,
+	grabs: number,
+}
 
--- entries: { { name, state, coal? } }; coal overrides the plain conversion
+-- entries: { { name, state, coal?, userId? } }; coal overrides the plain conversion
 -- (2X Loot and Santa's Blessing, from Store.creditRun). Sorted best thief first.
 function Loot.results(entries: { { any } }): { ResultRow }
 	local rows = {}
 	for _, entry in entries do
-		local name, state, coal = entry[1], entry[2], entry[3]
+		local name, state, coal, userId = entry[1], entry[2], entry[3], entry[4]
 		local loot = Loot.finalLoot(state)
 		table.insert(rows, {
 			name = name,
+			userId = userId,
 			loot = loot,
 			coal = coal or math.floor(loot * Config.Coal.PerLootValue),
 			escaped = state.escapeMultiplier ~= nil,
