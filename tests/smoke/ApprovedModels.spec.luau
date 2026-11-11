@@ -86,6 +86,9 @@ local function kit(world)
 	local vault = model("VaultDoor")
 	vault.PrimaryPart = part(vault, "Frame", Vector3.new(10, 13, 1), CFrame.new(0, 100, 0))
 	part(vault, "Door", Vector3.new(8, 12, 0.6), CFrame.new(0, 99.5, 0))
+	for _, p in vault:GetChildren() do
+		p.CanCollide = false -- like the real Meshy import
+	end
 	vault.Parent = assets
 
 	local present = model("Present")
@@ -179,6 +182,33 @@ describe("a run with every approved model", function()
 			while not finished do
 				world.wait(1)
 			end
+		end)
+	end)
+
+	-- Regression (Josh, 11 Nov 2026): you could walk straight through the vault.
+	it("keeps the approved vault solid until the crew buys it open", function()
+		local world = headless()
+		local engine = world.engine
+		kit(world)
+		world.load("ReplicatedStorage.Shared.Remotes").init()
+		local Run = world.load("ServerScriptService.Server.Run")
+		local santa = engine:addPlayer("Solo")
+		world.run(function()
+			local run = Run.new(1, { santa }, function() end)
+			run:start()
+			while run.stopIndex < 1 do
+				world.wait(0.5)
+			end
+			local stop = run.route.stops[1]
+			expect(stop.vaultDoor.Name).toBe("Door") -- the approved model's door
+			local blocker = stop.vaultBlocker
+			expect(blocker.CanCollide).toBe(true)
+			run.players[santa].jingle = 5000
+			engine.trigger(stop.vaultPrompt, santa)
+			expect(stop.vaultPrompt.Enabled).toBe(false)
+			expect(blocker.CanCollide).toBe(false)
+			expect(stop.vaultDoor.CanCollide).toBe(false)
+			run.ended = true
 		end)
 	end)
 
