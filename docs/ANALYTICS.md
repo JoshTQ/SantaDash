@@ -119,13 +119,86 @@ Good first charts:
 Roblox also tracks retention (D1 and D7), session length and Robux revenue
 by itself, under **Analytics > Engagement** and **Monetization**.
 
+## 5. Inside a run (Analytics > Custom Events)
+
+Each player gets a short report every time the sleigh leaves a stop.
+"Stop" is `Stop 1`, `Stop 2` or `Lair`. "Experience" is `First game`,
+`Played before` or `Unknown`.
+
+| Event | Value | Fields (01 / 02 / 03) | Sent |
+| --- | --- | --- | --- |
+| `StopGrabs` | presents grabbed this stop (0 counts too) | stop / experience / `Aboard` or `Missed` | every stop |
+| `StopLoot` | loot value banked this stop | stop / experience / crew | when they made the sleigh |
+| `MissedSleigh` | 1 | stop / experience / `Had loot` or `Empty sack` | when they missed it |
+| `FirstGrab` | seconds from landing to their first present | stop / experience / bucket | once a stop |
+| `Spotted` | times grown-ups caught them in a house | stop / experience / crew | if it happened |
+| `DogBump` | times a dog bumped them | stop / experience / crew | if it happened |
+| `Hid` | times they hid in a wardrobe | stop / experience / crew | if it happened |
+| `Frozen` | times they froze solid in Krampus's lake | stop / experience / crew | if it happened |
+| `Snatched` | times Krampus caught them | stop / experience / crew | if it happened |
+| `Freed` | seconds Krampus held them | `Wiggled free`, `Bells rung`, `Break-out` or `Krampus let go` / stop / experience | each release |
+| `SecretFound` | 1 | secret kind / stop / experience | each find |
+| `NaughtyListGrab` | 1 | experience / crew | each grab |
+| `RunLoot` | final loot value | runs bucket / crew / `Escaped` or `Missed the last sleigh` | at the results |
+| `Quit` | seconds on this server | `Lobby` or `Run` / experience / runs on this server | when they leave the game (not on a teleport) |
+
+These are sent once per crew, so they count runs, not players:
+
+| Event | Fields (01 / 02 / 03) |
+| --- | --- |
+| `NoiseAlarm` | stop / the phase when the meter filled (`Sneak`, `LightsOn`, `Horn`) / crew |
+| `KrampusArrived` | stop / `On time` or `Too noisy` / crew |
+| `MapEvent` | stop / event kind (e.g. `Blizzard`) / crew |
+
+Questions these answer:
+
+- **Is Stop 1 too hard for new players?** Look at `MissedSleigh` and
+  `StopGrabs` at `Stop 1` for `First game`. Many misses or 0 grabs means it
+  is.
+- **Is Krampus fair?** Look at `Freed` split by field 01, and its average
+  value. If most players only get free with `Krampus let go`, the wiggle is
+  too hard or friends can't find the bells.
+- **Do players find things?** Compare `SecretFound` with the number of runs.
+  Also look at the average value of `FirstGrab`. Over about 20 s means the
+  first stop is confusing.
+
+## 6. How smoothly it runs (Analytics > Custom Events)
+
+Each player's game measures its own frame rate and freezes
+(`client/ClientStats.client.luau`) and reports them to the server. A
+stutter is a frame over 0.25 s. A freeze is a frame over 1 s.
+
+| Event | Value | Fields (01 / 02 / 03) |
+| --- | --- | --- |
+| `Device` | 1 | `Phone`, `Tablet`, `Computer`, `Console`, `VR` / experience / place |
+| `LoadTime` | seconds until their game was running | bucket / device / experience |
+| `CutscenePerf` | longest frame in ms during that cutscene | cutscene id (`KrampusArrives`, `Takeoff`, ...) / fps bucket / device |
+| `CutsceneFreeze` | freezes during it | cutscene id / device / experience |
+| `CutsceneSkipped` | seconds watched | cutscene id / experience |
+| `Fps` | average fps over a minute of play | area (`Lobby`, `Stop 1`, `Lair`, `Flight`, ...) / device / fps bucket |
+| `Freeze` | freezes in that minute | area / device / experience |
+
+The server times its own frames too. Any frame over 0.5 s is counted as the
+`ServerHitch` telemetry event, tagged with the cutscene that was playing,
+for example `KrampusArrives 1-2 s`.
+
+**Krampus cutscene freezes:** open `CutsceneFreeze` and `CutscenePerf`,
+split by field 01, and filter to `KrampusArrives`.
+- If only phones show it, the client can't keep up. The fix is lighter
+  effects on phones.
+- If `ServerHitch` also shows `KrampusArrives`, the server stalls while
+  Krampus spawns. The fix is to build his model before the cutscene starts.
+
 ## Limits and privacy
 
 - Roblox allows 120 + 20 x players events a minute across the whole game.
-  Each server keeps to `PerMinuteBase` (20) + `PerMinutePerPlayer` (12) a
-  minute. Anything over that is dropped and counted as the
-  `AnalyticsDropped` telemetry event, so the game is never throttled.
+  Each server keeps to `PerMinuteBase` (10) + `PerMinutePerPlayer` (15) a
+  minute, averaged over 5 minutes (`WindowSeconds`). This leaves room for
+  the burst at the start of a run. Anything over that is dropped and
+  counted as the `AnalyticsDropped` telemetry event, so the game is never
+  throttled. A normal solo first run stays under it (a test checks this).
 - Fields are a few fixed labels. Roblox folds anything past 8,000 distinct
   values into "Other". No names, user ids or chat text are ever sent.
-- There are 4 funnels out of Roblox's 10, and about 25 custom event names
-  out of 100, including the telemetry ones.
+- There are 4 funnels out of Roblox's 10, and about 50 custom event names
+  out of 100, including the telemetry ones. Prefer a new field value over
+  a new event name.

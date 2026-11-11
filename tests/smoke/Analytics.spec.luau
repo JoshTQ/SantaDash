@@ -113,6 +113,7 @@ local function boot(options: any?)
 	world.run(function()
 		world.runScript("ServerScriptService.Server.Main")
 		world.runScript("StarterPlayer.StarterPlayerScripts.Client.Tips")
+		world.runScript("StarterPlayer.StarterPlayerScripts.Client.ClientStats")
 		world.wait(1)
 	end)
 	return world, engine, me, Config, ds, calls
@@ -372,5 +373,62 @@ describe("lobby, run and economy events", function()
 		expect(run[1].fields.CustomField01).toBe("Stop 1: Sneak")
 		expect(run[1].fields.CustomField02).toBe("First game")
 		expect(run[1].fields.CustomField03).toBe("Quit the game")
+	end)
+end)
+
+describe("in-game detail on the real server", function()
+	it("reports every stop, the device and each cutscene's frame rate", function()
+		local world, engine, me, Config, _, calls = boot()
+		world.run(function()
+			world.runScript("StarterPlayer.StarterPlayerScripts.Client.Hud") -- plays the cutscenes
+			boardPublic(world, me)
+			waitUntil(world, function()
+				return #funnel(calls, "Run") >= 2
+			end, 90, "the first stop")
+			world.wait(1)
+			grabOne(engine, me)
+			waitUntil(world, function()
+				return results(engine, me) > 0
+			end, 300, "the run")
+			world.wait(1)
+		end)
+		-- One StopGrabs per stop, with the stop's name.
+		local grabs = customs(calls, "StopGrabs")
+		expect(#grabs).toBe(#Config.Run.StopKinds)
+		expect(grabs[1].fields.CustomField01).toBe("Stop 1")
+		expect(grabs[1].value >= 1).toBeTruthy()
+		expect(grabs[#grabs].fields.CustomField01).toBe("Lair")
+		expect(#customs(calls, "FirstGrab")).toBe(1)
+		expect(#customs(calls, "RunLoot")).toBe(1)
+		-- The client said hello once.
+		expect(#customs(calls, "Device")).toBe(1)
+		-- Every cutscene the client played came back with its frame rate.
+		local perf = customs(calls, "CutscenePerf")
+		if Config.Cutscenes.Enabled then
+			expect(#perf >= 1).toBeTruthy()
+			local ids = {}
+			for _, c in perf do
+				ids[c.fields.CustomField01] = true
+			end
+			expect(ids.Takeoff).toBe(true)
+		end
+		-- Nothing over the rate limit on a normal run.
+		local Telemetry = world.load("ServerScriptService.Server.Telemetry")
+		expect(Telemetry.totals().AnalyticsDropped).toBeNil()
+	end)
+
+	it("logs a quit from the run as Quit, with the run place and runs played", function()
+		local world, engine, me, _, _, calls = boot()
+		world.run(function()
+			boardPublic(world, me)
+			waitUntil(world, function()
+				return #funnel(calls, "Run") >= 2
+			end, 90, "the first stop")
+			engine:removePlayer(me)
+			world.wait(0.5)
+		end)
+		local quits = customs(calls, "Quit")
+		expect(#quits).toBe(1)
+		expect(quits[1].fields.CustomField03).toBe("1 run")
 	end)
 end)

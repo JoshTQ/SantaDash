@@ -15,6 +15,15 @@
 	- Custom events: TipShown / TipDone / TipsOff (which tip), LeftRun (where
 	  in a run someone quit), LeftLobby (what they were doing), RunEnd
 	  (escaped or missed the last sleigh), Purchase and FirstPurchase.
+	- In-run detail, per player per stop when the sleigh leaves: StopGrabs,
+	  StopLoot, FirstGrab (seconds to the first present), MissedSleigh, and
+	  counts of Spotted, DogBump, Hid, Frozen, Snatched. Freed (how and how
+	  long Krampus held them), SecretFound, NaughtyListGrab, RunLoot, Quit
+	  (time on this server). Crew moments: NoiseAlarm, KrampusArrived, MapEvent.
+	- How smooth it runs (client/ClientStats.client.luau reports): Device,
+	  LoadTime, Fps and Freeze by area, CutscenePerf / CutsceneFreeze /
+	  CutsceneSkipped per cutscene. Long server frames are counted in
+	  Telemetry as ServerHitch, tagged with the cutscene playing at the time.
 
 	The first-game funnel needs to remember a player's step between the lobby
 	and run places, so it lives in saved data: data.analytics (PlayerDefaults).
@@ -22,8 +31,10 @@
 	Kid safety: no names, user ids or chat text, only fixed labels.
 
 	Called by: Main (start), Onboarding (loaded in, tips), Lobby and
-	Matchmaker (boarded, crew found, left), Run and RunHost (run steps,
-	Jingle, left), Store and Boots (shop funnel, Coal, purchases).
+	Matchmaker (boarded, crew found, left), Teleporter (teleporting), Run and
+	RunHost (run steps, Jingle, incidents, left), Krampus (how a captive got
+	free), HouseChecks, DogBump and Swimming (incidents), Store and Boots
+	(shop funnel, Coal, purchases).
 ]]
 
 local AnalyticsService = game:GetService("AnalyticsService")
@@ -32,7 +43,9 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local ClientStats = require(ReplicatedStorage.Shared.ClientStats)
 local Config = require(ReplicatedStorage.Shared.Config)
+local Cutscenes = require(ReplicatedStorage.Shared.Cutscenes)
 local Funnels = require(ReplicatedStorage.Shared.Funnels)
 local Util = require(ReplicatedStorage.Shared.Util)
 local Telemetry = require(script.Parent.Telemetry)
@@ -52,6 +65,14 @@ type PlayerState = {
 	tips: { [string]: boolean },
 	lastTip: string?,
 	jingle: { [string]: number }, -- Jingle earned since the last economy event, by source
+	joinedAt: number,
+	runsHere: number, -- runs started on this server
+	teleporting: boolean, -- leaving for another place, not quitting
+	device: string?, -- from the client's Hello
+	run: any?, -- the run they are in
+	captiveAt: number?, -- when Krampus snatched them
+	freedBy: string?, -- how they are about to get free
+	reports: { hello: boolean, perfAt: number, scenes: number },
 }
 
 type RunState = {
@@ -61,6 +82,17 @@ type RunState = {
 	steps: { [Player]: number },
 	runs: { [Player]: number },
 	escaped: { [Player]: boolean },
+	stop: StopState?,
+}
+
+-- The stop being played, per player: what happened since the sleigh landed.
+type StopState = {
+	index: number,
+	landedAt: number,
+	firstGrab: { [Player]: boolean },
+	counts: { [Player]: { [string]: number } },
+	grabsAt: { [Player]: number }, -- st.grabs when the stop started
+	bankedAt: { [Player]: number }, -- st.banked when the stop started
 }
 
 local Analytics = {}
@@ -68,6 +100,11 @@ local Analytics = {}
 Analytics.LoadTimeout = 30
 Analytics.ShopSessionSeconds = 120 -- re-opening the store within this is the same visit
 Analytics.ForgetSeconds = 5 -- a leaving player's state is kept this long
+-- Counted incidents (Analytics.note), sent per stop when non-zero.
+Analytics.Incidents = { "Spotted", "DogBump", "Hid", "Frozen", "Snatched" }
+Analytics.ServerHitchSeconds = 0.5 -- a server frame this long is logged (ServerHitch)
+Analytics.PerfMinSeconds = 20 -- a client's Perf reports are accepted this far apart
+Analytics.MaxCutsceneReports = 40 -- per player per server
 
 local store: Store? = nil
 local placeKind = "Lobby"
@@ -76,6 +113,7 @@ local states: { [Player]: PlayerState } = {}
 local runs: { [any]: RunState } = setmetatable({}, { __mode = "k" }) :: any
 local window = { startedAt = -math.huge, sent = 0 }
 local sentLog: { { kind: string, name: string } } = {} -- tests: what went out
+local moment: { label: string, untilAt: number }? = nil -- what the server is busy with (ServerHitch)
 
 local FLOW = {}
 local function flow(name: string): any
@@ -118,11 +156,13 @@ local function send(kind: string, name: string, call: () -> ()): boolean
 		return false
 	end
 	local t = Util.now()
-	if t - window.startedAt >= 60 then
+	local cfg = Config.Analytics
+	if t - window.startedAt >= cfg.WindowSeconds then
 		window.startedAt = t
 		window.sent = 0
 	end
-	local limit = Config.Analytics.PerMinuteBase + Config.Analytics.PerMinutePerPlayer * #Players:GetPlayers()
+	local perMinute = cfg.PerMinuteBase + cfg.PerMinutePerPlayer * #Players:GetPlayers()
+	local limit = math.floor(perMinute * cfg.WindowSeconds / 60)
 	if window.sent >= limit then
 		Telemetry.count("AnalyticsDropped", kind)
 		return false
@@ -369,6 +409,20 @@ local function flushJingle(player: Player, balance: number)
 	table.clear(st.jingle)
 end
 
+-- One custom event for the whole crew (sent with the first player, so it
+-- counts runs, not players): noise alarms, Krampus arriving, map events.
+local function crewEvent(run, name: string, a: string?, b: string?, c: string?)
+	local first = run.order and run.order[1]
+	if first then
+		Analytics.custom(first, name, 1, a, b, c)
+	end
+end
+
+local function crewOf(run): string
+	local r = runs[run]
+	return if r then r.crew else Funnels.crewLabel(#(run.order or {}))
+end
+
 -- run: a Run (uses run.order, run.mapId). Call when the take-off begins.
 function Analytics.runStarted(run)
 	local r: RunState = {
@@ -378,9 +432,15 @@ function Analytics.runStarted(run)
 		steps = {},
 		runs = {},
 		escaped = {},
+		stop = nil,
 	}
 	runs[run] = r
 	for _, player in run.order do
+		local st = states[player]
+		if st then
+			st.run = run
+			st.runsHere += 1
+		end
 		local n = 1
 		if
 			store
@@ -402,43 +462,189 @@ function Analytics.runStarted(run)
 end
 
 -- The sleigh landed at a stop (index from 1; the Lair is the last).
-function Analytics.stopReached(run, index: number)
+-- statsOf(player) = the run's state for that player (grabs, banked, jingle).
+function Analytics.stopReached(run, index: number, statsOf: ((Player) -> any)?)
+	local r = runs[run]
+	if r then
+		local stop: StopState =
+			{ index = index, landedAt = Util.now(), firstGrab = {}, counts = {}, grabsAt = {}, bankedAt = {} }
+		for _, player in run.order do
+			local st = statsOf and statsOf(player)
+			stop.grabsAt[player] = if st then st.grabs or 0 else 0
+			stop.bankedAt[player] = if st then st.banked or 0 else 0
+		end
+		r.stop = stop
+	end
 	for _, player in run.order do
 		runStep(run, player, Funnels.stopId(index))
 		Analytics.reach(player, Funnels.stopId(index))
 	end
 end
 
--- The sleigh left a stop. jingleOf(player) = their Jingle now.
-function Analytics.stopLeft(run, index: number, aboard: { Player }, jingleOf: (Player) -> number?)
+-- Something happened to a player at this stop (Analytics.Incidents): counted,
+-- and sent once per kind when the sleigh leaves.
+function Analytics.note(run, player: Player, kind: string)
 	local r = runs[run]
-	local last = index >= #Config.Run.StopKinds
-	for _, player in run.order do
-		local balance = jingleOf(player)
-		if balance then
-			flushJingle(player, balance)
-		end
-		if r and last then
-			r.escaped[player] = table.find(aboard, player) ~= nil
-		end
+	local stop = r and r.stop
+	if not stop then
+		return
+	end
+	local counts = stop.counts[player]
+	if not counts then
+		counts = {}
+		stop.counts[player] = counts
+	end
+	counts[kind] = (counts[kind] or 0) + 1
+end
+
+-- A present went into a player's sack: Jingle, and how long the first one took.
+function Analytics.grabbed(run, player: Player, jingle: number, source: string)
+	Analytics.earnJingle(player, jingle, source)
+	local r = runs[run]
+	local stop = r and r.stop
+	if stop and source ~= "Regrab" and not stop.firstGrab[player] then
+		stop.firstGrab[player] = true
+		local seconds = Util.now() - stop.landedAt
+		Analytics.custom(
+			player,
+			"FirstGrab",
+			math.floor(seconds + 0.5),
+			Funnels.stopLabel(stop.index),
+			experience(player),
+			Funnels.waitLabel(seconds)
+		)
+	end
+	if source == "NaughtyList" then
+		Analytics.custom(player, "NaughtyListGrab", 1, experience(player), crewOf(run))
 	end
 end
 
--- The results screen is up: these players finished the run.
-function Analytics.runFinished(run)
+-- The sleigh left a stop. statsOf(player) = the run's state for that player
+-- (jingle, grabs, banked, sackValue), or nil if they're gone.
+function Analytics.stopLeft(run, index: number, aboard: { Player }, statsOf: (Player) -> any)
+	local r = runs[run]
+	local stop = r and r.stop
+	local last = index >= #Config.Run.StopKinds
+	local where = Funnels.stopLabel(index)
+	for _, player in run.order do
+		local st = statsOf(player)
+		if not st then
+			continue
+		end
+		if type(st.jingle) == "number" then
+			flushJingle(player, st.jingle)
+		end
+		local onBoard = table.find(aboard, player) ~= nil
+		if r and last then
+			r.escaped[player] = onBoard
+		end
+		if not (r and stop) then
+			continue
+		end
+		local who = experience(player)
+		local grabs = math.max(0, (st.grabs or 0) - (stop.grabsAt[player] or 0))
+		local banked = math.max(0, (st.banked or 0) - (stop.bankedAt[player] or 0))
+		Analytics.custom(player, "StopGrabs", grabs, where, who, if onBoard then "Aboard" else "Missed")
+		if onBoard then
+			Analytics.custom(player, "StopLoot", banked, where, who, r.crew)
+		else
+			local carrying = (st.sackValue or 0) > 0 or grabs > 0
+			Analytics.custom(
+				player,
+				"MissedSleigh",
+				1,
+				where,
+				who,
+				if carrying then "Had loot" else "Empty sack"
+			)
+		end
+		local counts = stop.counts[player]
+		for _, kind in Analytics.Incidents do
+			local n = counts and counts[kind]
+			if n and n > 0 then
+				Analytics.custom(player, kind, n, where, who, r.crew)
+			end
+		end
+	end
+	if r then
+		r.stop = nil
+	end
+end
+
+-- Krampus snatched a player.
+function Analytics.snatched(run, player: Player)
+	local st = states[player]
+	if st then
+		st.captiveAt = Util.now()
+		st.freedBy = nil
+	end
+	Analytics.note(run, player, "Snatched")
+end
+
+-- How the captive is about to get free (called just before Krampus lets go):
+-- "Wiggled free", "Bells rung", "Break-out".
+function Analytics.freedBy(player: Player, how: string)
+	local st = states[player]
+	if st and st.captiveAt then
+		st.freedBy = how
+	end
+end
+
+-- Krampus let a player go (any reason). Sends how and how long it took.
+function Analytics.released(run, player: Player)
+	local st = states[player]
+	if not st or not st.captiveAt then
+		return
+	end
+	local held = Util.now() - st.captiveAt
+	local how = st.freedBy or "Krampus let go"
+	st.captiveAt, st.freedBy = nil, nil
+	Analytics.custom(
+		player,
+		"Freed",
+		math.floor(held + 0.5),
+		how,
+		Funnels.stopLabel(run.stopIndex or 0),
+		experience(player)
+	)
+end
+
+-- A crew moment (once per run). kind: "NoiseAlarm", "KrampusArrived", "MapEvent".
+function Analytics.crewMoment(run, kind: string, detail: string?)
+	crewEvent(run, kind, Funnels.stopLabel(run.stopIndex or 0), detail, crewOf(run))
+end
+
+-- A player found a secret room.
+function Analytics.secretFound(run, player: Player, secretKind: string)
+	Analytics.custom(
+		player,
+		"SecretFound",
+		1,
+		tostring(secretKind),
+		Funnels.stopLabel(run.stopIndex or 0),
+		experience(player)
+	)
+end
+
+-- The results screen is up: these players finished the run. lootOf(player)
+-- = their final loot value.
+function Analytics.runFinished(run, lootOf: ((Player) -> number?)?)
 	local r = runs[run]
 	for _, player in run.order do
 		runStep(run, player, "Finished")
 		Analytics.reach(player, "Finished")
 		if r then
-			Analytics.custom(
-				player,
-				"RunEnd",
-				1,
-				if r.escaped[player] then "Escaped" else "Missed the last sleigh",
-				Funnels.runsLabel(r.runs[player] or 1),
-				r.map
-			)
+			local escaped = if r.escaped[player] then "Escaped" else "Missed the last sleigh"
+			local runsLabel = Funnels.runsLabel(r.runs[player] or 1)
+			Analytics.custom(player, "RunEnd", 1, escaped, runsLabel, r.map)
+			local loot = lootOf and lootOf(player)
+			if loot then
+				Analytics.custom(player, "RunLoot", math.floor(loot), runsLabel, r.crew, escaped)
+			end
+		end
+		local st = states[player]
+		if st and st.run == run then
+			st.run = nil
 		end
 	end
 	runs[run] = nil
@@ -446,6 +652,10 @@ end
 
 -- A player left a run before the results. how: "Quit the game" or "Left the crew".
 function Analytics.leftRun(player: Player, run, how: string, jingle: number?)
+	local st = states[player]
+	if st and st.run == run then
+		st.run = nil
+	end
 	if not runs[run] or run.ended then
 		return
 	end
@@ -468,6 +678,117 @@ function Analytics.earnJingle(player: Player, amount: number, source: string)
 	if st and amount > 0 then
 		st.jingle[source] = (st.jingle[source] or 0) + amount
 	end
+end
+
+-- These players are teleporting to another place (not quitting the game),
+-- or (on = false) their teleport failed and they're staying.
+function Analytics.teleporting(players: { Player }, on: boolean)
+	for _, player in players do
+		local st = states[player]
+		if st then
+			st.teleporting = on
+		end
+	end
+end
+
+----------------------------------------------------------------------------
+-- How smoothly it runs (client reports and long server frames)
+----------------------------------------------------------------------------
+
+-- What the server is busy with, so a long frame can be blamed on it
+-- (e.g. "KrampusArrives" while that cutscene plays).
+function Analytics.moment(label: string, seconds: number)
+	moment = { label = label, untilAt = Util.now() + seconds }
+end
+
+local function areaOf(player: Player): string
+	local st = states[player]
+	local run = st and st.run
+	if run and runs[run] then
+		return Funnels.areaLabel(run.stopIndex or 0, run.phase)
+	end
+	return if placeKind == "Lobby" then "Lobby" else "Waiting"
+end
+
+-- A ClientStats report from a player's client (shared/ClientStats.luau).
+-- Clients can send anything, so every field is checked and rate limited.
+function Analytics.clientStats(player: Player, raw: any)
+	local st = states[player]
+	if not st or type(raw) ~= "table" then
+		return
+	end
+	local device = st.device or "Unknown"
+	if raw.kind == "Hello" then
+		if st.reports.hello then
+			return
+		end
+		st.reports.hello = true
+		if type(raw.device) == "string" and ClientStats.Devices[raw.device] then
+			st.device = raw.device
+			device = raw.device
+		end
+		Analytics.custom(player, "Device", 1, device, experience(player), placeKind)
+		local load = raw.load
+		if type(load) == "number" and load == load and load >= 0 and load < 600 then
+			Analytics.custom(
+				player,
+				"LoadTime",
+				math.floor(load + 0.5),
+				Funnels.loadLabel(load),
+				device,
+				experience(player)
+			)
+		end
+		return
+	end
+	local summary = ClientStats.readSummary(raw)
+	if not summary then
+		return
+	end
+	if raw.kind == "Cutscene" then
+		local scene = type(raw.id) == "string" and Cutscenes.get(raw.id)
+		if not scene or st.reports.scenes >= Analytics.MaxCutsceneReports then
+			return
+		end
+		st.reports.scenes += 1
+		local id = raw.id :: string
+		Analytics.custom(player, "CutscenePerf", summary.worstMs, id, Funnels.fpsLabel(summary.fps), device)
+		if summary.freezes > 0 then
+			Analytics.custom(player, "CutsceneFreeze", summary.freezes, id, device, experience(player))
+		end
+		if summary.seconds < scene.seconds * 0.8 then
+			Analytics.custom(
+				player,
+				"CutsceneSkipped",
+				math.floor(summary.seconds + 0.5),
+				id,
+				experience(player)
+			)
+		end
+	elseif raw.kind == "Perf" then
+		local t = Util.now()
+		if t - st.reports.perfAt < Analytics.PerfMinSeconds then
+			return
+		end
+		st.reports.perfAt = t
+		local area = areaOf(player)
+		Analytics.custom(player, "Fps", summary.fps, area, device, Funnels.fpsLabel(summary.fps))
+		if summary.freezes > 0 then
+			Analytics.custom(player, "Freeze", summary.freezes, area, device, experience(player))
+		end
+	end
+end
+
+local function watchServerFrames()
+	RunService.Heartbeat:Connect(function(dt: number)
+		if dt < Analytics.ServerHitchSeconds then
+			return
+		end
+		local m = moment
+		local label = if m and Util.now() <= m.untilAt + dt then m.label else "Other"
+		local size = if dt >= 2 then "2 s+" elseif dt >= 1 then "1-2 s" else "0.5-1 s"
+		Telemetry.count("ServerHitch", label .. " " .. size)
+	end)
 end
 
 -- Jingle spent on something (sent at once; buys are rare).
@@ -628,12 +949,38 @@ local function added(player: Player)
 	if states[player] then
 		return
 	end
-	states[player] = { status = nil, early = 0, tips = {}, jingle = {} }
+	states[player] = {
+		status = nil,
+		early = 0,
+		tips = {},
+		jingle = {},
+		joinedAt = Util.now(),
+		runsHere = 0,
+		teleporting = false,
+		reports = { hello = false, perfAt = -math.huge, scenes = 0 },
+	}
 	decide(player)
 end
 
--- kind: "Lobby" or "Run". s: the shared PlayerData module.
-function Analytics.start(kind: string, s: Store)
+-- A player is leaving this server: unless it's a teleport, they quit the game.
+local function quit(player: Player)
+	local st = states[player]
+	if not st or st.teleporting then
+		return
+	end
+	Analytics.custom(
+		player,
+		"Quit",
+		math.floor(Util.now() - st.joinedAt + 0.5),
+		placeKind,
+		experience(player),
+		Funnels.runsHereLabel(st.runsHere)
+	)
+end
+
+-- kind: "Lobby" or "Run". s: the shared PlayerData module. stats: the
+-- ClientStats remote (Remotes.init first).
+function Analytics.start(kind: string, s: Store, stats: RemoteEvent?)
 	placeKind = kind
 	store = s
 	if started then
@@ -646,6 +993,10 @@ function Analytics.start(kind: string, s: Store)
 	Players.PlayerAdded:Connect(function(player)
 		task.spawn(added, player) -- waits for saved data
 	end)
+	if stats then
+		stats.OnServerEvent:Connect(Analytics.clientStats)
+	end
+	watchServerFrames()
 	for _, player in Players:GetPlayers() do
 		task.spawn(added, player)
 	end
@@ -653,6 +1004,7 @@ function Analytics.start(kind: string, s: Store)
 		-- Lobby and RunHost log where the player left from in their own
 		-- PlayerRemoving handlers, which may run after this one.
 		local st = states[player]
+		quit(player)
 		task.delay(Analytics.ForgetSeconds, function()
 			if states[player] == st then
 				states[player] = nil
@@ -678,6 +1030,7 @@ function Analytics._reset()
 	runs = setmetatable({}, { __mode = "k" }) :: any
 	window = { startedAt = -math.huge, sent = 0 }
 	sentLog = {}
+	moment = nil
 end
 
 return Analytics

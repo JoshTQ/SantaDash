@@ -17,6 +17,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Cutscenes = require(ReplicatedStorage.Shared.Cutscenes)
 local SoundPlayer = require(ReplicatedStorage.Shared.SoundPlayer)
 local Util = require(ReplicatedStorage.Shared.Util)
+local Analytics = require(script.Parent.Analytics)
 local KrampusBrain = require(script.Parent.KrampusBrain)
 local MapBuilder = require(script.Parent.MapBuilder)
 local Mover = require(script.Parent.Mover)
@@ -263,6 +264,7 @@ function Krampus:wiggle(player: Player)
 	self.wiggles += 1
 	local needed = KrampusBrain.wiggleNeeded()
 	if self.wiggles >= needed then
+		Analytics.freedBy(player, "Wiggled free")
 		self:release()
 		self.run:_banner(nil, player.DisplayName .. " wiggled free!", 2)
 	else
@@ -293,6 +295,7 @@ function Krampus:_ringBells(player: Player)
 	SoundPlayer.at("KrampusDizzy", self.body.root)
 	local captive = self.captive
 	if captive then
+		Analytics.freedBy(captive, "Bells rung")
 		self:release()
 		run:_banner(
 			nil,

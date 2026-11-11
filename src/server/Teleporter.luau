@@ -22,6 +22,7 @@ local TeleportService = game:GetService("TeleportService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Util = require(ReplicatedStorage.Shared.Util)
+local Analytics = require(script.Parent.Analytics)
 local Telemetry = require(script.Parent.Telemetry)
 
 local Teleporter = {}
@@ -87,6 +88,7 @@ function Teleporter.send(
 	for _, player in players do
 		trips[player] = { placeId = placeId, options = options, tries = 1, giveUp = giveUp }
 	end
+	Analytics.teleporting(players, true) -- leaving this server isn't quitting
 	return true
 end
 
@@ -109,6 +111,7 @@ local function giveUp(player: Player, trip: Trip, why: string)
 		trips[player] = nil
 	end
 	warn("[Teleporter] a player could not teleport: " .. why)
+	Analytics.teleporting({ player }, false)
 	Telemetry.count("TeleportFailed", why)
 	trip.giveUp({ player }, "teleport")
 end

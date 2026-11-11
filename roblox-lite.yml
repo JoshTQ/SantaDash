@@ -56,3 +56,5 @@ globals:
     any: true
   UserSettings:
     any: true
+  time:
+    args: []

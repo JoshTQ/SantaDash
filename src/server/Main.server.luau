@@ -68,7 +68,7 @@ effect(
 -- run place, or while the places aren't published (single server).
 PlayerData.start()
 -- Funnels, economy and custom events for the Creator Dashboard (docs/ANALYTICS.md).
-Analytics.start(if isRunPlace then "Run" else "Lobby", PlayerData)
+Analytics.start(if isRunPlace then "Run" else "Lobby", PlayerData, Remotes.get("ClientStats"))
 Store.start({ runServer = isRunPlace or Config.Places.Run == 0 })
 Skins.start() -- each player's chosen Santa suit
 Boots.start() -- boots over any suit (bought with Coal)

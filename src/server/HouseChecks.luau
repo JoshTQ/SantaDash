@@ -18,6 +18,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage.Shared.Config)
 local SoundPlayer = require(ReplicatedStorage.Shared.SoundPlayer)
 local Util = require(ReplicatedStorage.Shared.Util)
+local Analytics = require(script.Parent.Analytics)
 local DogBump = require(script.Parent.DogBump)
 local Knockback = require(script.Parent.Knockback)
 local LightsCheck = require(script.Parent.LightsCheck)
@@ -157,6 +158,7 @@ function HouseChecks.spot(run, house: House, player: Player, dropper: DogBump.Dr
 	if not root or not st then
 		return
 	end
+	Analytics.note(run, player, "Spotted")
 	local value = Loot.dropOne(st)
 	if value then
 		dropper.drop(root.Position - Vector3.new(0, 2.5, 0), value)

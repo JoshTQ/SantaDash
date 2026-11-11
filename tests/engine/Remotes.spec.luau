@@ -11,7 +11,7 @@ describe("Remotes", function()
 		Remotes.init()
 		local folder = ReplicatedStorage:FindFirstChild("Remotes")
 		expect(folder).never.toBeNil()
-		for _, name in { "Hud", "LeaveCrew", "Input", "Store", "ClientError" } do
+		for _, name in { "Hud", "LeaveCrew", "Input", "Store", "ClientError", "ClientStats" } do
 			local remote = Remotes.get(name)
 			expect(remote:IsA("RemoteEvent")).toBe(true)
 			expect(remote.Parent).toBe(folder)

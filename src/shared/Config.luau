@@ -96,10 +96,13 @@ Config.Telemetry = {
 Config.Analytics = {
 	Enabled = true,
 	-- Roblox allows 120 + 20 x players events a minute across the whole game.
-	-- Each server keeps well under its share; anything over is dropped and
-	-- counted (Telemetry "AnalyticsDropped") rather than throttled by Roblox.
-	PerMinuteBase = 20,
-	PerMinutePerPlayer = 12,
+	-- Each server keeps under its share, averaged over WindowSeconds so the
+	-- burst at the start of a run (tips, funnel steps, a cutscene report)
+	-- fits; anything over is dropped and counted (Telemetry
+	-- "AnalyticsDropped") rather than throttled by Roblox.
+	WindowSeconds = 300,
+	PerMinuteBase = 10,
+	PerMinutePerPlayer = 15,
 	-- A save with less playtime than this on its first load is a brand-new
 	-- player, who goes through the first-game (onboarding) funnel. Older
 	-- saves never enter it, so veterans don't skew it after an update.

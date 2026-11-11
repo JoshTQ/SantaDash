@@ -166,17 +166,70 @@ function Funnels.crewLabel(players: number): string
 	return "Crew of " .. math.min(players, Config.Lobby.CrewMax)
 end
 
--- Where in a run a player was (phase names come from Run.luau).
+-- A stop's short name: "Stop 1", "Stop 2", "Lair".
+function Funnels.stopLabel(index: number): string
+	if index <= 0 then
+		return "Takeoff"
+	end
+	return if Config.Run.StopKinds[index] == "Finale" then "Lair" else "Stop " .. index
+end
+
+-- Where in a run a player was (phase names come from Run.luau), e.g.
+-- "Stop 1: Sneak", "Lair: Horn", "Stop 1: Flight" (flying on from Stop 1).
 function Funnels.runSpot(stopIndex: number, phase: string?): string
 	if stopIndex <= 0 then
 		return "Takeoff"
-	end
-	local kind = Config.Run.StopKinds[stopIndex]
-	local place = if kind == "Finale" then "Lair" else "Stop " .. stopIndex
-	if phase == "Results" then
+	elseif phase == "Results" then
 		return "Results"
 	end
-	return place .. ": " .. (phase or "?")
+	return Funnels.stopLabel(stopIndex) .. ": " .. (phase or "?")
+end
+
+-- The broad area of a run for frame-rate reports: "Takeoff", "Stop 1",
+-- "Lair", "Flight" or "Results". (Outside runs: "Lobby" or "Waiting".)
+function Funnels.areaLabel(stopIndex: number, phase: string?): string
+	if phase == "Flight" then
+		return "Flight"
+	elseif phase == "Results" then
+		return "Results"
+	end
+	return Funnels.stopLabel(stopIndex)
+end
+
+-- Load time from joining to the game being playable.
+function Funnels.loadLabel(seconds: number): string
+	if seconds < 10 then
+		return "Under 10 s"
+	elseif seconds < 20 then
+		return "10-20 s"
+	elseif seconds < 40 then
+		return "20-40 s"
+	end
+	return "40 s+"
+end
+
+-- Average frame rate as a bucket.
+function Funnels.fpsLabel(fps: number): string
+	if fps < 15 then
+		return "Under 15 fps"
+	elseif fps < 30 then
+		return "15-30 fps"
+	elseif fps < 50 then
+		return "30-50 fps"
+	end
+	return "50+ fps"
+end
+
+-- Runs played on one server before quitting.
+function Funnels.runsHereLabel(runs: number): string
+	if runs <= 0 then
+		return "No runs"
+	elseif runs == 1 then
+		return "1 run"
+	elseif runs <= 3 then
+		return "2-3 runs"
+	end
+	return "4+ runs"
 end
 
 -- Total playtime as a bucket (purchases, quitting).
