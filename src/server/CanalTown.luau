@@ -318,10 +318,10 @@ end
 local function garden(ctx, house)
 	local layout = ctx.map.layout
 	local side, z = house.side, house.distance
-	local halfW = house.size.Z / 2
+	local halfW = house.size.X / 2 -- along the street
 	local inner = layout.RoadWidth / 2 + C.Promenade -- pavement's outer edge
-	local front = layout.SideOffset - house.size.X / 2 -- house front face
-	local back = layout.SideOffset + house.size.X / 2 + 2
+	local front = layout.SideOffset - Config.Map.HouseSize.Z / 2 -- house fronts line up
+	local back = front + house.size.Z + 2
 	local zA, zB = z - halfW - 4, z + halfW + 4
 
 	-- Snowy lawn and a stepping-stone path from the gate to the door.
@@ -448,7 +448,7 @@ local function terraces(ctx, zEnd: number, ranges, houses, plaza: Vector3, skipB
 		for _, side in { -1, 1 } do
 			local free = not inRanges(z, ranges)
 			for _, h in houses do
-				if (h.side == side or h.side == 0) and math.abs(h.distance - z) < h.size.Z / 2 + 26 then
+				if (h.side == side or h.side == 0) and math.abs(h.distance - z) < h.size.X / 2 + 26 then
 					free = false
 				end
 			end
@@ -1087,7 +1087,7 @@ function ChristmasMarket.build(ctx)
 		while z <= 390 do
 			local nearHouse = false
 			for _, h in ctx.stop.plan.houses do
-				if h.side == side and math.abs(h.distance - z) < h.size.Z / 2 + 10 then
+				if h.side == side and math.abs(h.distance - z) < h.size.X / 2 + 10 then
 					nearHouse = true
 				end
 			end

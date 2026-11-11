@@ -14,6 +14,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Maps = require(ReplicatedStorage.Shared.Maps)
 local HouseBuilder = require(script.Parent.HouseBuilder)
 local HouseKit = require(script.Parent.HouseKit)
+local MansionBuilder = require(script.Parent.MansionBuilder)
 local MapFeatures = require(script.Parent.MapFeatures)
 local Parts = require(script.Parent.Parts)
 local Wardrobe = require(script.Parent.Wardrobe)
@@ -211,15 +212,19 @@ export type RobHouse = { plan: any, presents: { any }, marker: TextLabel, locked
 
 -- What a house's gift marker says: presents left, or that the vault is shut.
 function MapBuilder.markerText(house: RobHouse, vaultShut: boolean): string
+	-- A Gingerbread Mansion counts the gifts still hidden in its furniture.
+	local mansion = house.plan ~= nil and house.plan.typeName == "Mansion"
 	local left = 0
 	for _, present in house.presents do
-		if not present.taken and not present.hidden then
+		if not present.taken and (mansion or not present.hidden) then
 			left += 1
 		end
 	end
 	local found = if house.secret and house.secret.found then "\n★ SECRET FOUND" else ""
 	if left == 0 then
 		return "EMPTY" .. found
+	elseif mansion then
+		return string.format("SEARCH ME · %d GIFT%s", left, if left == 1 then "" else "S")
 	elseif house.locked and vaultShut then
 		return string.format("VAULT · %d GIFTS\n%d Jingle to open", left, Config.Buys.VaultDoor.Cost)
 	end
@@ -240,7 +245,8 @@ local MARKER_HEIGHT = 30 -- studs over the house's ground: above any roof in the
 
 -- A floating gold "ROB ME · 4 GIFTS" over a house, seen from down the street.
 local function buildHouseMarker(parent: Instance, cframe: CFrame, plan, house: RobHouse): TextLabel
-	local anchor = newPart(parent, "GiftMarker", Vector3.one, cframe * CFrame.new(0, MARKER_HEIGHT, 0), GOLD)
+	local height = math.max(MARKER_HEIGHT, plan.size.Y + 8) -- over the mansion's roof too
+	local anchor = newPart(parent, "GiftMarker", Vector3.one, cframe * CFrame.new(0, height, 0), GOLD)
 	anchor.Transparency = 1
 	anchor.CanCollide = false
 	local gui = Instance.new("BillboardGui")
@@ -279,6 +285,7 @@ export type Stop = {
 	doors: { Door }, -- approved houses' front doors (Run swings them)
 	houses: { RobHouse }, -- the houses you can rob, with their gift markers
 	secrets: { any }, -- secret rooms (HouseKit): trigger, prompt, present, climb, found
+	searchSpots: { any }, -- Gingerbread Mansion (HouseKit.wireSearch): spots, tree boxes, piano
 	origin: CFrame, -- stop space: +Z runs down the street from the landing house
 }
 
@@ -350,12 +357,13 @@ local function buildHouse(
 	labelText: string,
 	kit: Kit?
 ): CFrame?
-	local template = if not kit
-		then nil
+	local mansion = plan.typeName == "Mansion"
+	local template = if mansion then MansionBuilder.build(rng)
+		elseif not kit then nil
 		elseif plan.typeName == "Lair" then kit.lair
 		elseif plan.locked then nil
 		else HouseKit.pick(kit.houses, rng, plan)
-	local owned = false
+	local owned = mansion
 	if not template and plan.typeName ~= "Lair" and not (kit and kit.greybox) then
 		template = HouseBuilder.forPlan(rng, plan, HouseKit.HouseTypeSign)
 		owned = true
@@ -610,6 +618,7 @@ local function buildStop(
 		doors = {},
 		houses = {},
 		secrets = {},
+		searchSpots = {},
 		krampusSpawn = origin * CFrame.new(0, 6, far + map.StreetOverrun - 20), -- past the vault
 		origin = origin,
 	}
@@ -623,7 +632,9 @@ local function buildStop(
 			-- End-of-street house, facing back up the street.
 			cf = origin * CFrame.lookAt(Vector3.new(0, 0, house.distance), Vector3.zero)
 		else
-			local pos = Vector3.new(house.side * map.SideOffset, 0, house.distance)
+			-- Fronts line up: a deeper house (the mansion) sits further back.
+			local across = map.SideOffset + (house.size.Z - Config.Map.HouseSize.Z) / 2
+			local pos = Vector3.new(house.side * across, 0, house.distance)
 			cf = origin * CFrame.lookAt(pos, pos - Vector3.xAxis * house.side)
 		end
 		local label = Config.Houses.Types[house.typeName].Label .. " · " .. string.upper(house.ring)

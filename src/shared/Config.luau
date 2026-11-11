@@ -138,6 +138,15 @@ Config.Houses = {
 			NoChimney = true,
 			Extra = 60,
 		},
+		-- The Gingerbread Mansion (Josh approved, 6 Nov 2026): one per route,
+		-- 4 floors of search spots. Gifts come from Config.Mansion.Gifts.
+		Mansion = {
+			Threats = 1,
+			Label = "GINGERBREAD MANSION",
+			RoofColor = Color3.fromRGB(127, 227, 192),
+			Size = Vector3.new(80, 60, 40), -- X along the street, Z deep
+			Mansion = true,
+		},
 		Lair = {
 			Threats = 2,
 			Label = "KRAMPUS'S LAIR",
@@ -168,6 +177,31 @@ Config.Houses = {
 		FinderJingle = 100,
 		SearchSeconds = 1, -- hold Search on the bookcase / rug / hatch
 	},
+}
+
+-- The Gingerbread Mansion: a 4-floor house where you hold Search on the
+-- furniture (Josh picked option C then "make it multiple floors", approved
+-- 6 Nov 2026). The higher the floor, the bigger the gift. One per route, at
+-- Stop 2 between the landing house and the Ice Rink, for the phone budget.
+Config.Mansion = {
+	Enabled = true,
+	Stops = { 2 },
+	Ring = "Mid", -- loot multiplier; it stands nearer than the Mid ring proper
+	Side = 1, -- across the canal from the landing house, a short walk from the sleigh
+	Distance = 115, -- clear of the Sleigh Stop plaza and the Ice Rink (z 176+)
+	-- Hidden gifts per floor (0 ground, 1 first, 2 second, 3 attic) and their size.
+	Gifts = {
+		{ floor = 0, count = 2, size = 1 },
+		{ floor = 1, count = 2, size = 1.5 },
+		{ floor = 2, count = 1, size = 1.5 },
+		{ floor = 3, count = 2, size = 2 },
+	},
+	TreeGiftSize = 1, -- the one real box under the hall tree
+	SearchSeconds = 1, -- hold Search on a cupboard, drawer or trunk
+	EmptyJingle = 10, -- a dust puff and a tip for an empty spot
+	TreeBoxSeconds = 0.5,
+	PopNoise = 8, -- a decoy box under the tree goes POP
+	PianoNoise = 15, -- the piano on the 2nd floor is a noisy trap
 }
 
 -- Present value follows the size-squared rule: value = BaseValue * size^2.
