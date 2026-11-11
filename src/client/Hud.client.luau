@@ -9,10 +9,12 @@ local ContextActionService = game:GetService("ContextActionService")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local BodyHeat = require(ReplicatedStorage.Shared.BodyHeat)
 local Config = require(ReplicatedStorage.Shared.Config)
+local HudFeedback = require(ReplicatedStorage.Shared.HudFeedback)
 local HudLayout = require(ReplicatedStorage.Shared.HudLayout)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Util = require(ReplicatedStorage.Shared.Util)
@@ -101,6 +103,15 @@ local function button(
 	b.Font = FONT
 	b.TextSize = 20
 	b.Text = text
+	-- Rounded with a dark rim, like the tip card, so buttons read as buttons.
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 10)
+	corner.Parent = b
+	local rim = Instance.new("UIStroke")
+	rim.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	rim.Color = Color3.fromRGB(20, 25, 45)
+	rim.Thickness = 2
+	rim.Parent = b
 	b.Parent = parent
 	b.Activated:Connect(onClick)
 	return b
@@ -127,6 +138,33 @@ end
 
 local function leave()
 	leaveCrew:FireServer()
+end
+
+-- Which device the button labels are for: phones never see "(Space)".
+local function lastInputName(): string?
+	local ok, inputType = pcall(function()
+		return UserInputService:GetLastInputType()
+	end)
+	return if ok and inputType then inputType.Name else nil
+end
+local device = HudFeedback.deviceFor(lastInputName(), touch)
+local keyed: { [TextButton]: string } = {} -- button -> action
+local function relabel()
+	for b, action in keyed do
+		b.Text = HudFeedback.keyHint(action, device)
+	end
+end
+local lastInputChanged = (UserInputService :: any).LastInputTypeChanged
+if lastInputChanged then
+	lastInputChanged:Connect(function(inputType)
+		local now = HudFeedback.deviceFor(inputType.Name, touch)
+		-- Mouse moves and stray inputs shouldn't flip a phone to keyboard
+		-- labels unless a real keyboard is attached.
+		if now ~= device and (now ~= "Keyboard" or UserInputService.KeyboardEnabled) then
+			device = now
+			relabel()
+		end
+	end)
 end
 
 local function tap()
@@ -156,7 +194,7 @@ noiseTitle.Text = "NOISE 0%"
 local noiseFill = bar(noisePanel, UDim2.fromOffset(10, 30))
 local noiseBack = noiseFill.Parent :: Frame
 noiseBack.Size = UDim2.new(1, -20, 0, 24)
-local noiseHint = label(noisePanel, UDim2.new(1, 0, 0, 20), UDim2.fromOffset(0, 56), 16)
+local noiseHint = label(noisePanel, UDim2.new(1, 0, 0, 20), UDim2.fromOffset(0, 56), 18)
 local bellsLabel = label(noisePanel, UDim2.new(1, 0, 0, 24), UDim2.fromOffset(0, 78), 20)
 bellsLabel.TextColor3 = RED
 local noiseGlow = Instance.new("UIStroke")
@@ -165,8 +203,9 @@ noiseGlow.Thickness = 0
 noiseGlow.Parent = noisePanel
 local noiseLevel = 0 -- 0..1, the last meter value
 local NOISE_HINT = {
-	dogs = "Fills up = guard dogs + early horn!",
-	krampus = "Fills up = KRAMPUS comes!",
+	-- Short enough for 18 px in the panel (16 px read as ~10 on phones).
+	dogs = "Full = dogs + early horn!",
+	krampus = "Full = KRAMPUS comes!",
 }
 
 -- The glow pulses once the meter is three-quarters full.
@@ -193,8 +232,51 @@ stroke.Thickness = 0
 stroke.Parent = vignette
 vignette.Parent = gui
 
--- Centre: banner.
-local banner = label(gui, UDim2.new(0.8, 0, 0, 90), UDim2.new(0.1, 0, 0.2, 0), 34)
+-- Under the stop timer, one column that only takes the room of what is
+-- showing: the map event chip, body heat, the banner and the tip card
+-- (Tips.client parents its card here). They used to sit at fixed heights,
+-- so the banner wrote over the tip card and the heat bar hid under it.
+local topStack = Instance.new("Frame")
+topStack.Name = HudLayout.TopStack.name
+topStack.Size = UDim2.fromOffset(HudLayout.TopStack.width, 0)
+topStack.Position = UDim2.new(0.5, 0, 0, HudLayout.TopStack.y)
+topStack.AnchorPoint = Vector2.new(0.5, 0)
+topStack.BackgroundTransparency = 1
+topStack.Parent = gui
+local stackLayout = Instance.new("UIListLayout")
+stackLayout.FillDirection = Enum.FillDirection.Vertical
+stackLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+stackLayout.SortOrder = Enum.SortOrder.LayoutOrder
+stackLayout.Padding = UDim.new(0, 6)
+stackLayout.Parent = topStack
+
+local function stacked(f: GuiObject, key: string)
+	f.Position = UDim2.new()
+	f.AnchorPoint = Vector2.zero
+	f.LayoutOrder = HudLayout.TopStack.order[key]
+	f.Parent = topStack
+end
+
+-- Banner: a dark pill behind the text so it reads on bright snow.
+local bannerPanel = Instance.new("Frame")
+bannerPanel.Name = "Banner"
+bannerPanel.Size = UDim2.new(1, 0, 0, 0)
+bannerPanel.AutomaticSize = Enum.AutomaticSize.Y
+bannerPanel.BackgroundColor3 = Color3.fromRGB(20, 25, 45)
+bannerPanel.BackgroundTransparency = 0.35
+bannerPanel.Visible = false
+local bannerCorner = Instance.new("UICorner")
+bannerCorner.CornerRadius = UDim.new(0, 14)
+bannerCorner.Parent = bannerPanel
+local bannerPad = Instance.new("UIPadding")
+bannerPad.PaddingTop = UDim.new(0, 6)
+bannerPad.PaddingBottom = UDim.new(0, 6)
+bannerPad.PaddingLeft = UDim.new(0, 12)
+bannerPad.PaddingRight = UDim.new(0, 12)
+bannerPad.Parent = bannerPanel
+stacked(bannerPanel, "banner")
+local banner = label(bannerPanel, UDim2.new(1, 0, 0, 0), UDim2.new(), 30)
+banner.AutomaticSize = Enum.AutomaticSize.Y
 banner.TextWrapped = true
 local bannerToken = 0
 
@@ -202,7 +284,8 @@ local bannerToken = 0
 local krampusPanel = panel(UDim2.fromOffset(320, 130), UDim2.new(0.5, 0, 1, -250), Vector2.new(0.5, 0))
 local krampusLabel = label(krampusPanel, UDim2.new(1, 0, 0, 30), UDim2.fromOffset(0, 4), 22)
 local krampusFill = bar(krampusPanel, UDim2.fromOffset(10, 38))
-button(krampusPanel, "TAP! (Space)", UDim2.fromOffset(140, 50), UDim2.new(0, 10, 0, 66), tap)
+local tapButton = button(krampusPanel, "TAP!", UDim2.fromOffset(140, 50), UDim2.new(0, 10, 0, 66), tap)
+keyed[tapButton] = "Tap"
 local unhideButton = button(
 	krampusPanel,
 	"Come out",
@@ -232,13 +315,27 @@ queueLabel.TextWrapped = true
 button(queuePanel, "Leave crew", UDim2.fromOffset(160, 34), UDim2.new(0.5, -80, 0, 58), leave)
 
 -- Top left, under the stats: quit the run back to the hub (never in the
--- bottom-left, where a phone's thumbstick is).
-local quitButton = button(gui, "Back to hub", UDim2.fromOffset(130, 30), spots.quit, leave)
+-- bottom-left, where a phone's thumbstick is). Two taps: the first only asks,
+-- so a stray thumb on a phone never throws away a run.
+local QUIT_TEXT = "Back to hub"
+local quitArmedUntil = 0
+local quitButton: TextButton
+quitButton = button(gui, QUIT_TEXT, UDim2.fromOffset(130, 30), spots.quit, function()
+	local go, armedUntil = HudFeedback.confirmLeave(Util.now(), quitArmedUntil)
+	quitArmedUntil = armedUntil
+	if go then
+		quitButton.Text = QUIT_TEXT
+		leave()
+	else
+		quitButton.Text = "Tap again to leave"
+	end
+end)
 quitButton.Visible = false
 
 -- Under the stop timer: the running map event and its countdown.
 local eventPanel = panel(UDim2.fromOffset(240, 34), UDim2.new(0.5, 0, 0, 98), Vector2.new(0.5, 0))
 eventPanel.BackgroundColor3 = Color3.fromRGB(60, 110, 170)
+stacked(eventPanel, "event")
 local eventLabel = label(eventPanel, UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), 22)
 
 -- Under that: body heat in Krampus's Lair (server/Swimming sets the player
@@ -247,6 +344,7 @@ local heatPanel = panel(UDim2.fromOffset(260, 58), UDim2.new(0.5, 0, 0, 138), Ve
 local heatLabel = label(heatPanel, UDim2.new(1, 0, 0, 24), UDim2.fromOffset(0, 2), 18)
 local heatFill = bar(heatPanel, UDim2.fromOffset(10, 30))
 heatPanel.Visible = false
+stacked(heatPanel, "heat")
 local function showHeat()
 	local heat = player:GetAttribute(BodyHeat.ATTRIBUTE)
 	local frozen = player:GetAttribute(BodyHeat.FROZEN_ATTRIBUTE) == true
@@ -266,9 +364,11 @@ player:GetAttributeChangedSignal(BodyHeat.FROZEN_ATTRIBUTE):Connect(showHeat)
 -- button (F / R2 / tap).
 local snowPanel = panel(UDim2.fromOffset(170, 96), spots.snow, Vector2.new(1, 0))
 local snowLabel = label(snowPanel, UDim2.new(1, 0, 0, 30), UDim2.fromOffset(0, 4), 22)
-button(snowPanel, "THROW (F)", UDim2.new(1, -20, 0, 50), UDim2.fromOffset(10, 38), function()
+local throwButton = button(snowPanel, "THROW", UDim2.new(1, -20, 0, 50), UDim2.fromOffset(10, 38), function()
 	input:FireServer("Throw")
 end)
+keyed[throwButton] = "Throw"
+relabel()
 
 -- Full-screen splat when a crewmate's snowball hits you (cosmetic only).
 local splatFrame = Instance.new("Frame")
@@ -289,6 +389,51 @@ resultsBody.TextYAlignment = Enum.TextYAlignment.Top
 resultsBody.TextXAlignment = Enum.TextXAlignment.Left
 resultsBody.RichText = true
 local resultsFooter = label(resultsPanel, UDim2.new(1, 0, 0, 36), UDim2.new(0, 0, 1, -44), 22)
+-- Your own haul, big, above the footer: the number a kid actually cares about.
+local resultsMine = label(resultsPanel, UDim2.new(1, 0, 0, 34), UDim2.new(0, 0, 1, -82), 26)
+resultsMine.TextColor3 = GOLD
+
+-- Floating "+12" numbers off the stats panel (HudFeedback.pops).
+local POP_COLOURS = {
+	sack = Color3.new(1, 1, 1),
+	jingle = GOLD,
+	bank = Color3.fromRGB(120, 230, 120),
+	spill = RED,
+	spend = Color3.fromRGB(255, 170, 90),
+}
+local popRise = TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local function pop(p: HudFeedback.Pop)
+	-- Right-aligned at the end of the stat's own row (the rows' text is
+	-- left-aligned and short), rising and fading in under a second.
+	local big = p.kind == "bank"
+	local row = if p.kind == "jingle" or p.kind == "spend"
+		then jingleLabel
+		elseif big then bankedLabel
+		else sackLabel
+	local l = label(statsPanel, UDim2.fromOffset(90, 28), UDim2.new(1, -98, 0, row.Position.Y.Offset), if big then 28 else 24)
+	l.Name = "Pop"
+	l.TextXAlignment = Enum.TextXAlignment.Right
+	l.TextColor3 = POP_COLOURS[p.kind] or WHITE
+	l.Text = p.text
+	local goal = {
+		Position = l.Position - UDim2.fromOffset(0, if big then 36 else 24),
+		TextTransparency = 1,
+		TextStrokeTransparency = 1,
+	}
+	local tween = TweenService:Create(l, popRise, goal)
+	tween.Completed:Connect(function()
+		l:Destroy()
+	end)
+	tween:Play()
+end
+
+-- A quick swell on a label (the sack when it fills, the banked line).
+local function bump(l: TextLabel)
+	local base = l:GetAttribute("BaseTextSize") or l.TextSize
+	l:SetAttribute("BaseTextSize", base)
+	l.TextSize = base + 6
+	TweenService:Create(l, TweenInfo.new(0.35, Enum.EasingStyle.Back), { TextSize = base }):Play()
+end
 
 ----------------------------------------------------------------------------
 -- State
@@ -305,6 +450,7 @@ local savedFog: { any }? = nil -- Lighting fog before a weather event
 local savedAtmosphere: { [string]: any }? = nil -- and the Atmosphere's look
 local snowfall: BasePart? = nil -- follows the camera while it snows
 local splatUntil = 0
+local lastPlayerData: any = nil
 
 -- Labels refreshed by the loop at the bottom only get written when the text changes.
 local shown: { [TextLabel]: string } = {}
@@ -330,9 +476,11 @@ local function showBanner(text: string, seconds: number)
 	bannerToken += 1
 	local token = bannerToken
 	banner.Text = text
+	bannerPanel.Visible = text ~= ""
 	task.delay(seconds, function()
 		if bannerToken == token then
 			banner.Text = ""
+			bannerPanel.Visible = false
 		end
 	end)
 end
@@ -408,13 +556,27 @@ end
 function handlers.Player(data)
 	setInRun(true)
 	jingleLabel.Text = "Jingle: " .. data.jingle
+	local full = HudFeedback.sackFull(data, Config.Sack.Capacity)
 	sackLabel.Text = string.format(
-		"Sack: %d/%d  (%d)",
+		"Sack: %d/%d  (%d)%s",
 		data.sackCount,
 		data.sackCapacity or Config.Sack.Capacity,
-		data.sackValue
+		data.sackValue,
+		if full then "  FULL" else ""
 	)
+	sackLabel.TextColor3 = if full then RED else WHITE
 	bankedLabel.Text = "Banked in sleigh: " .. data.banked .. (if data.rush then "  · Rush" else "")
+	local before = lastPlayerData
+	lastPlayerData = data
+	for _, p in HudFeedback.pops(before, data) do
+		pop(p)
+		if p.kind == "bank" then
+			bump(bankedLabel)
+		end
+	end
+	if full and before and not HudFeedback.sackFull(before, Config.Sack.Capacity) then
+		bump(sackLabel)
+	end
 end
 
 function handlers.Krampus(data)
@@ -475,20 +637,25 @@ function handlers.Results(data)
 	local best = data.rows[1]
 	resultsTitle.Text = if best then "Best thief: " .. best.name else "Run over"
 	local lines = {}
+	local mine = nil
 	for i, row in data.rows do
-		table.insert(
-			lines,
-			string.format(
-				"%d. <b>%s</b>  loot %d  ->  %d Coal  %s",
-				i,
-				row.name,
-				row.loot,
-				row.coal,
-				if row.escaped then "(escaped x2)" else "(missed the sleigh)"
-			)
+		-- Display names aren't unique on Roblox: match on the user id.
+		local me = if row.userId then row.userId == player.UserId else row.name == player.DisplayName
+		if me then
+			mine = row
+		end
+		local line = string.format(
+			"%d. <b>%s</b>  loot %d  ->  %d Coal  %s",
+			i,
+			Util.escapeRichText(row.name),
+			row.loot,
+			row.coal,
+			if row.escaped then "(escaped x2)" else "(missed the sleigh)"
 		)
+		table.insert(lines, if me then '<font color="#FFC83C">' .. line .. "</font>" else line)
 	end
 	resultsBody.Text = table.concat(lines, "\n")
+	resultsMine.Text = if mine then "You got +" .. mine.coal .. " Coal!" else ""
 	resultsEndsAt = data.endsAt
 end
 
@@ -598,6 +765,9 @@ function handlers.RunEnd()
 	setTapMode(false)
 	handlers.Krampus({})
 	stopState = nil
+	lastPlayerData = nil -- the next run's first update isn't a "spend"
+	quitArmedUntil = 0
+	quitButton.Text = QUIT_TEXT
 	resultsPanel.Visible = false
 end
 
@@ -614,7 +784,17 @@ while true do
 	task.wait(0.1)
 	fitToScreen() -- phones rotate and resize
 	if stopState and stopState.stop > 0 and stopState.phase ~= "Flight" then
-		setText(timerLabel, Util.clock(secondsLeft(stopState.departAt)))
+		local left = secondsLeft(stopState.departAt)
+		setText(timerLabel, Util.clock(left))
+		-- The horn's last seconds throb so nobody misses the sleigh.
+		local urgency = HudFeedback.timerUrgency(stopState.phase, left)
+		timerLabel.TextSize = 40 + urgency * math.abs(math.sin(os.clock() * 6))
+	else
+		timerLabel.TextSize = 40
+	end
+	if quitArmedUntil > 0 and Util.now() >= quitArmedUntil then
+		quitArmedUntil = 0
+		quitButton.Text = QUIT_TEXT
 	end
 	if queueState then
 		local prefix = if queueState.requeue then "Heist again together! " else ""

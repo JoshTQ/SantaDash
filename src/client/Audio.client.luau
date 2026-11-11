@@ -163,7 +163,7 @@ end
 function handlers.Results(data)
 	local mine
 	for _, row in data.rows do
-		if row.name == player.DisplayName then
+		if if row.userId then row.userId == player.UserId else row.name == player.DisplayName then
 			mine = row
 		end
 	end

@@ -1383,7 +1383,10 @@ function Run:_main()
 		local entries = {}
 		for player, st in self.players do
 			-- Coal is saved here, through 2X Loot and any Santa's Blessing.
-			table.insert(entries, { player.DisplayName, st, Store.creditRun(player, Loot.finalLoot(st)) })
+			table.insert(
+				entries,
+				{ player.DisplayName, st, Store.creditRun(player, Loot.finalLoot(st)), player.UserId }
+			)
 		end
 		self:_send(nil, "Results", {
 			rows = Loot.results(entries),

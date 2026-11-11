@@ -25,6 +25,17 @@ function HudLayout.scale(viewport: Vector2?): number
 	return math.max(HudLayout.MinScale, s)
 end
 
+-- One column under the stop timer: the map event chip, body heat, banners
+-- and first-time tips stack in this order and only take room while shown,
+-- so none of them can cover another (Hud.client builds it, Tips.client
+-- puts its card in it).
+HudLayout.TopStack = {
+	name = "TopStack",
+	y = 98, -- px from the top: just under the 84 px stop panel at y 8
+	width = 560,
+	order = { event = 1, heat = 2, banner = 3, tip = 4 },
+}
+
 export type Spots = { snow: UDim2, quit: UDim2 }
 
 -- Positions for the controls that would otherwise sit under the touch
