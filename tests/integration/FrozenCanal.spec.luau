@@ -111,9 +111,9 @@ test("streets have gardens, fences, hedges and barriers; the market and rink are
 	for _, name in { "Lawn", "Picket", "Hedge", "Bollard", "Pavement", "IceSign", "BoostHoop" } do
 		expect(#named(stop1, name)).toBeGreaterThan(0)
 	end
-	expect(#named(stop1, "StallCounter")).toBeGreaterThan(10)
+	-- Decorative stalls that sold nothing are gone (Josh, 11 Nov 2026).
+	expect(#named(route.model, "StallCounter")).toBe(0)
 	expect(#route.stops[1].canal.dogs).toBe(Config.Canal.Dogs.Count)
-	expect(#named(stop2, "StallCounter")).toBe(0)
 	expect(#named(stop2, "RinkIce")).toBe(1)
 	expect(#route.stops[2].canal.rink.snowbanks).toBe(4)
 end)

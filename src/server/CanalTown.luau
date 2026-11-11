@@ -1,6 +1,6 @@
 --[[
 	Frozen Canal Town map features (see shared/Maps/FrozenCanal and
-	MapFeatures). Everything is greybox Parts until the canal kit (stalls,
+	MapFeatures). Everything is greybox Parts until the canal kit (
 	hoops, rink edge, floes, bridge) is approved; the security dogs use the
 	approved DogCorgi / DogTin models from ServerStorage.Assets when present.
 
@@ -59,7 +59,6 @@ local FACADES = {
 	Color3.fromRGB(215, 190, 240),
 	Color3.fromRGB(150, 95, 70),
 }
-local STALLS = { "COCOA", "GINGERBREAD", "BAUBLES", "ROASTED NUTS", "TOYS", "CANDY CANES", "MITTENS" }
 
 -- zone part -> floe keepouts (zone space) and its floes once broken
 local keepoutsFor: { [BasePart]: { CanalRules.Keepout } } = setmetatable({}, { __mode = "k" }) :: any
@@ -1116,7 +1115,7 @@ function CanalTown.breakZone(zone: BasePart, rng: Random?): { BasePart }
 end
 
 ----------------------------------------------------------------------------
--- ChristmasMarket: stalls along the pavements, security dogs on patrol
+-- ChristmasMarket: security dogs on patrol along the pavements
 ----------------------------------------------------------------------------
 
 local ChristmasMarket = {}
@@ -1124,52 +1123,9 @@ local ChristmasMarket = {}
 function ChristmasMarket.build(ctx)
 	local layout = ctx.map.layout
 	local state = canalState(ctx.stop)
-	local inner = layout.RoadWidth / 2 + C.Promenade
-	local n = 0
-	for _, side in { -1, 1 } do
-		local z = 60
-		while z <= 390 do
-			local nearHouse = false
-			for _, h in ctx.stop.plan.houses do
-				if h.side == side and math.abs(h.distance - z) < h.size.X / 2 + 10 then
-					nearHouse = true
-				end
-			end
-			if not nearHouse then
-				n += 1
-				local x = side * (inner + 3)
-				local counter = ctx.newPart(
-					ctx.model,
-					"StallCounter",
-					Vector3.new(4, 3.4, 9),
-					ctx.origin * CFrame.new(x, 1.7, z),
-					WOOD,
-					Enum.Material.Wood
-				)
-				for _, dz in { -4.2, 4.2 } do
-					ctx.newPart(
-						ctx.model,
-						"StallPost",
-						Vector3.new(0.6, 8, 0.6),
-						ctx.origin * CFrame.new(x - side * 1.6, 4, z + dz),
-						WOOD,
-						Enum.Material.Wood
-					)
-				end
-				for k = 0, 3 do
-					ctx.newPart(
-						ctx.model,
-						"StallRoof",
-						Vector3.new(6, 0.6, 2.4),
-						ctx.origin * CFrame.new(x, 8.2, z - 3.6 + k * 2.4) * CFrame.Angles(0, 0, side * 0.25),
-						if k % 2 == 0 then CANDY else WHITE
-					)
-				end
-				label(counter, STALLS[(n - 1) % #STALLS + 1], GOLD, 7.5, 80)
-			end
-			z += 30
-		end
-	end
+	-- No pavement stalls (Josh, 11 Nov 2026: "only keep genuine ones that
+	-- sell stuff"). The only shops are the cocoa and Wardrobe stalls at
+	-- every Sleigh Stop (MapBuilder). The market is the dogs' beat.
 
 	-- Dog patrols: up and down each pavement, two dogs a side, mixed designs.
 	for d = 1, C.Dogs.Count do

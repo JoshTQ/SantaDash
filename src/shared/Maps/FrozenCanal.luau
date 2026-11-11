@@ -43,7 +43,7 @@ return {
 		{ kind = "CanalStreet" }, -- pavements, gardens, hedges, fences, canal barriers
 		{ kind = "Woodland" }, -- pine forest and snowy hills around the town
 		{ kind = "SkateCanal" }, -- main canal, boost hoops, skating, Thin Ice segments
-		{ kind = "ChristmasMarket", stops = { 1 } }, -- stalls + security dogs
+		{ kind = "ChristmasMarket", stops = { 1 } }, -- security dogs (no fake stalls)
 		{ kind = "IceRink", stops = { 2 }, centre = Vector3.new(0, 0, 230), radius = 46 },
 		{
 			kind = "FloeLake",

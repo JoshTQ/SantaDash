@@ -53,6 +53,7 @@ end
 
 local route = build(11)
 local c = census(route.model)
+print(string.format("  [budget] route parts %d, billboards %d", c.parts, c.billboards))
 
 test("a route stays inside the phone budget", function()
 	expect(c.parts).toBeLessThan(BUDGET.Parts)
