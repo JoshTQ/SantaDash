@@ -16,7 +16,6 @@
 	bells cancels it.
 ]]
 
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -25,6 +24,7 @@ local SoundPlayer = require(ReplicatedStorage.Shared.SoundPlayer)
 local Util = require(ReplicatedStorage.Shared.Util)
 local KrampusBrain = require(script.Parent.KrampusBrain)
 local Onboarding = require(script.Parent.Onboarding)
+local Swimming = require(script.Parent.Swimming)
 
 local M = Config.Krampus.Magic
 local FROST = Color3.fromRGB(127, 227, 255)
@@ -78,17 +78,32 @@ local function sparkles(parent: Instance, color: Color3, rate: number): Particle
 	return p
 end
 
+-- Exclude-filter raycast params, or nil where there are none (the Lune test world).
+local function rayParams(exclude: { Instance }): RaycastParams?
+	local ok, params = pcall(function()
+		local p = RaycastParams.new()
+		p.FilterType = Enum.RaycastFilterType.Exclude
+		p.FilterDescendantsInstances = exclude
+		p.RespectCanCollide = true
+		return p
+	end)
+	return if ok then params else nil
+end
+
+local FLOOR_PARAMS = rayParams({})
+
+local function cast(from: Vector3, by: Vector3, params: RaycastParams?): RaycastResult?
+	if not params then
+		return nil
+	end
+	local ok, hit = pcall(workspace.Raycast, workspace, from, by, params)
+	return if ok then hit else nil
+end
+
 -- The floor under a point, if the world can tell us (falls back to `y`).
 local function floorY(at: Vector3, y: number): number
-	local ok, hit = pcall(function()
-		local params = RaycastParams.new()
-		params.FilterType = Enum.RaycastFilterType.Exclude
-		return workspace:Raycast(at, Vector3.new(0, -30, 0), params)
-	end)
-	if ok and hit then
-		return hit.Position.Y
-	end
-	return y
+	local hit = cast(at, Vector3.new(0, -30, 0), FLOOR_PARAMS)
+	return if hit then hit.Position.Y else y
 end
 
 function Magic.new(krampus, arrivedAt: number)
@@ -96,7 +111,7 @@ function Magic.new(krampus, arrivedAt: number)
 	self.krampus = krampus
 	self.run = krampus.run
 	self.arrivedAt = arrivedAt
-	self.lastCastAt = arrivedAt + M.FirstCastAfter - math.max(table.unpack(M.Grumpy.Cooldown))
+	self.lastCastAt = -math.huge
 	self.lastTrick = nil :: string?
 	self.bellRings = 0
 	self.hitAt = {} :: { [Player]: number }
@@ -106,6 +121,10 @@ function Magic.new(krampus, arrivedAt: number)
 	self.token = 0
 	self.temp = {} :: { Instance } -- telegraphs and effects to clear on cancel
 	self.alive = true
+	local run = self.run
+	self.safe = function(at: Vector3)
+		return run:nearSleighStop(at, M.BellBlink.SafeMargin)
+	end
 	return self
 end
 
@@ -119,13 +138,17 @@ function Magic:onBells()
 	self:cancel()
 end
 
-function Magic:cancel()
-	self.token += 1
+function Magic:_clearTemp()
 	self.casting = nil
 	for _, thing in self.temp do
 		thing:Destroy()
 	end
 	table.clear(self.temp)
+end
+
+function Magic:cancel()
+	self.token += 1
+	self:_clearTemp()
 	pcall(function()
 		self.krampus.body.root.Anchored = false
 	end)
@@ -136,30 +159,27 @@ function Magic:_keep(thing: Instance): Instance
 	return thing
 end
 
--- Called every Krampus tick when he is free to act. Returns true while a
--- trick is being cast (he stands still).
-function Magic:think(t: number): boolean
+-- Called every Krampus tick when he is free to act, with this tick's
+-- candidates. Returns true while a trick is being cast (he stands still).
+function Magic:think(t: number, candidates: { KrampusBrain.Candidate }): boolean
 	self:_skidPatches(t)
 	if self.casting then
 		return true
 	end
-	if not M.Enabled or t < self.arrivedAt + M.FirstCastAfter then
+	local level = self:level(t)
+	if t < self.arrivedAt + M.FirstCastAfter or t - self.lastCastAt < M.Grumpy.Cooldown[level] then
 		return false
 	end
-	local run = self.run
-	local from = self.krampus.body.root.Position
 	local trick, target = KrampusBrain.pickTrick({
 		now = t,
-		level = self:level(t),
+		level = level,
 		lastCastAt = self.lastCastAt,
 		lastTrick = self.lastTrick,
-		from = from,
-		candidates = run:krampusCandidates(self.krampus.ignore),
+		from = self.krampus.body.root.Position,
+		candidates = candidates,
 		hitAt = self.hitAt,
-		noiseAt = run.lastNoisePos,
-		safe = function(at: Vector3)
-			return run:nearSleighStop(at, M.BellBlink.SafeMargin)
-		end,
+		noiseAt = self.run.lastNoisePos,
+		safe = self.safe,
 	})
 	if not trick or not target then
 		return false
@@ -175,11 +195,7 @@ function Magic:think(t: number): boolean
 			warn("[KrampusMagic] " .. trick .. ": " .. tostring(err))
 		end
 		if self.token == token then
-			self.casting = nil
-			for _, thing in self.temp do
-				thing:Destroy()
-			end
-			table.clear(self.temp)
+			self:_clearTemp()
 		end
 	end)
 	return true
@@ -224,22 +240,16 @@ function Magic:_FrostZap(_player: Player, aim: Vector3, token: number)
 	local start = root.Position + Vector3.new(0, 2, 0)
 	local dir = Vector3.new(aim.X - start.X, 0, aim.Z - start.Z)
 	dir = if dir.Magnitude > 1e-3 then dir.Unit else root.CFrame.LookVector
-	local orb = self:_keep(Instance.new("Part")) :: Part
-	orb.Name = "FrostOrb"
+	local orb = self:_keep(anchor("FrostOrb", CFrame.new(start))) :: Part
 	orb.Shape = Enum.PartType.Ball
 	orb.Size = Vector3.new(2.5, 2.5, 2.5)
 	orb.Material = Enum.Material.Ice
 	orb.Color = FROST
 	orb.Transparency = 0.2
-	orb.Anchored = true
-	orb.CanCollide = false
-	orb.CanQuery = false
-	orb.CanTouch = false
-	orb.CFrame = CFrame.new(start)
-	orb.Parent = workspace
 	self:_keep(sparkles(orb, FROST, 30))
 	SoundPlayer.at("CutsceneYoink", orb)
 	self.casting = nil -- he can move again while it flies
+	local params = rayParams({ self.krampus.body.model, orb })
 	local travelled, hit = 0, nil
 	while travelled < z.OrbSpeed * z.OrbFlight do
 		local dt = RunService.Heartbeat:Wait()
@@ -248,18 +258,8 @@ function Magic:_FrostZap(_player: Player, aim: Vector3, token: number)
 		end
 		local step = dir * z.OrbSpeed * dt
 		local here = orb.CFrame.Position
-		local ok, wall = pcall(function()
-			local params = RaycastParams.new()
-			params.FilterType = Enum.RaycastFilterType.Exclude
-			params.FilterDescendantsInstances = { self.krampus.body.model, orb }
-			params.RespectCanCollide = true
-			return workspace:Raycast(here, step, params)
-		end)
-		if
-			ok
-			and wall
-			and not Players:GetPlayerFromCharacter(wall.Instance:FindFirstAncestorOfClass("Model"))
-		then
+		local wall = cast(here, step, params)
+		if wall and not Util.playerFromHit(wall.Instance) then
 			break -- splats on a wall
 		end
 		orb.CFrame = CFrame.new(here + step)
@@ -277,11 +277,11 @@ end
 
 -- Any free Santa the orb is touching (not only the one he aimed at).
 function Magic:_orbHit(at: Vector3): Player?
-	for player, st in self.run.players do
+	for player in self.run.players do
 		local root = Util.rootOf(player)
 		if
 			root
-			and not (st.captive or st.hidden or st.frozen or st.iced)
+			and self.run:_free(player)
 			and (root.Position - at).Magnitude <= M.FrostZap.HitRadius
 			and not self.run:nearSleighStop(root.Position, 0)
 		then
@@ -301,18 +301,7 @@ function Magic:freeze(player: Player, slide: Vector3?)
 	st.iced = true
 	self.hitAt[player] = Util.now()
 	root.Anchored = true
-	local cube = Instance.new("Part")
-	cube.Name = "IcedSanta"
-	cube.Anchored = true
-	cube.CanCollide = false
-	cube.CanQuery = false
-	cube.CanTouch = false
-	cube.Size = Vector3.new(6, 7, 6)
-	cube.Color = Color3.fromRGB(190, 235, 255)
-	cube.Material = Enum.Material.Ice
-	cube.Transparency = 0.35
-	cube.CFrame = CFrame.new(root.Position)
-	cube.Parent = workspace
+	local cube = Swimming.iceCube(root, "IcedSanta")
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.ActionText = "Smash the ice"
 	prompt.ObjectText = player.DisplayName
@@ -382,10 +371,6 @@ function Magic:crack(player: Player)
 	end
 end
 
-function Magic:isIced(player: Player): boolean
-	return self.cubes[player] ~= nil
-end
-
 -- Out of the ice (quiet: he is snatching them, so no banner and stay anchored).
 function Magic:thaw(player: Player, quiet: boolean?)
 	local entry = self.cubes[player]
@@ -399,8 +384,8 @@ function Magic:thaw(player: Player, quiet: boolean?)
 	if st then
 		st.iced = false
 	end
+	run:_send(player, "Iced", { iced = false })
 	if quiet then
-		run:_send(player, "Iced", { iced = false })
 		return
 	end
 	SoundPlayer.at("IceCrack", entry.part.Position)
@@ -408,17 +393,15 @@ function Magic:thaw(player: Player, quiet: boolean?)
 	if root and st and not st.captive then
 		root.Anchored = false
 	end
-	run:_send(player, "Iced", { iced = false })
 end
 
 ----------------------------------------------------------------------------
 -- Frost Stomp
 ----------------------------------------------------------------------------
 
-local function airborne(player: Player, startY: number?): boolean
+local function airborne(player: Player, root: BasePart, startY: number?): boolean
 	local humanoid = Util.humanoidOf(player)
-	local root = Util.rootOf(player)
-	if not humanoid or not root then
+	if not humanoid then
 		return true
 	end
 	local state = humanoid:GetState()
@@ -444,12 +427,9 @@ function Magic:_FrostStomp(_player: Player, _aim: Vector3, token: number)
 		local r = Util.rootOf(player)
 		if r then
 			startY[player] = r.Position.Y
-		end
-	end
-	for player in run.players do
-		local r = Util.rootOf(player)
-		if r and (r.Position - centre).Magnitude <= s.Radius + 10 then
-			Onboarding.teach(player, "FrostRing")
+			if (r.Position - centre).Magnitude <= s.Radius + 10 then
+				Onboarding.teach(player, "FrostRing")
+			end
 		end
 	end
 	if not self:_wait(s.WindUp, token) then
@@ -465,12 +445,13 @@ function Magic:_FrostStomp(_player: Player, _aim: Vector3, token: number)
 		local r = KrampusBrain.stompRadius(t)
 		wave.Radius = math.max(1, r)
 		wave.InnerRadius = math.max(0, r - s.RingWidth)
-		for player, st in run.players do
+		for player in run.players do
 			local pr = Util.rootOf(player)
-			if pr and not hit[player] and not (st.captive or st.hidden or st.frozen or st.iced) then
-				local d = Vector3.new(pr.Position.X - centre.X, 0, pr.Position.Z - centre.Z).Magnitude
+			if pr and not hit[player] and run:_free(player) then
+				local d = KrampusBrain.flat(pr.Position, centre)
 				if
-					KrampusBrain.stompHits(d, r, airborne(player, startY[player]))
+					KrampusBrain.stompHits(d, r, false) -- the cheap band check first
+					and not airborne(player, pr, startY[player])
 					and not run:nearSleighStop(pr.Position, 0)
 				then
 					hit[player] = true
@@ -501,46 +482,50 @@ function Magic:_FrostStomp(_player: Player, _aim: Vector3, token: number)
 	end)
 end
 
--- Skids a Santa at half speed for SkidSeconds.
+-- Skids a Santa at half speed for SkidSeconds (more frost just extends it).
 function Magic:skid(player: Player)
 	local run = self.run
 	local st = run.players[player]
 	if not st then
 		return
 	end
-	local fresh = (st.skidUntil or 0) <= Util.now()
+	local skidding = (st.skidUntil or 0) > Util.now()
 	st.skidUntil = Util.now() + M.FrostStomp.SkidSeconds
-	run:_applyPerks(player)
-	if fresh then
-		run:_banner(player, "Whoa! Skidding on frost!", 2)
-		SoundPlayer.at("CutsceneYoink", Util.rootOf(player) or self.krampus.body.root)
+	if skidding then
+		return
 	end
-	task.delay(M.FrostStomp.SkidSeconds + 0.05, function()
-		local now = run.players[player]
-		if now and (now.skidUntil or 0) <= Util.now() then
+	run:_applyPerks(player)
+	run:_banner(player, "Whoa! Skidding on frost!", 2)
+	SoundPlayer.at("CutsceneYoink", Util.rootOf(player) or self.krampus.body.root)
+	task.spawn(function()
+		repeat
+			task.wait(math.max(0.05, (st.skidUntil or 0) - Util.now() + 0.05))
+		until (st.skidUntil or 0) <= Util.now()
+		if run.players[player] == st then
 			run:_applyPerks(player)
 		end
 	end)
 end
 
 function Magic:_skidPatches(t: number)
-	if #self.patches == 0 then
-		return
-	end
-	local keep = {}
-	for _, patch in self.patches do
-		if patch.untilT > t then
-			table.insert(keep, patch)
+	local patches = self.patches
+	for i = #patches, 1, -1 do
+		if patches[i].untilT <= t then
+			table.remove(patches, i)
 		end
 	end
-	self.patches = keep
-	for player, st in self.run.players do
+	if #patches == 0 then
+		return
+	end
+	for player in self.run.players do
 		local root = Util.rootOf(player)
-		if root and not (st.captive or st.hidden or st.frozen or st.iced) then
-			for _, patch in keep do
-				local p = root.Position
-				local d = Vector3.new(p.X - patch.at.X, 0, p.Z - patch.at.Z).Magnitude
-				if d <= M.FrostStomp.PatchRadius and math.abs(p.Y - patch.at.Y) < 8 then
+		if root and self.run:_free(player) then
+			local p = root.Position
+			for _, patch in patches do
+				if
+					KrampusBrain.flat(p, patch.at) <= M.FrostStomp.PatchRadius
+					and math.abs(p.Y - patch.at.Y) < 8
+				then
 					self:skid(player)
 					break
 				end
@@ -594,7 +579,6 @@ function Magic:_BellBlink(player: Player, aim: Vector3, token: number)
 	self.hitAt[player] = Util.now()
 	-- A quick lunge after he lands.
 	krampus.lungeUntil = Util.now() + b.LungeSeconds
-	self.casting = nil
 end
 
 function Magic:destroy()

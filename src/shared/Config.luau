@@ -282,8 +282,7 @@ Config.Krampus = {
 		RehitSeconds = 10,
 		-- Grumpy Meter: seconds since he arrived. Each bell ring adds a level.
 		Grumpy = {
-			At = { 0, 30, 75 }, -- Grumpy, Cross, Furious
-			Names = { "Grumpy", "Cross", "Furious" },
+			At = { 0, 30, 75 }, -- levels: Grumpy, Cross, Furious
 			Speed = { 14, 15, 16.5 }, -- a Santa runs 16; Peppermint Rush 22
 			Cooldown = { 12, 10, 8 }, -- seconds between tricks
 			Tricks = {

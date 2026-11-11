@@ -44,12 +44,17 @@ function KrampusBrain.shouldTease(stopIndex: number, elapsed: number): boolean
 	return K.TeaseEnabled and stopIndex >= K.TeaseFrom and elapsed >= K.TeaseAt
 end
 
--- Nearest Santa he can sense: not hidden, not in his basket, not on the
--- sleigh, not in the water.
+-- A Santa he can sense: not hidden, not in his basket, not on the sleigh,
+-- not in the water, not just dropped.
+local function sensed(c: Candidate, now: number): boolean
+	return not (c.hidden or c.captive or c.aboard or c.inWater) and now >= (c.ignoreUntil or 0)
+end
+
+-- Nearest Santa he can sense.
 function KrampusBrain.pickTarget(from: Vector3, candidates: { Candidate }, now: number): Candidate?
 	local best, bestDistance = nil, K.SenseRange
 	for _, c in candidates do
-		if not (c.hidden or c.captive or c.aboard or c.inWater) and now >= (c.ignoreUntil or 0) then
+		if sensed(c, now) then
 			local distance = (c.position - from).Magnitude
 			if distance <= bestDistance then
 				best, bestDistance = c, distance
@@ -131,10 +136,6 @@ function KrampusBrain.speedFor(level: number): number
 	return M.Grumpy.Speed[level] or K.WalkSpeed
 end
 
-local function sensed(c: Candidate, now: number): boolean
-	return not (c.hidden or c.captive or c.aboard or c.inWater) and now >= (c.ignoreUntil or 0)
-end
-
 export type TrickContext = {
 	now: number,
 	level: number,
@@ -147,9 +148,11 @@ export type TrickContext = {
 	safe: (Vector3) -> boolean, -- true where he must not land (the Sleigh Stop)
 }
 
-local function flat(a: Vector3, b: Vector3): number
+-- Distance on the floor plan, ignoring height.
+function KrampusBrain.flat(a: Vector3, b: Vector3): number
 	return Vector3.new(a.X - b.X, 0, a.Z - b.Z).Magnitude
 end
+local flat = KrampusBrain.flat
 
 -- Where Bell Blink drops him: LandBeside studs from the Santa, towards where he was.
 function KrampusBrain.blinkSpot(from: Vector3, target: Vector3): Vector3
@@ -158,60 +161,59 @@ function KrampusBrain.blinkSpot(from: Vector3, target: Vector3): Vector3
 	return target + dir * M.BellBlink.LandBeside
 end
 
-local function fresh(ctx: TrickContext, c: Candidate): boolean
-	return ctx.now - (ctx.hitAt[c.player] or -math.huge) >= M.RehitSeconds
+-- The lowest-scoring sensed Santa, not hit by a trick within RehitSeconds,
+-- whose distance from him passes `fits`.
+local function best(
+	ctx: TrickContext,
+	measure: (Vector3, Vector3) -> number,
+	fits: (Candidate, number) -> boolean,
+	score: ((Candidate, number) -> number)?
+): Candidate?
+	local found, lowest = nil, math.huge
+	for _, c in ctx.candidates do
+		if sensed(c, ctx.now) and ctx.now - (ctx.hitAt[c.player] or -math.huge) >= M.RehitSeconds then
+			local d = measure(c.position, ctx.from)
+			if fits(c, d) then
+				local v = if score then score(c, d) else d
+				if v < lowest then
+					found, lowest = c, v
+				end
+			end
+		end
+	end
+	return found
+end
+
+local function along(a: Vector3, b: Vector3): number
+	return (a - b).Magnitude
 end
 
 local chooser = {}
 
 function chooser.FrostZap(ctx: TrickContext): Candidate?
 	local z = M.FrostZap
-	local best, bestDistance = nil, math.huge
-	for _, c in ctx.candidates do
-		local d = (c.position - ctx.from).Magnitude
-		if sensed(c, ctx.now) and not c.iced and fresh(ctx, c) and d >= z.MinRange and d <= z.MaxRange then
-			if d < bestDistance then
-				best, bestDistance = c, d
-			end
-		end
-	end
-	return best
+	return best(ctx, along, function(c, d)
+		return not c.iced and d >= z.MinRange and d <= z.MaxRange
+	end)
 end
 
 function chooser.FrostStomp(ctx: TrickContext): Candidate?
-	local best, bestDistance = nil, math.huge
-	for _, c in ctx.candidates do
-		local d = flat(c.position, ctx.from)
-		if sensed(c, ctx.now) and not c.iced and fresh(ctx, c) and d <= M.FrostStomp.Trigger then
-			if d < bestDistance then
-				best, bestDistance = c, d
-			end
-		end
-	end
-	return best
+	return best(ctx, flat, function(c, d)
+		return not c.iced and d <= M.FrostStomp.Trigger
+	end)
 end
 
 -- The Santa nearest the latest noise (the noisiest one), out of his reach.
 function chooser.BellBlink(ctx: TrickContext): Candidate?
 	local b = M.BellBlink
 	local focus = ctx.noiseAt or ctx.from
-	local best, bestScore = nil, math.huge
-	for _, c in ctx.candidates do
-		local d = flat(c.position, ctx.from)
-		if
-			sensed(c, ctx.now)
-			and fresh(ctx, c)
-			and d >= b.MinRange
+	return best(ctx, flat, function(c, d)
+		return d >= b.MinRange
 			and d <= b.MaxRange
 			and not ctx.safe(KrampusBrain.blinkSpot(ctx.from, c.position))
-		then
-			local score = (c.position - focus).Magnitude
-			if score < bestScore then
-				best, bestScore = c, score
-			end
-		end
-	end
-	return best
+	end, function(c)
+		return (c.position - focus).Magnitude
+	end)
 end
 
 -- Which trick to cast now, and on whom; nil while on cooldown or nobody fits.
@@ -220,9 +222,10 @@ function KrampusBrain.pickTrick(ctx: TrickContext): (string?, Candidate?)
 	if not M.Enabled or ctx.now - ctx.lastCastAt < (M.Grumpy.Cooldown[ctx.level] or math.huge) then
 		return nil, nil
 	end
-	local tricks = table.clone(M.Grumpy.Tricks[ctx.level] or {})
+	local tricks = M.Grumpy.Tricks[ctx.level] or {}
 	local i = ctx.lastTrick and table.find(tricks, ctx.lastTrick)
 	if i then
+		tricks = table.clone(tricks)
 		table.insert(tricks, table.remove(tricks, i))
 	end
 	for _, trick in tricks do

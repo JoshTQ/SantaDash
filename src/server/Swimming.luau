@@ -92,9 +92,10 @@ function Swimming.shorePoint(swim: Swim, at: Vector3): Vector3
 	return best + Vector3.new(0, 4, 0)
 end
 
-local function iceCube(root: BasePart): BasePart
+-- An ice cube round a Santa (also Krampus's Frost Zap, server/KrampusMagic).
+function Swimming.iceCube(root: BasePart, name: string?): BasePart
 	local cube = Instance.new("Part")
-	cube.Name = "FrozenSanta"
+	cube.Name = name or "FrozenSanta"
 	cube.Anchored = true
 	cube.CanCollide = false
 	cube.CanQuery = false
@@ -160,7 +161,7 @@ function Swimming.start(run, swim: Swim?): () -> ()
 		st.frozen = true
 		st.swimming = false
 		root.Anchored = true
-		cubes[player] = iceCube(root)
+		cubes[player] = Swimming.iceCube(root)
 		player:SetAttribute(BodyHeat.FROZEN_ATTRIBUTE, true)
 		SoundPlayer.at("IceCrack", root.CFrame.Position)
 		run:_banner(player, "FROZEN SOLID! Bobbing back to shore...", H.FrozenSeconds)

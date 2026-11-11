@@ -746,12 +746,7 @@ end
 
 -- Inside the Sleigh Stop (plus `margin` studs): Krampus's tricks never land there.
 function Run:nearSleighStop(at: Vector3, margin: number): boolean
-	local deck = self.deck
-	if not deck then
-		return false
-	end
-	local rel = deck:PointToObjectSpace(at)
-	return Vector3.new(rel.X, 0, rel.Z).Magnitude <= Config.Map.SleighStopRadius + margin
+	return self.deck ~= nil and MapBuilder.inSleighStop(self.deck, at, margin)
 end
 
 -- Breath for every hidden Santa, given Krampus's position. Running out = a loud gasp.

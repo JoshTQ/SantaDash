@@ -231,13 +231,14 @@ function Krampus:_think(dt: number)
 		else KrampusBrain.speedFor(self.magic:level(t))
 
 	-- A magic trick winding up: he stands still (KrampusMagic does the rest).
-	if self.magic:think(t) then
+	local candidates = run:krampusCandidates(self.ignore)
+	if self.magic:think(t, candidates) then
 		self.mover:stop()
 		self:_show("waiting")
 		return
 	end
 
-	local target = KrampusBrain.pickTarget(root.Position, run:krampusCandidates(self.ignore), t)
+	local target = KrampusBrain.pickTarget(root.Position, candidates, t)
 	if target then
 		if KrampusBrain.canCatch(root.Position, target.position) then
 			self:_snatch(target.player)
