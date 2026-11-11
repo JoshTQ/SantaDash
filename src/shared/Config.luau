@@ -346,6 +346,61 @@ Config.Krampus = {
 	BreathPerTap = 0.08,
 	MaxTapsPerSecond = 8,
 	Height = 11, -- about 2.2x a Santa
+	-- Magic tricks (Josh, 6 Nov 2026: "Krampus is too easy"; picked Frost Zap,
+	-- Frost Stomp, Bell Blink + the Grumpy Meter). Every trick is telegraphed,
+	-- one at a time, never twice on the same Santa within RehitSeconds, never
+	-- into the Sleigh Stop, and never costs loot. Effects are particles and
+	-- handle adornments: at most 3 short-lived parts at once.
+	Magic = {
+		Enabled = true,
+		FirstCastAfter = 4, -- seconds after his arrival hold before the first trick
+		RehitSeconds = 10,
+		-- Grumpy Meter: seconds since he arrived. Each bell ring adds a level.
+		Grumpy = {
+			At = { 0, 30, 75 }, -- levels: Grumpy, Cross, Furious
+			Speed = { 14, 15, 16.5 }, -- a Santa runs 16; Peppermint Rush 22
+			Cooldown = { 12, 10, 8 }, -- seconds between tricks
+			Tricks = {
+				{ "FrostZap" },
+				{ "FrostZap", "FrostStomp" },
+				{ "BellBlink", "FrostZap", "FrostStomp" },
+			},
+		},
+		FrostZap = {
+			WindUp = 0.8, -- blue glowing hands, frosty breath
+			MinRange = 30, -- never point blank: there's always time for a rescue
+			MaxRange = 60,
+			OrbSpeed = 26,
+			OrbFlight = 3, -- seconds before a miss melts
+			HitRadius = 3.5,
+			FrozenSeconds = 2.5,
+			SmashHits = 3, -- a teammate's hits on the cube
+			CrackTaps = 6, -- or the frozen Santa taps their way out
+			SlideStuds = 4, -- the cube skids like a hockey puck
+		},
+		FrostStomp = {
+			WindUp = 1, -- hoof up, bells shaking
+			Trigger = 28, -- stomps when a Santa is this close
+			Radius = 35,
+			Seconds = 1.6, -- the ring's roll out to Radius
+			RingWidth = 2.5,
+			SkidSeconds = 3,
+			SkidSpeed = 0.5, -- of a Santa's walk speed
+			Patches = 3, -- frost patches left behind, also skiddy
+			PatchRadius = 5,
+			PatchSeconds = 10,
+			JumpClearance = 2.5, -- studs above where you stood when he stomped
+		},
+		BellBlink = {
+			WindUp = 1.5, -- a ring of gold bells shows where he'll land
+			MinRange = 40, -- only when you've got away from him
+			MaxRange = 100,
+			LandBeside = 8, -- studs from the Santa, on his side
+			SafeMargin = 12, -- extra studs kept clear of the Sleigh Stop
+			LungeSpeed = 22,
+			LungeSeconds = 1,
+		},
+	},
 }
 
 -- Random map events (game-design.md "Random map events"). One roll per run;

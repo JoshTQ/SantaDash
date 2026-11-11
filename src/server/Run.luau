@@ -59,6 +59,8 @@ type PlayerState = Loot.PlayerState & {
 	swimming: boolean?, -- in the Lair lake's water (server/Swimming)
 	frozen: boolean?, -- stuck in an ice cube after running out of body heat
 	soggyUntil: number?, -- slow after thawing
+	iced: boolean?, -- in a Frost Zap ice cube (server/KrampusMagic)
+	skidUntil: number?, -- skidding on Frost Stomp frost
 }
 
 local TICK = 0.25
@@ -326,6 +328,9 @@ function Run:baseWalkSpeed(st: PlayerState): number
 	if (st.soggyUntil or 0) > now() then
 		speed = math.min(speed, Config.BodyHeat.SoggyWalkSpeed)
 	end
+	if (st.skidUntil or 0) > now() then
+		speed = KrampusBrain.skidSpeed(speed)
+	end
 	return speed
 end
 
@@ -355,7 +360,7 @@ end
 -- The state of a Santa who is free to act (not snatched, not in a wardrobe).
 function Run:_free(player: Player): PlayerState?
 	local st = self.players[player]
-	if st and not st.captive and not st.hidden and not st.frozen and not self.ended then
+	if st and not st.captive and not st.hidden and not st.frozen and not st.iced and not self.ended then
 		return st
 	end
 	return nil
@@ -762,6 +767,8 @@ function Run:onInput(player: Player, action: string)
 		st.lastTapAt = t
 		if st.captive and self.krampus then
 			self.krampus:wiggle(player)
+		elseif st.iced and self.krampus then
+			self.krampus.magic:crack(player)
 		elseif st.hidden then
 			st.breath = KrampusBrain.tapBreath(st.breath)
 			self:_send(player, "Hide", { hidden = true, breath = st.breath })
@@ -796,11 +803,17 @@ function Run:krampusCandidates(ignore: { [Player]: number }): { KrampusBrain.Can
 				captive = st.captive,
 				aboard = MapBuilder.isAboard(self.deck, root.Position),
 				inWater = st.swimming == true or st.frozen == true,
+				iced = st.iced == true,
 				ignoreUntil = ignore[player],
 			})
 		end
 	end
 	return list
+end
+
+-- Inside the Sleigh Stop (plus `margin` studs): Krampus's tricks never land there.
+function Run:nearSleighStop(at: Vector3, margin: number): boolean
+	return self.deck ~= nil and MapBuilder.inSleighStop(self.deck, at, margin)
 end
 
 -- Breath for every hidden Santa, given Krampus's position. Running out = a loud gasp.

@@ -60,6 +60,8 @@ Tutorial.Lessons = {
 	lesson("Krampus", "Krampus! Hide in a wardrobe or run!", nil, 5, "show", true),
 	lesson("Hide", "Tap fast to hold your breath!", nil, 4, "show", false),
 	lesson("Snatched", "Tap fast to wiggle out of the basket!", nil, 4, "show", false),
+	lesson("IceCube", "Ice cube! Tap fast to crack out!", nil, 4, "show", false),
+	lesson("FrostRing", "JUMP over Krampus's frost ring!", nil, 4, "show", false),
 	lesson("Missed", "Missed it! Run to the next stop!", nil, 5, "show", false),
 	lesson("Done", "First heist done! Go again with your crew!", nil, 5, "show", true),
 }

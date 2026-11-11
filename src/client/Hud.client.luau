@@ -468,6 +468,20 @@ function handlers.Captive(data)
 	end
 end
 
+-- Frost Zap: frozen in an ice cube, tap to crack out (server/KrampusMagic).
+function handlers.Iced(data)
+	setTapMode(data.iced)
+	if data.iced then
+		krampusLabel.Text = "FROZEN! Tap to crack out"
+		setBar(
+			krampusFill,
+			data.taps / data.needed,
+			Color3.fromRGB(127, 227, 255),
+			Color3.fromRGB(120, 220, 120)
+		)
+	end
+end
+
 function handlers.Results(data)
 	setInRun(false)
 	stopState = nil
