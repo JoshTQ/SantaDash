@@ -1180,7 +1180,7 @@ function ChristmasMarket.start(ctx)
 		-- MapBuilder.isAboard (not required here: MapBuilder loads this module)
 		local rel = stop.deckCFrame:PointToObjectSpace(position)
 		return Vector3.new(rel.X, 0, rel.Z).Magnitude <= aboard and rel.Y >= -4 and rel.Y <= 12
-	end)
+	end, stop)
 end
 
 ----------------------------------------------------------------------------

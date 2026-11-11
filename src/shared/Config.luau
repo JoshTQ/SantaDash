@@ -236,30 +236,52 @@ Config.Noise = {
 Config.DogAI = {
 	-- Sight: a cone in front of the dog, blocked by walls (a raycast).
 	-- Lit streets show you up: after the lights come on dogs see much further.
-	SightRange = { Sneak = 30, Lit = 52 },
+	SightRange = { Sneak = 38, Lit = 60 },
 	CloseSense = 7, -- studs: a dog notices a moving Santa this close behind it
 	StillSight = 0.55, -- a Santa standing still is seen at this share of the range
-	SpotSeconds = 1.2, -- in view at the edge of its sight: "!" after this long
+	SpotSeconds = 0.8, -- in view at the edge of its sight: "!" after this long
 	-- (twice as fast up close, so walking right past its nose is a chase)
 	Forget = 0.3, -- awareness lost per second with nothing to see, hear or smell
 	AlertAt = 0.3, -- awareness at which it stops patrolling to look ("?")
 	HearCap = 0.65, -- footsteps alone make it suspicious, never certain
 	-- Hearing: footsteps in this radius, louder as the street's NOISE fills
 	-- (x2 at a full meter). Tiptoeing in the sneak phase is quiet.
-	Footsteps = { Walk = 15, Tiptoe = 5 },
+	Footsteps = { Walk = 16, Tiptoe = 7 },
 	HearRate = 0.6, -- awareness per second while it can hear you
 	LoudRange = 45, -- grabs, gasps and barks this close bring it to look (x2 full meter)
 	-- Scent: Santas leave a trail (one crumb a second, not on canal ice).
 	ScentEvery = 1,
 	ScentRadius = 6, -- a dog this close to a crumb picks up the trail
-	SearchSeconds = 5, -- sniffing round where it lost you before giving up
+	SearchSeconds = 8, -- sniffing round where it lost you before giving up
 	-- The pack: a dog that spots you barks; dogs this close come running,
 	-- and the bark adds to the NOISE meter (once per chase).
 	PackRadius = 70,
 	BarkNoise = 4,
-	AlertSpeed = 11, -- walking over to look
-	LeashRange = 70, -- market dogs give up past this far from their patrol path
+	AlertSpeed = 14, -- trotting over to look
+	LeashRange = 90, -- market dogs give up past this far from their patrol path
 	LookAroundSeconds = 1.5, -- a patrol stops and looks round at each end
+	-- Josh, 11 Nov 2026 ("underwhelming"): a chasing dog runs at where you're
+	-- GOING (Lead seconds ahead), steers straight at you when it can see you
+	-- (no pathfinding lag), and pounces for the last few studs.
+	Lead = 0.4,
+	DirectChase = 35, -- studs: in sight this close = run straight at you
+	PounceRange = 10,
+	PounceSpeed = 30,
+	NoticeAt = 0.1, -- a faint yellow "?" from here; red "?" once it's on alert
+	-- Josh, 11 Nov 2026 ("All of them"): the four follow-ups.
+	-- 1. Fetch: a corgi that bumps you steals a present and runs off with it.
+	--    It's slower than a Santa, so the crew can catch it: touch it and it
+	--    drops the present (not in its first Grace s, so the bump itself
+	--    doesn't count). After Seconds it drops it wherever it is.
+	Fetch = { Speed = 14, Seconds = 10, CatchRadius = 5, Grace = 1, StunAfter = 1.5, FleeFrom = 40 },
+	-- 2. Yard dogs on later stops: one per richer house (Far ring or a secret
+	--    room), pacing its front garden, leashed close to home.
+	Yard = { Stops = { 2 }, Count = 3, Leash = 40, Garden = 7 },
+	-- 3. Dog treats: buy a bone at the Sleigh Stop (GREYBOX tin, art round
+	--    pending), throw it (G) and dogs near where it lands go and chew it.
+	Bone = { Cost = 200, Max = 2, Throw = 30, Radius = 50, ChewSeconds = 8, GiveUp = 6 },
+	-- 4. Dog flaps: dogs go through closed front doors (GREYBOX flap).
+	Flaps = true,
 	-- One spotted banner per Santa this often, so it reads without spamming.
 	SpottedBannerCooldown = 8,
 	Kinds = {
@@ -269,9 +291,9 @@ Config.DogAI = {
 			SightScale = 0.85,
 			HearScale = 1.2,
 			ScentSeconds = 12,
-			ChaseSpeed = 18, -- quicker than a walking Santa (16) ...
-			ChaseBurst = 4, -- ... for this long, then it pants
-			TiredSeconds = 2.5,
+			ChaseSpeed = 20, -- quicker than a walking Santa (16) ...
+			ChaseBurst = 5, -- ... for this long, then it pants
+			TiredSeconds = 1.5,
 		},
 		-- Tin Sausage Dog: lamp eyes that sweep the street, poor nose,
 		-- slower but keeps going.
@@ -280,8 +302,8 @@ Config.DogAI = {
 			SightScale = 1.25,
 			HearScale = 0.7,
 			ScentSeconds = 5,
-			ChaseSpeed = 15,
-			ChaseBurst = 9,
+			ChaseSpeed = 17,
+			ChaseBurst = 10,
 			TiredSeconds = 1.5,
 			Sweep = 40, -- degrees its head lamp swings either side
 			SweepSeconds = 3, -- one full swing and back

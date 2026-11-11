@@ -34,12 +34,96 @@ local BANG = Color3.fromRGB(255, 60, 60)
 
 local GuardDogs = {}
 
+-- Dog flaps (Config.DogAI.Flaps): dogs don't collide with closed front doors.
+local DOG_GROUP = "SleighHeistDogs"
+local FLAP_GROUP = "SleighHeistDogFlapDoors"
+pcall(function()
+	local PhysicsService = game:GetService("PhysicsService")
+	PhysicsService:RegisterCollisionGroup(DOG_GROUP)
+	PhysicsService:RegisterCollisionGroup(FLAP_GROUP)
+	PhysicsService:CollisionGroupSetCollidable(DOG_GROUP, FLAP_GROUP, false)
+end)
+
+-- The front doors of a stop as dog flaps: each door's house box, a point
+-- just outside and just inside it. Built once per stop, with a GREYBOX flap
+-- (a dark panel at the foot of the door, swinging with it). Art round pending.
+function GuardDogs.flapsFor(stop): { any }
+	if stop.dogFlaps then
+		return stop.dogFlaps
+	end
+	local flaps = {}
+	if AI.Flaps then
+		for _, door in stop.doors or {} do
+			local part = door.door
+			local frontDoor = part.Parent
+			local house = if frontDoor and frontDoor.Name == "FrontDoor" then frontDoor.Parent else frontDoor
+			if house and house:IsA("Model") then
+				local box, size = house:GetBoundingBox()
+				local at = door.closed.Position
+				local out = Vector3.new(at.X - box.Position.X, 0, at.Z - box.Position.Z)
+				out = if out.Magnitude > 1e-3 then out.Unit else Vector3.zAxis
+				pcall(function()
+					part.CollisionGroup = FLAP_GROUP
+				end)
+				if not part:FindFirstChild("DogFlap") then
+					local flap = Instance.new("Part")
+					flap.Name = "DogFlap"
+					flap.Size = Vector3.new(1.8, 1.6, part.Size.Z + 0.1)
+					flap.CFrame = part.CFrame * CFrame.new(0, -part.Size.Y / 2 + 0.9, 0)
+					flap.Color = Color3.fromRGB(60, 45, 35)
+					flap.CanCollide = false
+					flap.Massless = true
+					flap.Anchored = part.Anchored
+					local weld = Instance.new("WeldConstraint")
+					weld.Part0 = part
+					weld.Part1 = flap
+					weld.Parent = flap
+					flap.Parent = part
+				end
+				table.insert(flaps, {
+					door = door,
+					box = box,
+					size = size,
+					outside = at + out * 3,
+					inside = at - out * 3,
+					open = door.open == true,
+				})
+			end
+		end
+	end
+	stop.dogFlaps = flaps
+	return flaps
+end
+
+-- A stolen present in the corgi's mouth (GREYBOX red box, like dropped ones).
+local function showCarry(dog, carrying: boolean)
+	if carrying and not dog.carryPart then
+		local box = Instance.new("Part")
+		box.Name = "StolenPresent"
+		box.Size = Vector3.one * 1.2
+		box.Color = Color3.fromRGB(230, 50, 60)
+		box.CanCollide = false
+		box.Massless = true
+		box.CFrame = dog.root.CFrame * CFrame.new(0, 0.6, -2.4)
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = dog.root
+		weld.Part1 = box
+		weld.Parent = box
+		box.Parent = dog.model
+		dog.carryPart = box
+	elseif not carrying and dog.carryPart then
+		dog.carryPart:Destroy()
+		dog.carryPart = nil
+	end
+end
+
 export type Spec = {
 	kind: string,
 	at: CFrame,
 	patrol: { Vector3 }?,
 	startIndex: number?,
 	hunt: boolean?,
+	leash: number?,
 	cooldown: number,
 }
 
@@ -137,6 +221,9 @@ local function buildDog(parent: Instance, spec: Spec)
 	for _, part in model:GetDescendants() do
 		if part:IsA("BasePart") then
 			part.Anchored = false
+			pcall(function()
+				part.CollisionGroup = DOG_GROUP -- through the dog flaps
+			end)
 		end
 	end
 	humanoid.WalkSpeed = Config.Canal.Dogs.Speed
@@ -161,8 +248,11 @@ local function buildDog(parent: Instance, spec: Spec)
 		),
 		brain = DogBrain.new(
 			spec.kind,
-			{ patrol = spec.patrol, startIndex = spec.startIndex, hunt = spec.hunt }
+			{ patrol = spec.patrol, startIndex = spec.startIndex, hunt = spec.hunt, leash = spec.leash }
 		),
+		carrying = nil :: number?, -- a stolen present's value (Fetch)
+		carryPart = nil :: BasePart?,
+		carriedAt = 0,
 		gui = gui,
 		label = label,
 		mark = "",
@@ -171,18 +261,26 @@ local function buildDog(parent: Instance, spec: Spec)
 		lampChase = false,
 		lastMode = "Patrol",
 		hitAt = {} :: { [Player]: number },
-		barked = false,
+		pathing = false,
 	}
 end
 
 -- Line of sight from a dog's eyes to a Santa, ignoring dogs and Santas.
-local function sightLine(ignore: { Instance })
+-- Bug fixed 11 Nov 2026 (Josh: "their AI is pretty poor"): only the dogs were
+-- ignored, so every ray hit the Santa's own body on the way to its root and
+-- read as a wall. In a real server the dogs never saw anyone, only heard.
+-- setIgnore is called every think with the dogs and every Santa's character.
+local function sightLine()
 	local params = nil
 	pcall(function()
 		params = RaycastParams.new()
 		params.FilterType = Enum.RaycastFilterType.Exclude
-		params.FilterDescendantsInstances = ignore
 	end)
+	local function setIgnore(ignore: { Instance })
+		if params then
+			params.FilterDescendantsInstances = ignore
+		end
+	end
 	return function(from: Vector3, to: Vector3): boolean
 		if not params then
 			return true
@@ -192,22 +290,79 @@ local function sightLine(ignore: { Instance })
 			return workspace:Raycast(eye, to - eye, params)
 		end)
 		return not (ok and hit)
+	end,
+		setIgnore
+end
+
+-- The mark over its head (Josh, 11 Nov 2026: the "?" goes red on alert):
+--   faint yellow "?"  it's noticed something (awareness building)
+--   red "?"           on alert: coming to look, or sniffing round for you
+--   red "!"           chasing
+function GuardDogs.markFor(intent): string
+	if intent.mode == "Chase" then
+		return "!"
+	elseif intent.mode == "Stunned" or intent.mode == "Fetch" or intent.mode == "Chew" then
+		return "" -- winding down, off with your present, or busy with a bone
+	elseif intent.mode == "Alert" or intent.mode == "Search" or intent.awareness >= AI.AlertAt then
+		return "alert?"
+	elseif intent.awareness >= AI.NoticeAt then
+		return "?"
 	end
+	return ""
 end
 
 local function setMark(dog, intent)
-	local mark = ""
-	if intent.mode == "Chase" then
-		mark = "!"
-	elseif intent.mode ~= "Stunned" and intent.awareness >= AI.AlertAt then
-		mark = "?"
-	end
+	local mark = GuardDogs.markFor(intent)
 	if mark ~= dog.mark then
 		dog.mark = mark
 		dog.gui.Enabled = mark ~= ""
-		dog.label.Text = if mark == "" then "?" else mark
-		dog.label.TextColor3 = if mark == "!" then BANG else QUESTION
+		dog.label.Text = if mark == "!" then "!" else "?"
+		dog.label.TextColor3 = if mark == "" or mark == "?" then QUESTION else BANG
+		dog.gui.Size = if mark == "!" then UDim2.fromOffset(56, 56) else UDim2.fromOffset(44, 44)
 	end
+	if mark == "?" then
+		-- fades in as it gets more suspicious
+		dog.label.TextTransparency = math.clamp(0.6 - intent.awareness * 2, 0, 0.6)
+	elseif dog.label.TextTransparency ~= 0 then
+		dog.label.TextTransparency = 0
+	end
+end
+
+-- Walks the dog toward the intent's goal. A dog chasing a Santa it can see
+-- runs straight at them; otherwise it follows a path, computed in its own
+-- thread so one dog's path doesn't hold up the others' thinking.
+local function steer(dog, intent, pos: Vector3, clear, flaps: { any })
+	local goal = intent.goal
+	if not goal then
+		dog.mover:stop()
+		dog.anim:play("Idle")
+		return
+	end
+	dog.humanoid.WalkSpeed = intent.speed
+	dog.anim:play("Walk")
+	if AI.Flaps and #flaps > 0 then
+		local waypoint, straight = DogBrain.flapWaypoint(pos, goal, flaps)
+		if waypoint then
+			if straight then
+				dog.humanoid:MoveTo(waypoint) -- through the flap (or out to it)
+				return
+			end
+			goal = waypoint
+		end
+	end
+	local near = Vector3.new(goal.X - pos.X, 0, goal.Z - pos.Z).Magnitude <= AI.DirectChase
+	if intent.direct and near and clear(pos, goal) then
+		dog.humanoid:MoveTo(goal)
+		return
+	end
+	if dog.pathing then
+		return -- still working out the last path: keep walking it
+	end
+	dog.pathing = true
+	task.spawn(function()
+		pcall(dog.mover.moveTo, dog.mover, goal)
+		dog.pathing = false
+	end)
 end
 
 local function setLamp(dog, intent)
@@ -232,8 +387,10 @@ function GuardDogs.start(
 	run,
 	specs: { Spec },
 	parent: Instance,
-	isSafe: (position: Vector3) -> boolean
+	isSafe: (position: Vector3) -> boolean,
+	stop: any?
 ): () -> ()
+	local flaps = if stop then GuardDogs.flapsFor(stop) else {}
 	local dogs = {}
 	for _, spec in specs do
 		local ok, dog = pcall(buildDog, parent, spec)
@@ -243,11 +400,7 @@ function GuardDogs.start(
 			warn("[GuardDogs] couldn't build " .. spec.kind .. ": " .. tostring(dog))
 		end
 	end
-	local ignore = {}
-	for _, dog in dogs do
-		table.insert(ignore, dog.model)
-	end
-	local clear = sightLine(ignore)
+	local clear, setIgnore = sightLine()
 	local dropper = DogBump.dropper(run, parent)
 	local trails: { [Player]: { DogBrain.Crumb } } = {}
 	local crumbAt: { [Player]: number } = {}
@@ -267,6 +420,16 @@ function GuardDogs.start(
 		lastThink = t
 		local tiptoe = run.phase == "Sneak"
 		local santas = {}
+		local ignore = {}
+		for _, dog in dogs do
+			table.insert(ignore, dog.model)
+		end
+		for player in run.players do
+			if player.Character then
+				table.insert(ignore, player.Character)
+			end
+		end
+		setIgnore(ignore)
 		for player in run.players do
 			local root = Util.rootOf(player)
 			if root and run:_free(player) then
@@ -277,6 +440,7 @@ function GuardDogs.start(
 					root = root,
 					position = position,
 					speed = Vector3.new(v.X, 0, v.Z).Magnitude,
+					velocity = v,
 					safe = isSafe(position),
 					tiptoe = tiptoe,
 				}
@@ -332,14 +496,10 @@ function GuardDogs.start(
 			local facing = dog.root.CFrame.LookVector
 			local intent = DogBrain.step(dog.brain, pos, facing, world)
 			local corgi = dog.kind == "DogCorgi"
-			if intent.goal then
-				dog.humanoid.WalkSpeed = intent.speed
-				dog.mover:moveTo(intent.goal)
-				dog.anim:play("Walk")
-			else
-				dog.mover:stop()
-				dog.anim:play("Idle")
+			for _, flap in flaps do
+				flap.open = flap.door.open == true
 			end
+			steer(dog, intent, pos, clear, flaps)
 			setMark(dog, intent)
 			setLamp(dog, intent)
 
@@ -368,8 +528,37 @@ function GuardDogs.start(
 					)
 				end
 			end
+			if intent.chewing then
+				SoundPlayer.at("CorgiGrowl", dog.root) -- happy chewing noises
+			end
+			-- Fetch: someone caught the corgi, or it got bored: drop the present.
+			if dog.carrying then
+				local catcher = nil
+				local canCatch = t - dog.carriedAt >= AI.Fetch.Grace
+				for _, santa in if canCatch then santas else {} do
+					if not santa.safe and CanalRules.inReach(santa.position, pos, AI.Fetch.CatchRadius) then
+						catcher = santa
+						break
+					end
+				end
+				if catcher or intent.drop or intent.mode ~= "Fetch" then
+					local value = dog.carrying :: number
+					dog.carrying = nil
+					showCarry(dog, false)
+					dropper.drop(pos + Vector3.new(0, -1.5, 0), value)
+					if catcher then
+						DogBrain.stun(dog.brain, AI.Fetch.StunAfter, t)
+						SoundPlayer.at("CorgiWoof", dog.root)
+						run:_banner(
+							nil,
+							catcher.player.DisplayName .. " caught the corgi! Grab the present!",
+							2.5
+						)
+					end
+				end
+			end
 			dog.lastMode = intent.mode
-			if intent.mode == "Stunned" then
+			if intent.mode == "Stunned" or intent.mode == "Fetch" or intent.mode == "Chew" then
 				continue
 			end
 
@@ -394,9 +583,19 @@ function GuardDogs.start(
 					and CanalRules.inReach(root.Position, pos, Config.Canal.Dogs.HitRadius)
 				then
 					dog.hitAt[santa.player] = t
-					local pause =
-						DogBump.hit(run, dropper, dog.kind, santa.player, root, pos, facing, dog.root)
-					if pause > 0 then
+					local pause, stolen =
+						DogBump.hit(run, dropper, dog.kind, santa.player, root, pos, facing, dog.root, true)
+					if stolen then
+						dog.carrying = stolen
+						dog.carriedAt = t
+						showCarry(dog, true)
+						DogBrain.fetch(dog.brain, t)
+						run:_banner(
+							nil,
+							"A corgi ran off with " .. santa.player.DisplayName .. "'s present! Catch it!",
+							2.5
+						)
+					elseif pause > 0 then
 						DogBrain.stun(dog.brain, pause, t)
 					else
 						DogBrain.tire(dog.brain, t)
@@ -407,6 +606,22 @@ function GuardDogs.start(
 			end
 		end
 	end
+
+	-- Thrown bones (Run:_throwBone) reach every pack on the stop.
+	local pack = {
+		distract = function(position: Vector3): number
+			local n = 0
+			for _, dog in dogs do
+				if dog.model.Parent and (dog.root.Position - position).Magnitude <= AI.Bone.Radius then
+					DogBrain.distract(dog.brain, position, Util.now())
+					n += 1
+				end
+			end
+			return n
+		end,
+	}
+	run.dogPacks = run.dogPacks or {}
+	table.insert(run.dogPacks, pack)
 
 	task.spawn(function()
 		while alive do
@@ -420,6 +635,9 @@ function GuardDogs.start(
 
 	return function()
 		alive = false
+		if run.dogPacks then
+			Util.removeValue(run.dogPacks, pack)
+		end
 		for _, dog in dogs do
 			dog.model:Destroy()
 		end
