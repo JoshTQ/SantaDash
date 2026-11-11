@@ -18,6 +18,7 @@ local MansionBuilder = require(script.Parent.MansionBuilder)
 local MapFeatures = require(script.Parent.MapFeatures)
 local Parts = require(script.Parent.Parts)
 local Wardrobe = require(script.Parent.Wardrobe)
+local ShopStalls = require(script.Parent.ShopStalls)
 
 local MapBuilder = {}
 
@@ -718,34 +719,35 @@ local function buildStop(
 		stop.bonePrompt = addPrompt(tin, "Buy bone", "Dog treat", 0.3)
 	end
 
-	-- Cocoa machine (Peppermint Rush) by the landing house, Near ring.
+	-- The two shops (Peppermint Rush cocoa and the Wardrobe's warm gear) by
+	-- the landing house, Near ring: Giant Goods stalls (server/ShopStalls),
+	-- fronts facing back up towards the Sleigh Stop.
 	local machineAt = origin * CFrame.new(map.CocoaMachine)
+	local cocoaGround = origin * CFrame.new(map.CocoaMachine.X, 0, map.CocoaMachine.Z)
 	if cocoaTemplate then
 		-- Approved booth at the same spot, standing on the street; prompt at BuyPrompt.
 		local booth = cocoaTemplate:Clone()
 		booth.Name = "CocoaMachine"
 		booth:PivotTo(machineAt)
 		local box, size = booth:GetBoundingBox()
-		local street = (origin * CFrame.new(map.CocoaMachine.X, 0, map.CocoaMachine.Z)).Position.Y
+		local street = cocoaGround.Position.Y
 		booth:PivotTo(machineAt + Vector3.new(0, street - (box.Position.Y - size.Y / 2), 0))
 		booth.Parent = model
 		local at = booth:FindFirstChild("BuyPrompt", true)
 		stop.cocoaPrompt = addPrompt(at :: Instance, "Buy perk", "Peppermint Rush", 0.5)
 	else
-		local machine =
-			newPart(model, "CocoaMachine", Vector3.new(4, 7, 3), machineAt, Color3.fromRGB(120, 70, 40))
-		addLabel(
-			machine,
-			"PEPPERMINT RUSH\n" .. Config.Buys.PeppermintRush.Cost .. " Jingle",
-			Color3.new(1, 1, 1),
-			6
-		)
-		stop.cocoaPrompt = addPrompt(machine, "Buy perk", "Peppermint Rush", 0.5)
+		local cost = Config.Buys.PeppermintRush.Cost
+		local _, counter = ShopStalls.cocoa(model, cocoaGround, ShopStalls.commas(cost))
+		addLabel(counter, "PEPPERMINT RUSH\n" .. cost .. " Jingle", Color3.new(1, 1, 1), 9)
+		stop.cocoaPrompt = addPrompt(counter, "Buy perk", "Peppermint Rush", 0.5)
 	end
 
-	-- Wardrobe stand (warm gear) beside the cocoa machine; off until approved.
+	-- Wardrobe stall (warm gear) beside the cocoa, on the side away from the
+	-- street; off until approved.
+	local offset = Config.Wardrobe.StandOffset
+	local outward = if map.CocoaMachine.X < 0 then -1 else 1
 	stop.wardrobePrompts =
-		Wardrobe.build(model, machineAt * CFrame.new(Config.Wardrobe.StandOffset), newPart, addPrompt)
+		Wardrobe.build(model, cocoaGround * CFrame.new(offset.X * outward, 0, offset.Z), newPart, addPrompt)
 
 	for _, feature in mapDef.features do
 		local entry = MapFeatures[feature.kind]

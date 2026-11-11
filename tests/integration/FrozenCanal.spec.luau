@@ -6,6 +6,7 @@ local Loot = load("ServerScriptService.Server.Loot")
 local MapBuilder = load("ServerScriptService.Server.MapBuilder")
 local Maps = load("ReplicatedStorage.Shared.Maps")
 local CanalTown = load("ServerScriptService.Server.CanalTown")
+local ShopStalls = load("ServerScriptService.Server.ShopStalls")
 
 local function build(seed)
 	local map = Maps.get("FrozenCanal")
@@ -239,5 +240,38 @@ test("the castle has a back gate too, so a chased Santa is never trapped", funct
 				end
 			end
 		end
+	end
+end)
+
+test("every Sleigh Stop has the two real shops as Giant Goods stalls, clear of the pavement", function()
+	local route, map = build(6)
+	local edge = map.layout.RoadWidth / 2 + Config.Canal.Promenade
+	for i, stop in route.stops do
+		local mugModel = stop.cocoaPrompt.Parent.Parent
+		local stopModel = mugModel.Parent
+		local mug = stopModel:FindFirstChild("CocoaMachine")
+		local hat = stopModel:FindFirstChild("WardrobeStall")
+		expect(mug).toBeTruthy()
+		expect(hat).toBeTruthy()
+		expect(stop.cocoaPrompt.Parent.Name).toBe("Counter")
+		for _, stall in { mug, hat } do
+			for _, p in stall:GetDescendants() do
+				if p:IsA("BasePart") then
+					local l = stop.origin:PointToObjectSpace(p.CFrame.Position)
+					local half = math.max(p.Size.X, p.Size.Z) / 2
+					if p.Shape == Enum.PartType.Cylinder or p.Shape == Enum.PartType.Ball then
+						half = p.Size.Y / 2
+					end
+					if l.X - half < edge - 0.01 then
+						error(("stop %d: %s pokes onto the pavement"):format(i, p:GetFullName()))
+					end
+				end
+			end
+		end
+		local dome = hat:FindFirstChild("Dome")
+		local body = mug:FindFirstChild("Body")
+		local gap = (dome.CFrame.Position - body.CFrame.Position) * Vector3.new(1, 0, 1)
+		expect(gap.Magnitude).toBeGreaterThan(ShopStalls.Hat.brimRadius + ShopStalls.Mug.radius)
+		expect(#named(hat, "WardrobeItem")).toBe(#Config.Wardrobe.Order)
 	end
 end)

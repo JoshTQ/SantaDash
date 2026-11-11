@@ -21,6 +21,11 @@ local Rules = require(ReplicatedStorage.Shared.Wardrobe)
 local SoundPlayer = require(ReplicatedStorage.Shared.SoundPlayer)
 local Assets = require(script.Parent.Assets)
 local WearBuilder = require(script.Parent.WearBuilder)
+local ShopStalls = require(script.Parent.ShopStalls)
+
+local WOOD = Color3.fromRGB(201, 138, 84)
+local GOLD = Color3.fromRGB(255, 200, 61)
+local DARK = Color3.fromRGB(58, 33, 20)
 
 -- shared/GearAttach comes with the boots work (PR #39). Until it's in, the
 -- gear is bought and counted but not shown on Santa.
@@ -78,8 +83,10 @@ local function display(parent: Instance, id: string, at: CFrame)
 	piece.Parent = parent
 end
 
--- A greybox clothes rack with one prompt per piece. `at` is where the stand
--- stands (world CFrame, on the ground).
+-- The Wardrobe stall (a giant bobble hat, server/ShopStalls) with the gear
+-- hanging on its rail, a price tag under each piece and one prompt per
+-- piece. `at` is where the stall stands (world CFrame, on the ground,
+-- front facing its -Z).
 function Wardrobe.build(model: Instance, at: CFrame, newPart, addPrompt): { [string]: ProximityPrompt }
 	local prompts = {}
 	if not Rules.enabled() then
@@ -87,25 +94,30 @@ function Wardrobe.build(model: Instance, at: CFrame, newPart, addPrompt): { [str
 	end
 	local ids = Rules.onSale()
 	local width = math.max(6, #ids * 3)
-	local WOOD = Color3.fromRGB(200, 160, 90)
-	newPart(model, "WardrobeRail", Vector3.new(width, 0.4, 0.4), at * CFrame.new(0, 6, 0), WOOD)
-	for _, side in { -1, 1 } do
-		newPart(
-			model,
-			"WardrobePost",
-			Vector3.new(0.4, 6, 0.4),
-			at * CFrame.new(side * width / 2, 3, 0),
-			WOOD
-		)
-	end
+	local stall, railY, railZ = ShopStalls.wardrobe(model, at, width)
+	local counterFront = railZ - 0.4
 	for i, id in ids do
 		local item = Rules.item(id) :: Rules.Item
 		local x = -width / 2 + (i - 0.5) * width / #ids
-		local hanger =
-			newPart(model, "WardrobeItem", Vector3.new(0.3, 0.8, 0.3), at * CFrame.new(x, 5.6, 0), WOOD)
+		local hanger = newPart(
+			stall,
+			"WardrobeItem",
+			Vector3.new(0.25, 0.6, 0.25),
+			at * CFrame.new(x, railY - 0.5, railZ),
+			WOOD
+		)
 		hanger.CanCollide = false
 		hanger:SetAttribute("WardrobeId", id)
-		display(model, id, at * CFrame.new(x, 2.2, 0))
+		display(stall, id, at * CFrame.new(x, 3.75, railZ))
+		local tag = newPart(
+			stall,
+			"PriceTag",
+			Vector3.new(1.8, 0.8, 0.15),
+			at * CFrame.new(x, 2.6, counterFront - 0.1),
+			GOLD
+		)
+		tag.CanCollide = false
+		ShopStalls.text(tag, tostring(item.price), GOLD, DARK)
 		prompts[id] = addPrompt(hanger, "Buy " .. item.price .. " Jingle", item.name, 0.4)
 	end
 	return prompts

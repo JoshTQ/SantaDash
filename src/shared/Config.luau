@@ -1105,7 +1105,7 @@ Config.Wardrobe = {
 		},
 	},
 	Order = { "Scarf", "Mittens", "DuckieRing", "HotWaterBottle" }, -- left to right on the stand
-	StandOffset = Vector3.new(0, 0, 8), -- from the cocoa machine, stop space
+	StandOffset = Vector3.new(13, 0, 8), -- from the cocoa stall, stop space (X points away from the street)
 }
 
 -- Sound mix (Sounds.luau has the catalogue). Phone speakers clip easily, so
