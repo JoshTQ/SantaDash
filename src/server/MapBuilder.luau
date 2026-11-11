@@ -358,7 +358,8 @@ local function buildHouse(
 	kit: Kit?
 ): CFrame?
 	local mansion = plan.typeName == "Mansion"
-	local template = if mansion then MansionBuilder.build(rng)
+	local template = if mansion
+		then MansionBuilder.build(rng)
 		elseif not kit then nil
 		elseif plan.typeName == "Lair" then kit.lair
 		elseif plan.locked then nil

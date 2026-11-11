@@ -418,6 +418,11 @@ function Run:_wirePrompts()
 				self:_findSecret(player, stop, secret)
 			end)
 		end
+		for _, spot in stop.searchSpots or {} do
+			on(spot.prompt, function(player)
+				self:_searchSpot(player, stop, spot)
+			end)
+		end
 		for _, door in stop.doors do
 			on(door.prompt, function(player)
 				if self:_free(player) then
@@ -568,6 +573,7 @@ function Run:presentCandidates(): { ElfBrain.PresentCandidate }
 				not present.taken
 				and not present.hidden
 				and not present.plan.secret
+				and not (present.plan.floor and present.plan.floor > 0) -- mansion upstairs: Santas only
 				and not (present.inVault and vaultShut)
 			then
 				table.insert(list, { present = present, position = present.model:GetPivot().Position })
@@ -703,6 +709,83 @@ function Run:_findSecret(player: Player, stop, secret)
 	self:_sendPlayer(player)
 	self:_banner(nil, player.DisplayName .. " found a secret room! The best gift in the house is inside.", 3)
 	Telemetry.count("SecretFound", secret.kind)
+end
+
+-- Someone held Search on a Gingerbread Mansion spot (HouseKit.wireSearch).
+-- It opens and glows gold for the crew. A hidden gift becomes grabbable; an
+-- empty spot gives a dust puff and a small tip; a decoy box under the tree
+-- goes POP and the piano is a noisy trap.
+function Run:_searchSpot(player: Player, stop, spot)
+	local st = self:_free(player)
+	if not st or spot.searched then
+		return
+	end
+	local M = Config.Mansion
+	spot.searched = true
+	spot.prompt.Enabled = false
+	Telemetry.count("MansionSearch", spot.kind)
+	if spot.kind == "Piano" then
+		SoundPlayer.at("PianoPlonk", spot.trigger)
+		self:_addNoise(M.PianoNoise)
+		self:_banner(player, "PLONK! The piano was a trap. The whole house heard that.", 3)
+		return
+	end
+	local function emit(name: string, count: number, colour: Color3?)
+		local fx = spot.trigger:FindFirstChild(name)
+		if fx and fx:IsA("ParticleEmitter") then
+			if colour then
+				fx.Color = ColorSequence.new(colour)
+			end
+			fx:Emit(count)
+		end
+	end
+	if spot.kind == "TreeBox" then
+		for _, d in spot.model:GetDescendants() do
+			if d:IsA("BasePart") then
+				d.Transparency = 1
+			end
+		end
+		spot.model.Transparency = 1
+		spot.model.CanCollide = false
+		spot.model:SetAttribute("Wobble", nil)
+	else
+		for _, d in spot.model:GetDescendants() do
+			if d:IsA("BasePart") then
+				local open = d:GetAttribute("Open")
+				if typeof(open) == "CFrame" then
+					d.CFrame = d.CFrame * open
+				end
+			end
+		end
+		local glow = spot.trigger:FindFirstChild("Searched")
+		if glow and glow:IsA("ParticleEmitter") then
+			glow.Enabled = true
+		end
+	end
+	local present = spot.present
+	if present and not present.taken then
+		present.hidden = nil
+		present.prompt.Enabled = true
+		SoundPlayer.at("SecretFound", spot.trigger)
+		self:_banner(player, "A gift! Grab it.", 2)
+	elseif spot.kind == "TreeBox" then
+		emit("Puff", 24, Color3.fromRGB(255, 120, 200))
+		SoundPlayer.at("GiftPop", spot.trigger)
+		self:_addNoise(M.PopNoise)
+		self:_banner(player, "POP! Just confetti. That was loud.", 2.5)
+	else
+		emit("Puff", 14)
+		SoundPlayer.at("DustPuff", spot.trigger)
+		st.jingle += M.EmptyJingle
+		self:_sfx(player, "JingleGain")
+		self:_sendPlayer(player)
+		self:_banner(player, "Just dust... +" .. M.EmptyJingle .. " Jingle", 2)
+	end
+	for _, house in stop.houses or {} do
+		if house.plan == spot.house then
+			MapBuilder.refreshMarker(house, stop.vaultPrompt ~= nil and stop.vaultPrompt.Enabled)
+		end
+	end
 end
 
 function Run:_hide(player: Player, spot)

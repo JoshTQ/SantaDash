@@ -143,7 +143,12 @@ test("Loot: secrets in about half the robbable houses, never the landing house, 
 					end
 				end
 				expect(count).toBe(if house.secret then 1 else 0)
-				if house.isLanding or house.locked or house.typeName == "Lair" then
+				if
+					house.isLanding
+					or house.locked
+					or house.typeName == "Lair"
+					or house.typeName == "Mansion"
+				then
 					expect(house.secret).toBe(false)
 				else
 					houses += 1

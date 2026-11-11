@@ -178,8 +178,10 @@ test("approved presents are scaled to their size and sit on the floor", function
 				local s = main.Size
 				expect(math.max(s.X, s.Y, s.Z)).toBeNear(1.6 * present.plan.size, 0.001)
 				local bottom = main.CFrame.Position.Y - s.Y / 2
-				-- On a floor (ground, or a Two-storey's bedroom), not at the template's height.
-				expect(bottom).toBeLessThan(15)
+				-- On a floor (ground, a Two-storey's bedroom, a mansion floor), not at
+				-- the template's height.
+				local top = if present.plan.floor then 45 else 15
+				expect(bottom).toBeLessThan(top)
 				expect(present.model:FindFirstChild("Bow") ~= nil).toBeTruthy()
 			end
 		end

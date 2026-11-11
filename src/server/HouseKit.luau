@@ -468,7 +468,7 @@ function HouseKit.wireSearch(model: Model, ctx: Context)
 				model = box,
 				trigger = box,
 				prompt = h.addPrompt(box, "Open", "Present", M.TreeBoxSeconds),
-				giftAt = box.Position - Vector3.new(0, box.Size.Y / 2, 0),
+				giftAt = box.CFrame.Position - Vector3.new(0, box.Size.Y / 2, 0),
 				house = ctx.plan,
 				searched = false,
 				present = nil,
