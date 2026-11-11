@@ -660,7 +660,7 @@ function Run:_buyBone(player: Player)
 		st.bones = (st.bones or 0) + 1
 		self:_sendPlayer(player)
 		self:_sendBones(player)
-		self:_banner(player, "Dog treat! Press G (or the BONE button) to throw it and distract the dogs.", 3)
+		self:_banner(player, "Dog treat! Press T (or the BONE button) to throw it and distract the dogs.", 3)
 	end
 end
 

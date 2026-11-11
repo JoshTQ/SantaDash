@@ -270,10 +270,11 @@ button(snowPanel, "THROW (F)", UDim2.new(1, -20, 0, 50), UDim2.fromOffset(10, 38
 	input:FireServer("Throw")
 end)
 
--- Dog treats (Config.DogAI.Bone): left of the snowballs, G / L2 / tap.
+-- Dog treats (Config.DogAI.Bone): left of the snowballs, T / L1 / tap
+-- (G / L2 pass the Naughty List, PR #54).
 local bonePanel = panel(UDim2.fromOffset(170, 96), spots.bone, Vector2.new(1, 0))
 local boneLabel = label(bonePanel, UDim2.new(1, 0, 0, 30), UDim2.fromOffset(0, 4), 22)
-button(bonePanel, "BONE (G)", UDim2.new(1, -20, 0, 50), UDim2.fromOffset(10, 38), function()
+button(bonePanel, "BONE (T)", UDim2.new(1, -20, 0, 50), UDim2.fromOffset(10, 38), function()
 	input:FireServer("Bone")
 end)
 
@@ -596,7 +597,7 @@ function handlers.Bones(data)
 				input:FireServer("Bone")
 			end
 			return Enum.ContextActionResult.Sink
-		end, false, Enum.KeyCode.G, Enum.KeyCode.ButtonL2)
+		end, false, Enum.KeyCode.T, Enum.KeyCode.ButtonL1)
 	else
 		ContextActionService:UnbindAction("SleighHeistBone")
 	end
