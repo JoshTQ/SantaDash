@@ -52,8 +52,9 @@ function Wardrobe.template(id: string): Model?
 	return WearBuilder.build(id)
 end
 
--- Shows a piece on a hanger: anchored, centred `at`.
-local function display(parent: Instance, id: string, at: CFrame)
+-- Shows a piece on a hanger: anchored, centred on `at` and standing on it
+-- (or hanging from it when `hang`).
+local function display(parent: Instance, id: string, at: CFrame, hang: boolean?)
 	local piece = Wardrobe.template(id)
 	if not piece then
 		return
@@ -71,7 +72,8 @@ local function display(parent: Instance, id: string, at: CFrame)
 		return
 	end
 	local centre = (lo + hi) / 2
-	local delta = at * CFrame.new(0, (hi.Y - lo.Y) / 2, 0) * CFrame.new(-centre)
+	local lift = if hang then -(hi.Y - lo.Y) / 2 else (hi.Y - lo.Y) / 2 -- hang: `at` is the top
+	local delta = at * CFrame.new(0, lift, 0) * CFrame.new(-centre)
 	for _, d in piece:GetDescendants() do
 		if d:IsA("BasePart") then
 			d.Anchored = true
@@ -83,19 +85,17 @@ local function display(parent: Instance, id: string, at: CFrame)
 	piece.Parent = parent
 end
 
--- The Wardrobe stall (a giant bobble hat, server/ShopStalls) with the gear
--- hanging on its rail, a price tag under each piece and one prompt per
--- piece. `at` is where the stall stands (world CFrame, on the ground,
--- front facing its -Z).
+-- The Wardrobe cart (server/ShopStalls) with the gear hanging on its rail,
+-- a price tag under each piece and one prompt per piece. `at` is where the
+-- cart stands (world CFrame, on the ground, front facing its -Z).
 function Wardrobe.build(model: Instance, at: CFrame, newPart, addPrompt): { [string]: ProximityPrompt }
 	local prompts = {}
 	if not Rules.enabled() then
 		return prompts
 	end
 	local ids = Rules.onSale()
-	local width = math.max(6, #ids * 3)
-	local stall, railY, railZ = ShopStalls.wardrobe(model, at, width)
-	local counterFront = railZ - 0.4
+	local stall, rail = ShopStalls.wardrobe(model, at)
+	local width = rail.width
 	for i, id in ids do
 		local item = Rules.item(id) :: Rules.Item
 		local x = -width / 2 + (i - 0.5) * width / #ids
@@ -103,17 +103,17 @@ function Wardrobe.build(model: Instance, at: CFrame, newPart, addPrompt): { [str
 			stall,
 			"WardrobeItem",
 			Vector3.new(0.25, 0.6, 0.25),
-			at * CFrame.new(x, railY - 0.5, railZ),
+			at * CFrame.new(x, rail.y - 0.45, rail.z),
 			WOOD
 		)
 		hanger.CanCollide = false
 		hanger:SetAttribute("WardrobeId", id)
-		display(stall, id, at * CFrame.new(x, 3.75, railZ))
+		display(stall, id, at * CFrame.new(x, rail.y - 0.75, rail.z), true)
 		local tag = newPart(
 			stall,
 			"PriceTag",
 			Vector3.new(1.8, 0.8, 0.15),
-			at * CFrame.new(x, 2.6, counterFront - 0.1),
+			at * CFrame.new(x, rail.shelfY - 0.75, rail.frontZ - 0.1),
 			GOLD
 		)
 		tag.CanCollide = false

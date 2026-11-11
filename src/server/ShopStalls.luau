@@ -1,47 +1,52 @@
 --[[
-	The two real shops at every Sleigh Stop, built from parts in the "Giant
-	Goods" look: the stall is a giant version of what it sells (Josh, 11 Nov
-	2026: "only keep genuine ones that sell stuff. Improve them so they look
-	better too").
+	The two real shops at every Sleigh Stop, built from parts as "Sleigh-Cart
+	Pop-ups": the naughty Santas' own one-night shops, parked on gold sleigh
+	runners (Josh, 11 Nov 2026: "only keep genuine ones that sell stuff.
+	Improve them so they look better too"; he picked option C).
 
-	  cocoa: a giant candy-banded mug with marshmallows and steam, served
-	         through a lit hatch (Peppermint Rush). Model "CocoaMachine",
-	         prompt on its Counter.
-	  wardrobe: a giant knitted bobble hat with a lit window and a counter
-	         rail in front; server/Wardrobe hangs the warm gear on the rail
+	  cocoa: a blue cart with a bubbling copper cocoa pot on the counter and
+	         a giant gold mug on the awning (Peppermint Rush). Model
+	         "CocoaMachine", prompt on its Counter.
+	  wardrobe: a green cart with a hanging rail of warm gear and a giant
+	         mitten on the awning; server/Wardrobe hangs the gear on the rail
 	         (one prompt per hanger). Model "WardrobeStall".
 
-	`at` is a ground CFrame at the stall's centre; the stall's front (hatch,
-	window, prompts) faces its -Z. Event-free so Lune can build it.
+	The roof toppers and the lantern are there so a cart reads as a shop
+	from across the street on a phone (the red-team worry with this look).
+
+	`at` is a ground CFrame at the cart's centre; its front (counter, sign,
+	prompts) faces -Z. Event-free so Lune can build it.
 
 	  ShopStalls.cocoa(parent, at, priceText) -> (Model, counter: BasePart)
-	  ShopStalls.wardrobe(parent, at, width) -> (Model, railY: number, railZ: number)
+	  ShopStalls.wardrobe(parent, at) -> (Model, Rail)
 ]]
 
 local Parts = require(script.Parent.Parts)
 
 local ShopStalls = {}
 
-local MUG = Color3.fromRGB(47, 168, 102)
-local MUG_DARK = Color3.fromRGB(29, 122, 72)
-local MUG_LIGHT = Color3.fromRGB(91, 208, 138)
-local BAND = Color3.fromRGB(248, 248, 248)
-local COCOA = Color3.fromRGB(106, 58, 34)
-local PINK = Color3.fromRGB(255, 227, 236)
-local HATCH = Color3.fromRGB(58, 33, 20)
-local GLOW = Color3.fromRGB(255, 214, 140)
+local CREAM = Color3.fromRGB(250, 246, 236)
 local RED = Color3.fromRGB(226, 52, 62)
-local HAT = Color3.fromRGB(214, 44, 54)
-local WOOL = Color3.fromRGB(247, 247, 247)
-local WINDOW = Color3.fromRGB(90, 26, 32)
 local BLUE = Color3.fromRGB(58, 111, 224)
+local GREEN = Color3.fromRGB(47, 122, 74)
 local GOLD = Color3.fromRGB(255, 200, 61)
 local WOOD = Color3.fromRGB(201, 138, 84)
 local DARK = Color3.fromRGB(58, 33, 20)
+local BOARD = Color3.fromRGB(32, 38, 58)
+local COPPER = Color3.fromRGB(201, 119, 46)
+local COCOA = Color3.fromRGB(106, 58, 34)
+local MUG = Color3.fromRGB(70, 200, 120)
+local MITTEN = Color3.fromRGB(58, 111, 224)
+local GLOW = Color3.fromRGB(255, 214, 140)
 
--- Stall sizes in studs (tests read these).
-ShopStalls.Mug = { radius = 5, height = 11 }
-ShopStalls.Hat = { brimRadius = 7, domeRadius = 6.6 }
+-- Cart sizes in studs (tests read these).
+ShopStalls.Cart = {
+	width = 12, -- along X
+	depth = 6, -- along Z
+	bodyBottom = 0.9, -- runners underneath
+	counterTop = 4.9,
+	awning = 10.4, -- canopy height
+}
 
 local UPRIGHT = CFrame.Angles(0, 0, math.pi / 2) -- a Cylinder's axis is X
 
@@ -49,12 +54,6 @@ local function cylinder(parent, name, radius, height, at: CFrame, color, materia
 	local p =
 		Parts.new(parent, name, Vector3.new(height, radius * 2, radius * 2), at * UPRIGHT, color, material)
 	p.Shape = Enum.PartType.Cylinder
-	return p
-end
-
-local function ball(parent, name, diameter, at: CFrame, color, material): BasePart
-	local p = Parts.new(parent, name, Vector3.one * diameter, at, color, material)
-	p.Shape = Enum.PartType.Ball
 	return p
 end
 
@@ -98,128 +97,252 @@ local function warmLight(p: BasePart)
 	light.Parent = p
 end
 
-function ShopStalls.cocoa(parent: Instance, at: CFrame, priceText: string): (Model, BasePart)
+-- The shared cart: runners, body, counter, posts, striped awning, lantern
+-- and a chalkboard. Returns the model and its counter.
+local function cart(
+	name: string,
+	at: CFrame,
+	colour: Color3,
+	stripe: Color3,
+	board: string
+): (Model, BasePart)
 	local m = Instance.new("Model")
-	m.Name = "CocoaMachine"
-	local R, H = ShopStalls.Mug.radius, ShopStalls.Mug.height
-	local top = 0.6 + H
+	m.Name = name
+	local C = ShopStalls.Cart
+	local w, d = C.width, C.depth
 
-	cylinder(m, "Base", R + 0.3, 0.8, at * CFrame.new(0, 0.4, 0), MUG_DARK)
-	local body = cylinder(m, "Body", R, H, at * CFrame.new(0, 0.6 + H / 2, 0), MUG)
-	for i, y in { 2.4, 6.4, 10.2 } do
-		dressing(cylinder(m, "Band" .. i, R + 0.08, 1, at * CFrame.new(0, y, 0), BAND))
-	end
-	dressing(cylinder(m, "Rim", R + 0.3, 0.7, at * CFrame.new(0, top, 0), MUG_LIGHT))
-	dressing(cylinder(m, "Cocoa", R - 0.2, 0.4, at * CFrame.new(0, top + 0.2, 0), COCOA, Enum.Material.Sand))
-	for i, spot in { Vector3.new(-1.7, 0, 0.6), Vector3.new(0.5, 0, -1.4), Vector3.new(1.8, 0, 1.1) } do
+	-- Gold sleigh runners with curled ends.
+	for i, z in { -d / 2 + 0.6, d / 2 - 0.6 } do
 		dressing(
-			ball(
+			Parts.new(
 				m,
-				"Marshmallow" .. i,
-				2,
-				at * CFrame.new(spot + Vector3.new(0, top + 0.6, 0)),
-				if i == 2 then PINK else BAND
+				"Runner" .. i,
+				Vector3.new(w + 1, 0.4, 0.5),
+				at * CFrame.new(0, 0.2, z),
+				GOLD,
+				Enum.Material.Metal
+			)
+		)
+		local curl = Parts.new(
+			m,
+			"Curl" .. i,
+			Vector3.new(0.5, 1.6, 1.6),
+			at * CFrame.new(w / 2 + 0.6, 0.9, z) * CFrame.Angles(0, math.pi / 2, 0),
+			GOLD,
+			Enum.Material.Metal
+		)
+		curl.Shape = Enum.PartType.Cylinder
+		dressing(curl)
+	end
+	local bodyH = C.counterTop - 0.4 - C.bodyBottom
+	local body = Parts.new(
+		m,
+		"Body",
+		Vector3.new(w, bodyH, d),
+		at * CFrame.new(0, C.bodyBottom + bodyH / 2, 0),
+		colour,
+		Enum.Material.Wood
+	)
+	dressing(
+		Parts.new(
+			m,
+			"Trim",
+			Vector3.new(w + 0.1, 0.4, d + 0.1),
+			at * CFrame.new(0, C.counterTop - 1, 0),
+			GOLD
+		)
+	)
+	local counter = Parts.new(
+		m,
+		"Counter",
+		Vector3.new(w + 0.6, 0.4, d + 0.6),
+		at * CFrame.new(0, C.counterTop - 0.2, 0),
+		WOOD,
+		Enum.Material.Wood
+	)
+
+	-- Posts and a candy-striped awning with a scalloped front valance.
+	local postH = C.awning - C.counterTop
+	for i, corner in
+		{ Vector3.new(-1, 0, -1), Vector3.new(1, 0, -1), Vector3.new(-1, 0, 1), Vector3.new(1, 0, 1) }
+	do
+		dressing(
+			Parts.new(
+				m,
+				"Post" .. i,
+				Vector3.new(0.5, postH, 0.5),
+				at * CFrame.new(corner.X * (w / 2 - 0.3), C.counterTop + postH / 2, corner.Z * (d / 2 - 0.3)),
+				CREAM
+			)
+		)
+	end
+	local stripes = 4
+	local sw = (w + 1) / stripes
+	for i = 1, stripes do
+		local x = -(w + 1) / 2 + (i - 0.5) * sw
+		dressing(
+			Parts.new(
+				m,
+				"Awning" .. i,
+				Vector3.new(sw, 0.5, d + 1.4),
+				at * CFrame.new(x, C.awning + 0.25, 0) * CFrame.Angles(-0.12, 0, 0),
+				if i % 2 == 1 then stripe else CREAM
+			)
+		)
+		dressing(
+			Parts.new(
+				m,
+				"Valance" .. i,
+				Vector3.new(sw, 1.1, 0.2),
+				at * CFrame.new(x, C.awning - 0.45, -d / 2 - 0.65),
+				if i % 2 == 1 then CREAM else stripe
 			)
 		)
 	end
 
-	-- Handle on the back (+Z), out of the pavement and clear of the hatch.
-	for i, y in { 9.4, 3.6 } do
-		dressing(Parts.new(m, "Handle" .. i, Vector3.new(1.5, 1.5, 3), at * CFrame.new(0, y, R + 1.2), MUG))
-	end
-	dressing(Parts.new(m, "Handle3", Vector3.new(1.5, 7.3, 1.5), at * CFrame.new(0, 6.5, R + 2.6), MUG))
-
-	-- Serving hatch on the front: frame, warm glow, red counter, sign.
-	Parts.new(m, "HatchFrame", Vector3.new(6.6, 5, 2.4), at * CFrame.new(0, 6.8, -R + 0.9), HATCH)
-	local glow = dressing(
+	-- Lantern on a pole at the back corner: a warm light that reads from afar.
+	dressing(
 		Parts.new(
 			m,
-			"HatchGlow",
-			Vector3.new(5.6, 4, 0.2),
-			at * CFrame.new(0, 6.8, -R - 0.32),
+			"LanternPole",
+			Vector3.new(0.3, 3.4, 0.3),
+			at * CFrame.new(w / 2 + 0.2, C.awning + 1.7, d / 2),
+			DARK
+		)
+	)
+	local lantern = dressing(
+		Parts.new(
+			m,
+			"Lantern",
+			Vector3.new(1, 1.3, 1),
+			at * CFrame.new(w / 2 + 0.2, C.awning + 3.6, d / 2),
 			GLOW,
 			Enum.Material.Neon
 		)
 	)
-	warmLight(glow)
-	local counter =
-		Parts.new(m, "Counter", Vector3.new(7.6, 0.6, 2.2), at * CFrame.new(0, 4.5, -R - 0.9), RED)
-	local sign =
-		dressing(Parts.new(m, "Sign", Vector3.new(7, 1.4, 0.4), at * CFrame.new(0, 10.2, -R - 0.1), RED))
-	ShopStalls.text(sign, "PEPPERMINT RUSH", RED, Color3.new(1, 1, 1))
-	local plate = dressing(
-		Parts.new(m, "PricePlate", Vector3.new(3, 1, 0.2), at * CFrame.new(-2.2, 3.3, -R - 0.15), GOLD)
-	)
-	ShopStalls.text(plate, priceText, GOLD, DARK)
+	warmLight(lantern)
 
-	-- Steam off the top (particles, not parts).
+	-- Chalkboard on the front of the body.
+	local chalk = dressing(
+		Parts.new(
+			m,
+			"Chalkboard",
+			Vector3.new(w - 3, bodyH - 1.4, 0.2),
+			at * CFrame.new(0, C.bodyBottom + bodyH / 2 - 0.3, -d / 2 - 0.1),
+			BOARD
+		)
+	)
+	ShopStalls.text(chalk, board, BOARD, CREAM)
+
+	m.PrimaryPart = body
+	return m, counter
+end
+
+function ShopStalls.cocoa(parent: Instance, at: CFrame, priceText: string): (Model, BasePart)
+	local m, counter = cart("CocoaMachine", at, BLUE, RED, "PEPPERMINT RUSH\n" .. priceText .. " Jingle")
+	local top = ShopStalls.Cart.counterTop
+
+	-- A bubbling copper pot with a ladle, steam rising off it.
+	local pot = cylinder(m, "Pot", 2.2, 2.2, at * CFrame.new(0, top + 1.1, 0.3), COPPER, Enum.Material.Metal)
+	local cocoa = dressing(cylinder(m, "PotCocoa", 1.9, 0.2, at * CFrame.new(0, top + 2.15, 0.3), COCOA))
+	dressing(
+		Parts.new(
+			m,
+			"Ladle",
+			Vector3.new(0.3, 3.4, 0.3),
+			at * CFrame.new(1.1, top + 2.6, 0.6) * CFrame.Angles(0, 0, -0.5),
+			Color3.fromRGB(140, 143, 166),
+			Enum.Material.Metal
+		)
+	)
 	local steam = Instance.new("ParticleEmitter")
 	steam.Name = "Steam"
 	steam.Color = ColorSequence.new(Color3.fromRGB(244, 246, 255))
 	steam.Transparency = NumberSequence.new(0.35)
 	steam.Rate = 3
-	steam.Lifetime = NumberRange.new(2, 3)
+	steam.Lifetime = NumberRange.new(1.5, 2.5)
 	steam.Speed = NumberRange.new(1.5, 2.5)
-	steam.Size = NumberSequence.new(1.6)
-	steam.Parent = sign
+	steam.Size = NumberSequence.new(1.2)
+	steam.Parent = cocoa
+	pot.CanCollide = false
 
-	m.PrimaryPart = body
+	-- The giant gold-rimmed mug on the awning: "cocoa here" from anywhere.
+	local roof = ShopStalls.Cart.awning + 0.5
+	dressing(cylinder(m, "TopMug", 1.8, 3, at * CFrame.new(-2, roof + 1.5, 0), MUG))
+	dressing(cylinder(m, "TopMugCocoa", 1.6, 0.2, at * CFrame.new(-2, roof + 3.05, 0), COCOA))
+	dressing(cylinder(m, "TopMugBand", 1.85, 0.7, at * CFrame.new(-2, roof + 1.5, 0), CREAM))
+	dressing(
+		cylinder(m, "TopMugRim", 1.95, 0.35, at * CFrame.new(-2, roof + 2.95, 0), GOLD, Enum.Material.Metal)
+	)
+	dressing(
+		Parts.new(m, "TopMugHandle", Vector3.new(1.2, 2, 0.6), at * CFrame.new(-2 + 2.2, roof + 1.5, 0), MUG)
+	)
+
 	m.Parent = parent
 	return m, counter
 end
 
--- width: room on the rail for the hangers. Returns the rail's height and its
--- distance in front (-Z) of the hat's centre, for the hangers.
-function ShopStalls.wardrobe(parent: Instance, at: CFrame, width: number): (Model, number, number)
-	local m = Instance.new("Model")
-	m.Name = "WardrobeStall"
-	local brim, dome = ShopStalls.Hat.brimRadius, ShopStalls.Hat.domeRadius
+-- Where server/Wardrobe hangs the gear (cart space).
+export type Rail = { y: number, z: number, shelfY: number, frontZ: number, width: number }
 
-	local brimPart = cylinder(m, "Brim", brim, 3.2, at * CFrame.new(0, 1.6, 0), WOOL, Enum.Material.Fabric)
-	ball(m, "Dome", dome * 2, at * CFrame.new(0, 3.2, 0), HAT, Enum.Material.Fabric)
-	dressing(ball(m, "Pompom", 4.4, at * CFrame.new(0, 3.2 + dome + 1.6, 0), WOOL, Enum.Material.Fabric))
+function ShopStalls.wardrobe(parent: Instance, at: CFrame): (Model, Rail)
+	local m = cart("WardrobeStall", at, GREEN, GREEN, "WARDROBE\nwarm gear")
+	local C = ShopStalls.Cart
 
-	Parts.new(m, "WindowFrame", Vector3.new(8.4, 4, 2.4), at * CFrame.new(0, 5.8, -5.4), WINDOW)
-	local glow = dressing(
+	-- Hanging rail across the front posts, under the awning.
+	local railZ = -C.depth / 2 + 0.3
+	dressing(
 		Parts.new(
 			m,
-			"WindowGlow",
-			Vector3.new(7.4, 3, 0.2),
-			at * CFrame.new(0, 5.8, -6.62),
-			GLOW,
-			Enum.Material.Neon
-		)
-	)
-	warmLight(glow)
-	local sign = dressing(
-		Parts.new(
-			m,
-			"Sign",
-			Vector3.new(8, 1.4, 0.4),
-			at * CFrame.new(0, 8.7, -4.6) * CFrame.Angles(-0.45, 0, 0),
-			BLUE
-		)
-	)
-	ShopStalls.text(sign, "WARDROBE", BLUE, Color3.new(1, 1, 1))
-
-	-- Counter and hanging rail in front of the window.
-	local railZ = -brim - 2
-	local half = math.max(width, 8) / 2
-	Parts.new(m, "Counter", Vector3.new(half * 2, 0.6, 2.4), at * CFrame.new(0, 3.4, -brim - 1.2), BLUE)
-	for i, side in { -1, 1 } do
-		Parts.new(
-			m,
-			"RailPost" .. i,
-			Vector3.new(0.5, 6.4, 0.5),
-			at * CFrame.new(side * (half + 0.3), 3.2, railZ),
+			"Rail",
+			Vector3.new(C.width - 0.6, 0.3, 0.3),
+			at * CFrame.new(0, C.awning - 1.4, railZ),
 			WOOD
 		)
-	end
-	dressing(Parts.new(m, "Rail", Vector3.new(half * 2 + 1, 0.4, 0.4), at * CFrame.new(0, 6.3, railZ), WOOD))
+	)
 
-	m.PrimaryPart = brimPart
+	-- A giant blue mitten on the awning.
+	local roof = C.awning + 0.5
+	dressing(
+		Parts.new(
+			m,
+			"TopMitten",
+			Vector3.new(2.4, 2.8, 1),
+			at * CFrame.new(2, roof + 2.2, 0),
+			MITTEN,
+			Enum.Material.Fabric
+		)
+	)
+	dressing(
+		Parts.new(
+			m,
+			"TopMittenThumb",
+			Vector3.new(0.9, 1.4, 0.9),
+			at * CFrame.new(2 - 1.5, roof + 2.4, 0),
+			MITTEN,
+			Enum.Material.Fabric
+		)
+	)
+	dressing(
+		Parts.new(
+			m,
+			"TopMittenCuff",
+			Vector3.new(2.7, 0.9, 1.2),
+			at * CFrame.new(2, roof + 0.45, 0),
+			CREAM,
+			Enum.Material.Fabric
+		)
+	)
+
 	m.Parent = parent
-	return m, 6.3, railZ
+	return m,
+		{
+			y = C.awning - 1.4,
+			z = railZ,
+			shelfY = C.counterTop,
+			frontZ = -C.depth / 2 - 0.3,
+			width = C.width - 2,
+		}
 end
 
 return ShopStalls

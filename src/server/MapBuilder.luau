@@ -720,7 +720,7 @@ local function buildStop(
 	end
 
 	-- The two shops (Peppermint Rush cocoa and the Wardrobe's warm gear) by
-	-- the landing house, Near ring: Giant Goods stalls (server/ShopStalls),
+	-- the landing house, Near ring: Sleigh-Cart Pop-ups (server/ShopStalls),
 	-- fronts facing back up towards the Sleigh Stop.
 	local machineAt = origin * CFrame.new(map.CocoaMachine)
 	local cocoaGround = origin * CFrame.new(map.CocoaMachine.X, 0, map.CocoaMachine.Z)

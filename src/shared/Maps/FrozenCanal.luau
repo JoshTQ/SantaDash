@@ -33,7 +33,7 @@ return {
 		RoadWidth = 28,
 		StreetStart = -20, -- the street canal meets the main canal
 		FootPathZ = -40, -- the main canal runs along the on-foot path
-		CocoaMachine = Vector3.new(26, 3.5, 32), -- by the Sleigh Stop plaza, clear of the pavement
+		CocoaMachine = Vector3.new(27, 3.5, 32), -- by the Sleigh Stop plaza, clear of the pavement
 		LandingAt = { LANDING, LANDING, LANDING },
 		EndHouseAt = {
 			Finale = CFrame.lookAt(ISLAND, Vector3.zero), -- Lair island
