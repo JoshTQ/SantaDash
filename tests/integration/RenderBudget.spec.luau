@@ -15,7 +15,10 @@ local fs = require("@lune/fs")
 local serde = require("@lune/serde")
 
 -- Per route (one crew's three stops and the paths between).
-local BUDGET = { Parts = 9000, Lights = 200, Prompts = 150, Billboards = 120 }
+-- Prompts counts the ones live when the route is built (what a phone checks
+-- each frame). Hidden ones (mansion gifts, secret-room gifts) wake up later,
+-- so they only count towards AllPrompts.
+local BUDGET = { Parts = 9000, Lights = 200, Prompts = 150, AllPrompts = 200, Billboards = 120 }
 
 local function build(seed)
 	local map = Maps.get("FrozenCanal")
@@ -29,7 +32,7 @@ local function build(seed)
 end
 
 local function census(root)
-	local c = { parts = 0, lights = 0, prompts = 0, billboards = 0, list = {} }
+	local c = { parts = 0, lights = 0, prompts = 0, allPrompts = 0, billboards = 0, list = {} }
 	for _, d in root:GetDescendants() do
 		if d:IsA("BasePart") then
 			c.parts += 1
@@ -37,7 +40,10 @@ local function census(root)
 		elseif d:IsA("Light") then
 			c.lights += 1
 		elseif d:IsA("ProximityPrompt") then
-			c.prompts += 1
+			c.allPrompts += 1
+			if d.Enabled then
+				c.prompts += 1
+			end
 		elseif d:IsA("BillboardGui") then
 			c.billboards += 1
 		end
@@ -52,6 +58,7 @@ test("a route stays inside the phone budget", function()
 	expect(c.parts).toBeLessThan(BUDGET.Parts)
 	expect(c.lights).toBeLessThan(BUDGET.Lights)
 	expect(c.prompts).toBeLessThan(BUDGET.Prompts)
+	expect(c.allPrompts).toBeLessThan(BUDGET.AllPrompts)
 	expect(c.billboards).toBeLessThan(BUDGET.Billboards)
 end)
 

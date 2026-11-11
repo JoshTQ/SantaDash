@@ -89,7 +89,9 @@ describe("security dogs", function()
 
 			local pushed = nil
 			local root = santa.Character.HumanoidRootPart
-			shadow(world, engine, santa, corgi, 3, 1, function()
+			-- (11 Nov: the corgi now runs off with it; staying on it past
+			-- Fetch.Grace catches it and it drops the present)
+			shadow(world, engine, santa, corgi, 3, 2, function()
 				local a = root:FindFirstChild("SleighHeistKnockback")
 				pushed = pushed or (a and a:FindFirstChild("Push"))
 			end)
@@ -171,6 +173,45 @@ describe("security dogs", function()
 		end)
 	end)
 
+	-- 11 Nov 2026 (Josh: "their AI is pretty poor"): the sight ray only ignored
+	-- dogs, so it hit the Santa's own body and every Santa read as behind a
+	-- wall. Real rays here (engine.raycasts).
+	it("with real rays a dog sees a Santa in front of it, not one behind a wall", function()
+		local world, engine, _, Run, players = boot({ "A" })
+		local santa = players[1]
+		engine.raycasts = true
+		world.run(function()
+			local run = startAtStop(world, Run, players, 1)
+			local corgi = findAll(run.route.model, "DogCorgi")[1]
+			local pivot = corgi:GetPivot()
+			local spot = pivot.Position + pivot.LookVector * 12
+			engine:teleport(santa, Vector3.new(spot.X, pivot.Position.Y, spot.Z))
+			world.wait(1.5)
+			expect(banners(engine, santa, "SPOTTED")).toBe(1)
+			run.ended = true
+		end)
+
+		local world2, engine2, _, Run2, players2 = boot({ "B" })
+		local hidden = players2[1]
+		engine2.raycasts = true
+		world2.run(function()
+			local run = startAtStop(world2, Run2, players2, 1)
+			local corgi = findAll(run.route.model, "DogCorgi")[1]
+			local pivot = corgi:GetPivot()
+			local wall = world2.engine.Instance.new("Part")
+			wall.Name = "TestWall"
+			wall.Size = Vector3.new(30, 30, 1)
+			wall.Anchored = true
+			wall.CFrame = CFrame.lookAt(pivot.Position + pivot.LookVector * 6, pivot.Position)
+			wall.Parent = world2.engine.workspace
+			local spot = pivot.Position + pivot.LookVector * 14
+			engine2:teleport(hidden, Vector3.new(spot.X, pivot.Position.Y, spot.Z))
+			world2.wait(0.6) -- stood still behind the wall: unseen (and unheard)
+			expect(banners(engine2, hidden, "SPOTTED")).toBe(0)
+			run.ended = true
+		end)
+	end)
+
 	it("a Santa hiding in a wardrobe is never sniffed out", function()
 		local world, engine, _, Run, players = boot({ "A" })
 		local santa = players[1]
@@ -184,6 +225,82 @@ describe("security dogs", function()
 			local mark = corgi:FindFirstChild("DogAlert", true)
 			expect(mark.Enabled).toBeFalsy()
 			run.players[santa].hidden = nil
+			run.ended = true
+		end)
+	end)
+
+	-- Josh, 11 Nov 2026 ("All of them"): Fetch, yard dogs, bones, dog flaps.
+	it("a corgi steals a present and runs off; catch it and it drops it", function()
+		local world, engine, _, Run, players = boot({ "A", "B" })
+		local santa, mate = players[1], players[2]
+		world.run(function()
+			local run = startAtStop(world, Run, players, 1)
+			local st = run.players[santa]
+			st.sackCount, st.sackValue = 2, 200
+			engine:teleport(mate, Vector3.new(0, 3, -400)) -- out of the way
+			local corgi = findAll(run.route.model, "DogCorgi")[1]
+			local p = corgi:GetPivot().Position
+			shadow(world, engine, santa, corgi, 3, 0.6) -- bumped, and still on it in the Grace
+			engine:teleport(santa, Vector3.new(0, 3, -450)) -- knocked away, well clear of the other dogs
+			expect(st.sackCount).toBe(1)
+			expect(corgi:FindFirstChild("StolenPresent")).never.toBeNil()
+			expect(#findAll(run.route.model, "DroppedPresent")).toBe(0)
+			world.wait(1)
+			-- The crewmate catches it.
+			local q = corgi:GetPivot().Position
+			engine:teleport(mate, Vector3.new(q.X, 3, q.Z))
+			world.wait(0.4)
+			expect(corgi:FindFirstChild("StolenPresent")).toBeNil()
+			local dropped = 0
+			for _, d in findAll(run.route.model, "DroppedPresent") do
+				if d:IsA("Model") then
+					dropped += 1
+				end
+			end
+			expect(dropped).toBe(1)
+			expect(banners(engine, mate, "caught the corgi")).toBe(1)
+			run.ended = true
+		end)
+	end)
+
+	it("a thrown bone sends the dogs off to chew", function()
+		local world, engine, Config, Run, players = boot({ "A" })
+		local santa = players[1]
+		world.run(function()
+			local run = startAtStop(world, Run, players, 1)
+			local st = run.players[santa]
+			st.jingle = 1000
+			local stop = run.route.stops[1]
+			engine.trigger(stop.bonePrompt, santa)
+			world.wait(0.1)
+			expect(st.bones).toBe(1)
+			expect(st.jingle).toBe(1000 - Config.DogAI.Bone.Cost)
+			local corgi = findAll(run.route.model, "DogCorgi")[1]
+			local pivot = corgi:GetPivot()
+			-- stand 35 studs off, facing the corgi, and throw it right by its nose
+			local from = pivot.Position + pivot.LookVector * 35
+			engine:teleport(santa, Vector3.new(from.X, 3, from.Z))
+			local root = santa.Character.HumanoidRootPart
+			root.CFrame =
+				CFrame.lookAt(root.Position, Vector3.new(pivot.Position.X, root.Position.Y, pivot.Position.Z))
+			run:onInput(santa, "Bone")
+			expect(st.bones).toBe(0)
+			expect(banners(engine, santa, "Fetch, doggy")).toBe(1)
+			expect(#findAll(run.route.model, "DogBone")).toBe(1)
+			run.ended = true
+		end)
+	end)
+
+	it("yard dogs pace the richer houses on Stop 2, and front doors get dog flaps", function()
+		local world, _, _, Run, players = boot({ "A" })
+		world.run(function()
+			local run = startAtStop(world, Run, players, 2)
+			local stop = run.route.stops[2]
+			local yard = #findAll(run.route.model, "DogCorgi") + #findAll(run.route.model, "DogTin")
+			expect(yard).toBeGreaterThan(0)
+			expect(#stop.doors).toBeGreaterThan(0)
+			expect(#(stop.dogFlaps or {})).toBe(#stop.doors)
+			expect(stop.doors[1].door:FindFirstChild("DogFlap")).never.toBeNil()
 			run.ended = true
 		end)
 	end)

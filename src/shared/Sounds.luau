@@ -146,6 +146,22 @@ Sounds.Defs = {
 		volume = 0.8,
 		range = { 20, 160 },
 	},
+	-- Cuckoo Watch (server/CuckooWatch). Stand-in ids until Josh picks real
+	-- ones: the countdown jingle for the tick-tock, the slide whistle for the pop.
+	CuckooTick = {
+		id = 72124849536326,
+		find = "clock tick tock fast",
+		group = "Sfx",
+		volume = 0.7,
+		range = { 30, 160 },
+	},
+	CuckooCall = {
+		id = 116483177192462,
+		find = "cuckoo clock call",
+		group = "Sfx",
+		volume = 0.9,
+		range = { 30, 200 },
+	},
 	SackFull = {
 		id = 98909911567144,
 		find = "cartoon grunt thud",
@@ -339,6 +355,32 @@ Sounds.Defs = {
 		volume = 0.7,
 		pitch = { 1.1, 1.1 },
 		range = { 10, 90 },
+	},
+	-- Gingerbread Mansion: placeholders reusing catalogue ids until real ones
+	-- are picked (the find text says what to look for).
+	GiftPop = {
+		id = 96145230303089, -- the cartoon boing
+		find = "party popper confetti pop",
+		group = "Sfx",
+		volume = 0.8,
+		pitch = { 1.3, 1.5 },
+		range = { 12, 120 },
+	},
+	DustPuff = {
+		id = 72114778853774, -- the cloth rustle
+		find = "dust puff poof",
+		group = "Sfx",
+		volume = 0.5,
+		pitch = { 0.8, 0.9 },
+		range = { 6, 40 },
+	},
+	PianoPlonk = {
+		id = 96145230303089, -- the cartoon boing, pitched down
+		find = "cartoon piano key bang crash",
+		group = "Sfx",
+		volume = 0.9,
+		pitch = { 0.6, 0.7 },
+		range = { 20, 200 },
 	},
 	PolisherScoop = {
 		id = 134317366455068,

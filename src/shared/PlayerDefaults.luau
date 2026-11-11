@@ -26,6 +26,9 @@ function PlayerDefaults.new()
 			done = {}, -- [lessonId] = true
 			tipsOff = false, -- the player's "no more tips" switch
 		},
+		settings = {
+			musicOff = false, -- the HUD's Music button (server/Settings.luau)
+		},
 		analytics = {
 			-- First-game funnel (shared/Funnels.luau): 0 = not decided yet,
 			-- -1 = joined before analytics (never enters it), n = last step logged.

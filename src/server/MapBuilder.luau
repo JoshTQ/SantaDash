@@ -14,6 +14,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Maps = require(ReplicatedStorage.Shared.Maps)
 local HouseBuilder = require(script.Parent.HouseBuilder)
 local HouseKit = require(script.Parent.HouseKit)
+local MansionBuilder = require(script.Parent.MansionBuilder)
 local MapFeatures = require(script.Parent.MapFeatures)
 local Parts = require(script.Parent.Parts)
 local Wardrobe = require(script.Parent.Wardrobe)
@@ -184,10 +185,15 @@ end
 
 -- True if a position is inside the Sleigh Stop clearing around the sleigh
 -- (deckCFrame), or riding on it.
-function MapBuilder.isAboard(deckCFrame: CFrame, position: Vector3): boolean
+-- Within the Sleigh Stop clearing (plus `margin` studs) on the floor plan, at any height.
+function MapBuilder.inSleighStop(deckCFrame: CFrame, position: Vector3, margin: number?): boolean
 	local rel = deckCFrame:PointToObjectSpace(position)
-	local flat = Vector3.new(rel.X, 0, rel.Z).Magnitude
-	return flat <= Config.Map.SleighStopRadius and rel.Y >= -4 and rel.Y <= 12
+	return Vector3.new(rel.X, 0, rel.Z).Magnitude <= Config.Map.SleighStopRadius + (margin or 0)
+end
+
+function MapBuilder.isAboard(deckCFrame: CFrame, position: Vector3): boolean
+	local y = deckCFrame:PointToObjectSpace(position).Y
+	return MapBuilder.inSleighStop(deckCFrame, position) and y >= -4 and y <= 12
 end
 
 ----------------------------------------------------------------------------
@@ -211,15 +217,19 @@ export type RobHouse = { plan: any, presents: { any }, marker: TextLabel, locked
 
 -- What a house's gift marker says: presents left, or that the vault is shut.
 function MapBuilder.markerText(house: RobHouse, vaultShut: boolean): string
+	-- A Gingerbread Mansion counts the gifts still hidden in its furniture.
+	local mansion = house.plan ~= nil and house.plan.typeName == "Mansion"
 	local left = 0
 	for _, present in house.presents do
-		if not present.taken and not present.hidden then
+		if not present.taken and (mansion or not present.hidden) then
 			left += 1
 		end
 	end
 	local found = if house.secret and house.secret.found then "\n★ SECRET FOUND" else ""
 	if left == 0 then
 		return "EMPTY" .. found
+	elseif mansion then
+		return string.format("SEARCH ME · %d GIFT%s", left, if left == 1 then "" else "S")
 	elseif house.locked and vaultShut then
 		return string.format("VAULT · %d GIFTS\n%d Jingle to open", left, Config.Buys.VaultDoor.Cost)
 	end
@@ -240,7 +250,8 @@ local MARKER_HEIGHT = 30 -- studs over the house's ground: above any roof in the
 
 -- A floating gold "ROB ME · 4 GIFTS" over a house, seen from down the street.
 local function buildHouseMarker(parent: Instance, cframe: CFrame, plan, house: RobHouse): TextLabel
-	local anchor = newPart(parent, "GiftMarker", Vector3.one, cframe * CFrame.new(0, MARKER_HEIGHT, 0), GOLD)
+	local height = math.max(MARKER_HEIGHT, plan.size.Y + 8) -- over the mansion's roof too
+	local anchor = newPart(parent, "GiftMarker", Vector3.one, cframe * CFrame.new(0, height, 0), GOLD)
 	anchor.Transparency = 1
 	anchor.CanCollide = false
 	local gui = Instance.new("BillboardGui")
@@ -272,13 +283,19 @@ export type Stop = {
 	chimneys: { Chimney },
 	hideSpots: { HideSpot },
 	cocoaPrompt: ProximityPrompt,
+	bonePrompt: ProximityPrompt?, -- dog treats at the Sleigh Stop (Config.DogAI.Bone)
+	dogFlaps: { any }?, -- front doors as dog flaps (GuardDogs.flapsFor), built on first use
 	wardrobePrompts: { [string]: ProximityPrompt }, -- server/Wardrobe stand, empty while off
 	vaultPrompt: ProximityPrompt?,
 	vaultDoor: BasePart?,
+	vaultBlocker: BasePart?, -- invisible wall in the vault doorway while it's shut (approved model)
 	krampusSpawn: CFrame,
 	doors: { Door }, -- approved houses' front doors (Run swings them)
 	houses: { RobHouse }, -- the houses you can rob, with their gift markers
 	secrets: { any }, -- secret rooms (HouseKit): trigger, prompt, present, climb, found
+	searchSpots: { any }, -- Gingerbread Mansion (HouseKit.wireSearch): spots, tree boxes, piano
+	popIns: { any }, -- filler townhouses with pop-in rooms (CanalTown, PopInHouses)
+	buildPresent: (parent: Instance, rng: Random, position: Vector3, plan: any) -> BuiltPresent,
 	origin: CFrame, -- stop space: +Z runs down the street from the landing house
 }
 
@@ -350,12 +367,14 @@ local function buildHouse(
 	labelText: string,
 	kit: Kit?
 ): CFrame?
-	local template = if not kit
-		then nil
+	local mansion = plan.typeName == "Mansion"
+	local template = if mansion
+		then MansionBuilder.build(rng)
+		elseif not kit then nil
 		elseif plan.typeName == "Lair" then kit.lair
 		elseif plan.locked then nil
 		else HouseKit.pick(kit.houses, rng, plan)
-	local owned = false
+	local owned = mansion
 	if not template and plan.typeName ~= "Lair" and not (kit and kit.greybox) then
 		template = HouseBuilder.forPlan(rng, plan, HouseKit.HouseTypeSign)
 		owned = true
@@ -459,7 +478,13 @@ local function buildHouse(
 		local vaultDoor = kit
 			and kit.vaultDoor
 			and HouseKit.placeVaultDoor(model, kit.vaultDoor, cframe * CFrame.new(0, FLOOR_TOP, frontZ))
-		if not vaultDoor then
+		if vaultDoor then
+			stop.vaultBlocker = HouseKit.vaultBlocker(
+				model,
+				cframe * CFrame.new(0, FLOOR_TOP + door.Y / 2, frontZ),
+				Vector3.new(door.X, door.Y, t + 0.4)
+			)
+		else
 			vaultDoor = newPart(
 				model,
 				"VaultDoor",
@@ -610,6 +635,9 @@ local function buildStop(
 		doors = {},
 		houses = {},
 		secrets = {},
+		searchSpots = {},
+		popIns = {},
+		buildPresent = buildPresent,
 		krampusSpawn = origin * CFrame.new(0, 6, far + map.StreetOverrun - 20), -- past the vault
 		origin = origin,
 	}
@@ -623,7 +651,9 @@ local function buildStop(
 			-- End-of-street house, facing back up the street.
 			cf = origin * CFrame.lookAt(Vector3.new(0, 0, house.distance), Vector3.zero)
 		else
-			local pos = Vector3.new(house.side * map.SideOffset, 0, house.distance)
+			-- Fronts line up: a deeper house (the mansion) sits further back.
+			local across = map.SideOffset + (house.size.Z - Config.Map.HouseSize.Z) / 2
+			local pos = Vector3.new(house.side * across, 0, house.distance)
 			cf = origin * CFrame.lookAt(pos, pos - Vector3.xAxis * house.side)
 		end
 		local label = Config.Houses.Types[house.typeName].Label .. " · " .. string.upper(house.ring)
@@ -674,6 +704,19 @@ local function buildStop(
 		Color3.fromRGB(200, 30, 40)
 	)
 	addLabel(sign, "SLEIGH STOP", Color3.new(1, 1, 1), 5)
+
+	-- Dog treats (Config.DogAI.Bone) by the sign: GREYBOX tin, art round pending.
+	if plan.kindName ~= "Finale" then
+		local tin = newPart(
+			model,
+			"DogTreats",
+			Vector3.new(2, 2, 2),
+			landing * CFrame.new(radius - 1, 1, 3),
+			Color3.fromRGB(70, 140, 220)
+		)
+		addLabel(tin, "DOG TREATS\n" .. Config.DogAI.Bone.Cost .. " Jingle", Color3.new(1, 1, 1), 4)
+		stop.bonePrompt = addPrompt(tin, "Buy bone", "Dog treat", 0.3)
+	end
 
 	-- Cocoa machine (Peppermint Rush) by the landing house, Near ring.
 	local machineAt = origin * CFrame.new(map.CocoaMachine)

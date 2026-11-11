@@ -11,7 +11,6 @@ local describe, it, expect = JestGlobals.describe, JestGlobals.it, JestGlobals.e
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
-local SleighFlight = require(ReplicatedStorage.Shared.SleighFlight)
 local MapBuilder = require(ServerStorage.Server.MapBuilder)
 local Run = require(ServerStorage.Server.Run)
 local Rig = require(ReplicatedStorage.EngineTests.Rig)
@@ -23,9 +22,10 @@ describe("sleigh landing under gravity", function()
 		local from = run.route.startDeck
 		local to = run.route.stops[1].deckCFrame
 		local santa = Rig.santa(run.route.model, (from * CFrame.new(0, 2, 0)).Position)
-		run:_ride({ Rig.player(santa, "Rider") }, 3, function(t)
-			return SleighFlight.deckAt(from, to, t, 3, Config.Run.FlightArcHeight)
-		end)
+		run:_ride(
+			{ Rig.player(santa, "Rider") },
+			{ path = "flight", base = from, to = to, peak = Config.Run.FlightArcHeight, seconds = 3 }
+		)
 		task.wait(1.5)
 		expect(MapBuilder.isAboard(to, santa.root.Position)).toBe(true)
 		expect(santa.root.Position.Y).toBeGreaterThan(to.Position.Y - 1)

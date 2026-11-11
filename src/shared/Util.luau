@@ -15,6 +15,12 @@ function Util.clock(seconds: number): string
 	return string.format("%d:%02d", s // 60, s % 60)
 end
 
+-- Text that goes into a RichText label as plain text (player names).
+local RICH_ESCAPES = { ["&"] = "&amp;", ["<"] = "&lt;", [">"] = "&gt;", ['"'] = "&quot;", ["'"] = "&apos;" }
+function Util.escapeRichText(text: string): string
+	return (string.gsub(text, "[&<>\"']", RICH_ESCAPES))
+end
+
 function Util.humanoidOf(player: Player): Humanoid?
 	local character = player.Character
 	return character and character:FindFirstChildOfClass("Humanoid")
