@@ -73,8 +73,14 @@ describe("the HUD", function()
 			boardPublic(world, me)
 			world.wait(0.5)
 			expect(boardShows(engine, "CREW 1/" .. Config.Lobby.CrewMax)).toBe(true)
-			shows(world, "TAKE-OFF", 30)
+			-- The take-off cutscene owns the screen: the HUD hides under it
+			-- (its stop line still says TAKE-OFF), then comes back.
+			local gui = me.PlayerGui.SleighHeistHud
+			waitUntil(world, function()
+				return gui.Enabled == false
+			end, 30, "the HUD to hide for the take-off cutscene")
 			shows(world, "STOP 1/2 · SNEAK", 30)
+			expect(gui.Enabled).toBe(true)
 			shows(world, "Jingle: 500")
 			shows(world, "Sack: 0/" .. Config.Sack.Capacity)
 			shows(world, "0:2") -- the stop timer is counting down from 0:24
@@ -92,7 +98,9 @@ describe("the HUD", function()
 			shows(world, "KRAMPUS'S LAIR", 200)
 			shows(world, "KRAMPUS IS COMING!", 5)
 			shows(world, "Best thief: Me", 200)
-			shows(world, "(escaped x2)")
+			-- No Naughty List aboard in this run: escaped, but no x2 (it used to say x2 anyway).
+			shows(world, "(escaped")
+			expect(engine:guiShows("(escaped x2)")).toBe(false)
 			-- Your own line, and your Coal counted up to the real total.
 			shows(world, "You grabbed")
 			local rows = engine:hudMessages(me, "Results")
@@ -152,7 +160,8 @@ describe("the HUD", function()
 			local gui = me.PlayerGui.SleighHeistHud
 			local stack = gui:FindFirstChild("TopStack")
 			expect(stack).toBeTruthy()
-			expect(stack:FindFirstChild("Banner")).toBeTruthy()
+			expect(stack:FindFirstChild("Banners")).toBeTruthy()
+			expect(stack:FindFirstChild("Cuckoo")).toBeTruthy()
 			expect(stack:FindFirstChild("TipCard")).toBeTruthy()
 			local orders = {}
 			for _, child in stack:GetChildren() do
@@ -189,6 +198,33 @@ describe("the HUD", function()
 		end)
 	end)
 
+	it("stacks banners so a warning survives crew news, and the ice cube shows only TAP", function()
+		local world, engine, me = boot()
+		world.run(function()
+			boardPublic(world, me)
+			shows(world, "STOP 1/2 · SNEAK", 60)
+			local hud = world.load("ReplicatedStorage.Shared.Remotes").get("Hud")
+			hud:FireClient(me, "Banner", { text = "KRAMPUS IS COMING!", seconds = 4 })
+			hud:FireClient(me, "Banner", { text = "Sam grabbed the Naughty List!", seconds = 2 })
+			world.wait(0.3)
+			expect(engine:guiShows("KRAMPUS IS COMING!")).toBe(true)
+			expect(engine:guiShows("Sam grabbed the Naughty List!")).toBe(true)
+			world.wait(2.5)
+			expect(engine:guiShows("Sam grabbed the Naughty List!")).toBe(false)
+			expect(engine:guiShows("KRAMPUS IS COMING!")).toBe(true)
+
+			-- Hide then come out, then get Frost Zapped: no stray "Come out".
+			hud:FireClient(me, "Hide", { hidden = true, breath = 1 })
+			world.wait(0.2)
+			hud:FireClient(me, "Hide", { hidden = false, breath = 1 })
+			hud:FireClient(me, "Iced", { iced = true, taps = 0, needed = 8 })
+			world.wait(0.2)
+			expect(engine:guiShows("FROZEN! Tap to crack out")).toBe(true)
+			expect(engine:guiShows("Come out")).toBe(false)
+			expect(engine:guiShows("Break out")).toBe(false)
+		end)
+	end)
+
 	it("labels buttons for the device: no keyboard keys on phones", function()
 		local world, engine, me = boot()
 		world.run(function()
@@ -197,6 +233,8 @@ describe("the HUD", function()
 			-- The headless player has no touch screen: keyboard labels.
 			expect(engine:guiButton("TAP! (Space)")).toBeTruthy()
 			expect(engine:guiButton("THROW (F)")).toBeTruthy()
+			expect(engine:guiButton("PASS LIST (Q)")).toBeTruthy()
+			expect(engine:guiButton("BONE (G)")).toBeTruthy()
 		end)
 	end)
 
