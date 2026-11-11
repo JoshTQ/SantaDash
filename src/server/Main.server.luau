@@ -22,6 +22,7 @@ local Store = require(script.Parent.Store)
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Telemetry = require(script.Parent.Telemetry)
+local Analytics = require(script.Parent.Analytics)
 
 Remotes.init()
 local isRunPlace = Handoff.isRunPlace(game.PlaceId, workspace:GetAttribute("RunPlace"))
@@ -66,6 +67,8 @@ effect(
 -- Saved data and the store, in both places. Runs happen here if this is the
 -- run place, or while the places aren't published (single server).
 PlayerData.start()
+-- Funnels, economy and custom events for the Creator Dashboard (docs/ANALYTICS.md).
+Analytics.start(if isRunPlace then "Run" else "Lobby", PlayerData)
 Store.start({ runServer = isRunPlace or Config.Places.Run == 0 })
 Skins.start() -- each player's chosen Santa suit
 Boots.start() -- boots over any suit (bought with Coal)

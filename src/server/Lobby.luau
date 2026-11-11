@@ -20,6 +20,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local CrewPacker = require(ReplicatedStorage.Shared.CrewPacker)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Util = require(ReplicatedStorage.Shared.Util)
+local Analytics = require(script.Parent.Analytics)
 local Matchmaker = require(script.Parent.Matchmaker)
 local Onboarding = require(script.Parent.Onboarding)
 local Telemetry = require(script.Parent.Telemetry)
@@ -40,6 +41,7 @@ local crews: { Crew } = {}
 local runsBySlot: { [number]: any } = {}
 local runOf: { [Player]: any } = {}
 local crewOf: { [Player]: Crew } = {}
+local seated: { [Player]: boolean } = {} -- in a station sleigh seat (for LeftLobby)
 local hud: RemoteEvent
 local hubSpawn: CFrame
 
@@ -137,6 +139,7 @@ local function departLocally(players: { Player })
 			crewOf[player] = crew
 		end
 	end
+	Analytics.crewFound(crew.players)
 	sendCrew(crew)
 end
 
@@ -154,11 +157,14 @@ end
 local stationHandlers = {
 	seated = function(bay, player: Player)
 		Onboarding.complete(player, "Board")
+		seated[player] = true
+		Analytics.boarded(player)
 		if bay.kind == "Public" and Matchmaker.enabled() then
 			Matchmaker.enqueue("Public", { player })
 		end
 	end,
 	unseated = function(_bay, player: Player)
+		seated[player] = nil
 		Matchmaker.cancel(player)
 	end,
 	depart = function(bay, riders: { Player })
@@ -175,7 +181,29 @@ local stationHandlers = {
 	end,
 }
 
+-- What a player was doing in the lobby, for LeftLobby (fixed labels only).
+local function doing(player: Player): string
+	if crewOf[player] then
+		return "Crew leaving"
+	elseif Matchmaker.isQueued(player) then
+		return "Queued for a crew"
+	elseif seated[player] then
+		return "Sitting in a sleigh"
+	end
+	return "Exploring"
+end
+
 function Lobby.leave(player: Player, leftGame: boolean?)
+	if leftGame then
+		local run = runOf[player]
+		if run then
+			local st = run.players[player]
+			Analytics.leftRun(player, run, "Quit the game", st and st.jingle)
+		else
+			Analytics.leftLobby(player, doing(player))
+		end
+		seated[player] = nil
+	end
 	Matchmaker.cancel(player)
 	Station.release(player)
 	local crew = crewOf[player]

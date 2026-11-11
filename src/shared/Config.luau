@@ -88,6 +88,25 @@ Config.Telemetry = {
 	ClientErrorsPerPlayer = 20, -- reports accepted per player per server
 }
 
+-- Player analytics (server/Analytics.luau, steps in shared/Funnels.luau):
+-- Roblox's built-in funnels, economy and custom events, so the Creator
+-- Dashboard shows where players drop off, above all in their first game.
+-- Docs: docs/ANALYTICS.md. Roblox only records events from published
+-- servers, never Studio.
+Config.Analytics = {
+	Enabled = true,
+	-- Roblox allows 120 + 20 x players events a minute across the whole game.
+	-- Each server keeps well under its share; anything over is dropped and
+	-- counted (Telemetry "AnalyticsDropped") rather than throttled by Roblox.
+	PerMinuteBase = 20,
+	PerMinutePerPlayer = 12,
+	-- A save with less playtime than this on its first load is a brand-new
+	-- player, who goes through the first-game (onboarding) funnel. Older
+	-- saves never enter it, so veterans don't skew it after an update.
+	NewPlayerSeconds = 120,
+	PrintInStudio = false, -- true: print each event to Output in Studio (nothing is sent from Studio)
+}
+
 Config.Player = {
 	WalkSpeed = 16,
 }

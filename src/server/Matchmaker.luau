@@ -36,6 +36,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local CrewPacker = require(ReplicatedStorage.Shared.CrewPacker)
 local Handoff = require(ReplicatedStorage.Shared.Handoff)
 local Util = require(ReplicatedStorage.Shared.Util)
+local Analytics = require(script.Parent.Analytics)
 local Telemetry = require(script.Parent.Telemetry)
 local Teleporter = require(script.Parent.Teleporter)
 
@@ -71,6 +72,11 @@ function Matchmaker.overdue(now: number): { { Player } }
 		end
 	end
 	return out
+end
+
+-- True while a player waits in the shared queue for a crew.
+function Matchmaker.isQueued(player: Player): boolean
+	return pending[player] ~= nil
 end
 
 -- Stop waiting for a crew (hopped off, left, or sent somewhere else). The
@@ -129,6 +135,7 @@ local function teleport(players: { Player }, accessCode: string, data)
 	if #players == 0 then
 		return
 	end
+	Analytics.crewFound(players)
 	local options = Instance.new("TeleportOptions")
 	options.ReservedServerAccessCode = accessCode
 	options:SetTeleportData(data)

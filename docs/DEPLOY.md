@@ -168,6 +168,9 @@ CustomField01 is the detail (the signature or reason), CustomField02 is
 `Lobby` or `Run`. No player names, ids or chat are sent. Roblox's own
 **Error Report** page in the dashboard also lists raw script errors.
 
+Where players drop off (first-game funnel, runs, Coal and Jingle, tips) is
+separate: see [ANALYTICS.md](ANALYTICS.md).
+
 ## Things that break a deploy, and the fix
 
 | Error in the log | Fix |

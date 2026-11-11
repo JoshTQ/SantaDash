@@ -29,6 +29,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local SkinRules = require(ReplicatedStorage.Shared.SkinRules)
 local StoreRules = require(ReplicatedStorage.Shared.StoreRules)
+local Analytics = require(script.Parent.Analytics)
 local PlayerData = require(script.Parent.PlayerData)
 local Skins = require(script.Parent.Skins)
 local Boots = require(script.Parent.Boots)
@@ -89,9 +90,14 @@ function Store.creditRun(player: Player, loot: number): number
 		loot * Config.Coal.PerLootValue * StoreRules.coalMultiplier(Store.owned(player), Store.isBlessed())
 	)
 	if coal > 0 then
+		local balance = nil
 		PlayerData.update(player, function(data)
 			data.coal += coal
+			balance = data.coal
 		end)
+		if balance then
+			Analytics.coal(player, "Source", coal, balance, "Gameplay", "RunReward")
+		end
 	end
 	return coal
 end
@@ -207,6 +213,9 @@ function Store.prompt(player: Player, id: string): (boolean, string?)
 			MarketplaceService:PromptProductPurchase(player, item.assetId)
 		end
 	end)
+	if prompted then
+		Analytics.shopPrompted(player, item.id)
+	end
 	return prompted, if prompted then nil else "promptFailed"
 end
 
@@ -233,6 +242,7 @@ local function afterGrant(player: Player, item, live)
 			end
 		end
 	end
+	Analytics.purchased(player, item)
 	notice(player, "Thanks! " .. item.name .. " is yours.")
 	Store.sendCatalog(player)
 end
@@ -250,6 +260,7 @@ function Store.processReceipt(info: any): Enum.ProductPurchaseDecision
 	end
 	local purchaseId = tostring(info.PurchaseId)
 	local fresh, live = false, { blessing = false }
+	local coalBefore = data.coal or 0
 	PlayerData.update(player, function(d)
 		fresh = StoreRules.recordReceipt(d, purchaseId)
 		if fresh then
@@ -270,6 +281,8 @@ function Store.processReceipt(info: any): Enum.ProductPurchaseDecision
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 	if fresh then
+		local coal = data.coal or 0
+		Analytics.coal(player, "Source", coal - coalBefore, coal, "IAP", item.id)
 		afterGrant(player, item, live)
 	end
 	return Enum.ProductPurchaseDecision.PurchaseGranted
@@ -341,6 +354,7 @@ function Store.start(options: { runServer: boolean }?)
 
 	remote().OnServerEvent:Connect(function(player, action, id)
 		if action == "Open" then
+			Analytics.shopOpened(player)
 			Store.sendCatalog(player)
 		elseif action == "Buy" and type(id) == "string" then
 			Store.prompt(player, id)

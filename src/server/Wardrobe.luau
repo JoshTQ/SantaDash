@@ -164,7 +164,7 @@ function Wardrobe.buy(run, player: Player, id: string)
 		return
 	end
 	local item = Rules.item(id) :: Rules.Item
-	if not run:_spend(player, item.price) then
+	if not run:_spend(player, item.price, "Wear" .. id) then
 		return
 	end
 	st.wardrobe[id] = true

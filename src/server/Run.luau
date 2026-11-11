@@ -28,6 +28,7 @@ local KrampusBrain = require(script.Parent.KrampusBrain)
 local Krampus = require(script.Parent.Krampus)
 local MapBuilder = require(script.Parent.MapBuilder)
 local Telemetry = require(script.Parent.Telemetry)
+local Analytics = require(script.Parent.Analytics)
 local MapEventBrain = require(script.Parent.MapEventBrain)
 local MapEvents = require(script.Parent.MapEvents)
 local MapFeatures = require(script.Parent.MapFeatures)
@@ -517,12 +518,18 @@ function Run:_collect(player: Player, st: PlayerState, present, from: Vector3)
 	if present.taken then
 		return
 	end
+	local jingleBefore = st.jingle
 	if not Loot.grab(st, present.plan) then
 		self:_banner(player, "Sack full! Get back on the sleigh to bank it.", 2)
 		SoundPlayer.at("SackFull", from)
 		return
 	end
 	present.taken = true
+	Analytics.earnJingle(
+		player,
+		st.jingle - jingleBefore,
+		if present.plan.naughtyList then "NaughtyList" else "Presents"
+	)
 	self.lastNoisePos = from
 	present.model:Destroy()
 	if present.house then
@@ -601,8 +608,9 @@ function Run:_removeElves(owner: Player?)
 	end
 end
 
--- Spends Jingle; returns true on success. Callers send the Player update.
-function Run:_spend(player: Player, cost: number): boolean
+-- Spends Jingle on sku (for analytics); returns true on success. Callers
+-- send the Player update.
+function Run:_spend(player: Player, cost: number, sku: string?): boolean
 	local st = self:_free(player)
 	if not st then
 		return false
@@ -613,6 +621,7 @@ function Run:_spend(player: Player, cost: number): boolean
 		return false
 	end
 	st.jingle -= cost
+	Analytics.spendJingle(player, cost, st.jingle, sku or "Other")
 	self:_addNoise(Config.Noise.PerBuy)
 	return true
 end
@@ -622,7 +631,7 @@ function Run:_buyPeppermintRush(player: Player)
 	if st and st.perks.PeppermintRush then
 		self:_banner(player, "You already have Peppermint Rush", 2)
 		self:_sfx(player, "Nope")
-	elseif st and self:_spend(player, Config.Buys.PeppermintRush.Cost) then
+	elseif st and self:_spend(player, Config.Buys.PeppermintRush.Cost, "PeppermintRush") then
 		st.perks.PeppermintRush = true
 		local root = rootOf(player)
 		if root then
@@ -636,7 +645,7 @@ end
 
 function Run:_buyVault(player: Player, stop)
 	local prompt = stop.vaultPrompt
-	if prompt.Enabled and self:_spend(player, Config.Buys.VaultDoor.Cost) then
+	if prompt.Enabled and self:_spend(player, Config.Buys.VaultDoor.Cost, "VaultDoor") then
 		prompt.Enabled = false
 		for _, house in stop.houses or {} do
 			if house.locked then
@@ -698,6 +707,7 @@ function Run:_findSecret(player: Player, stop, secret)
 		end
 	end
 	st.jingle += Config.Houses.Secret.FinderJingle
+	Analytics.earnJingle(player, Config.Houses.Secret.FinderJingle, "SecretRoom")
 	SoundPlayer.at("SecretFound", secret.trigger)
 	self:_sfx(player, "JingleGain")
 	self:_sendPlayer(player)
@@ -1145,6 +1155,7 @@ function Run:_playStop(stop): { Player }
 	if #self.elfVariants > 0 then
 		self:_spawnElves() -- elves hop off with their Santa at the first stop
 	end
+	Analytics.stopReached(self, plan.index)
 	self:_startFeatures(stop)
 	self:_startSnores(stop)
 	self:_teachLanding(stop)
@@ -1288,6 +1299,10 @@ function Run:_playStop(stop): { Player }
 			self:_leftBehind(player, stop)
 		end
 	end
+	Analytics.stopLeft(self, plan.index, aboard, function(player)
+		local st = self.players[player]
+		return st and st.jingle
+	end)
 	return aboard
 end
 
@@ -1353,6 +1368,7 @@ function Run:_main()
 	for player in self.players do
 		self:_sendPlayer(player)
 	end
+	Analytics.runStarted(self)
 
 	local stops = self.route.stops
 	local marks = {}
@@ -1390,6 +1406,7 @@ function Run:_main()
 			endsAt = now() + Config.Run.ResultsSeconds + Config.Run.RequeueSeconds,
 		})
 		Onboarding.teachAll(self.order, "Done")
+		Analytics.runFinished(self)
 		for player, st in self.players do
 			if st.banked > 0 then
 				SantaMoves.play(player.Character, "Cheer") -- got away with it
