@@ -24,12 +24,10 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Maps = require(ReplicatedStorage.Shared.Maps)
 local SantaMoves = require(ReplicatedStorage.Shared.SantaMoves)
 local SoundPlayer = require(ReplicatedStorage.Shared.SoundPlayer)
-local Sounds = require(ReplicatedStorage.Shared.Sounds)
 local Util = require(ReplicatedStorage.Shared.Util)
-local Assets = require(script.Parent.Assets)
 local CanalRules = require(script.Parent.CanalRules)
 local Boots = require(script.Parent.Boots)
-local DogBump = require(script.Parent.DogBump)
+local GuardDogs = require(script.Parent.GuardDogs)
 local Swimming = require(script.Parent.Swimming)
 
 local C = Config.Canal
@@ -310,7 +308,7 @@ local function lamps(ctx, zEnd: number, ranges)
 			end
 			-- Lights strung across the canal between each pair of lamps.
 			local x = half + C.Promenade - 0.8
-			strand(ctx, Vector3.new(-x, 10, z), Vector3.new(x, 10, z), 2.5, 3)
+			strand(ctx, Vector3.new(-x, 10, z), Vector3.new(x, 10, z), 2.5, 4)
 		end
 		z += 44
 	end
@@ -856,7 +854,7 @@ function SkateCanal.build(ctx)
 			glow(lamp, Color3.fromRGB(255, 210, 150), 24)
 			if prev then
 				local from = (frame * CFrame.new(prev, 0, sz * (C.Width / 2 + 3))).Position
-				strand(ctx, from + Vector3.new(0, 9.6, 0), at + Vector3.new(0, 9.6, 0), 3, 3.2)
+				strand(ctx, from + Vector3.new(0, 9.6, 0), at + Vector3.new(0, 9.6, 0), 3, 4.2)
 			end
 		end
 		prev = d
@@ -1157,112 +1155,32 @@ local function block(model: Model, name: string, size: Vector3, offset: Vector3,
 	return part
 end
 
-local function standInDog(kind: string): Model
-	local model = Instance.new("Model")
-	model.Name = kind
-	local corgi = kind == "DogCorgi"
-	local root = block(model, "HumanoidRootPart", Vector3.new(2, 2, 3), Vector3.new(0, 1.5, 0), WHITE)
-	root.Transparency = 1
-	local fur = if corgi then Color3.fromRGB(225, 140, 60) else Color3.fromRGB(185, 190, 200)
-	block(model, "Body", Vector3.new(2, 1.6, if corgi then 3.4 else 4.4), Vector3.new(0, 1.4, 0), fur)
-	block(model, "Head", Vector3.new(1.6, 1.6, 1.6), Vector3.new(0, 2.4, -2.2), fur)
-	if corgi then
-		block(model, "PatrolSled", Vector3.new(2.6, 0.4, 4.4), Vector3.new(0, 0.3, 0), CANDY)
-	else
-		block(model, "WindUpKey", Vector3.new(0.3, 1.4, 1.4), Vector3.new(0, 2.6, 0.8), GOLD)
-	end
-	model.PrimaryPart = root
-	local humanoid = Instance.new("Humanoid")
-	humanoid.Parent = model
-	return model
-end
-
 function ChristmasMarket.start(ctx)
 	local run, stop = ctx.run, ctx.stop
 	if not stop.canal then
 		return nil
 	end
-	local dogs = {}
+	-- Patrols start spread along their beat, then look, listen and sniff
+	-- (GuardDogs / DogBrain): walking past one is no longer safe.
+	local specs = {}
 	for _, spec in stop.canal.dogs do
-		local model = Assets.clone(spec.kind, { "Humanoid", "HumanoidRootPart" }) or standInDog(spec.kind)
-		for _, p in model:GetDescendants() do
-			if p:IsA("BasePart") then
-				p.Anchored = true
-				p.CanCollide = false
-			end
-		end
-		model.Parent = run.route.model
-		local _, size = model:GetBoundingBox()
-		table.insert(dogs, {
-			spec = spec,
-			model = model,
-			lift = size.Y / 2 + 0.4,
-			-- Growls and barks come from here.
-			emitter = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true),
-			clock = spec.offset,
-			pausedUntil = 0,
-			hitAt = {},
+		local pos, facing = CanalRules.patrolAt(spec.points, C.Dogs.Speed, spec.offset)
+		local towardEnd = facing:Dot(spec.points[#spec.points] - spec.points[1]) >= 0
+		local at = pos + Vector3.new(0, 3, 0)
+		table.insert(specs, {
+			kind = spec.kind,
+			at = CFrame.lookAt(at, at + facing),
+			patrol = spec.points,
+			startIndex = if towardEnd then #spec.points else 1,
+			cooldown = C.Dogs.CorgiCooldown,
 		})
 	end
-
-	local dropper = DogBump.dropper(run, run.route.model)
-
-	local connection = RunService.Heartbeat:Connect(function(dt)
-		local t = Util.now()
-		local santas = {}
-		for player in run.players do
-			local root = Util.rootOf(player)
-			if root and run:_free(player) then
-				table.insert(santas, { player = player, root = root })
-			end
-		end
-		for _, dog in dogs do
-			if dog.pausedUntil <= t then
-				dog.clock += dt
-			end
-			local pos, facing = CanalRules.patrolAt(dog.spec.points, C.Dogs.Speed, dog.clock)
-			local at = pos + Vector3.new(0, dog.lift, 0)
-			dog.model:PivotTo(CFrame.lookAt(at, at + facing))
-			if dog.pausedUntil > t then
-				continue
-			end
-			local corgi = dog.spec.kind == "DogCorgi"
-			for _, santa in santas do
-				local player, root = santa.player, santa.root
-				local offset = (root.CFrame.Position - pos) * Vector3.new(1, 0, 1)
-				-- The warning before the bump: a corgi growls, a tin dog whirrs.
-				if Sounds.dogWarns(offset.Magnitude, C.Dogs.HitRadius, C.Dogs.WarnRadius) then
-					SoundPlayer.at(if corgi then "CorgiGrowl" else "TinDogWhirr", dog.emitter or at)
-				end
-				if (dog.hitAt[player] or 0) + C.Dogs.CorgiCooldown < t then
-					if CanalRules.inReach(root.CFrame.Position, pos, C.Dogs.HitRadius) then
-						dog.hitAt[player] = t
-						local pause = DogBump.hit(
-							run,
-							dropper,
-							dog.spec.kind,
-							player,
-							root,
-							pos,
-							facing,
-							dog.emitter or at
-						)
-						if pause > 0 then
-							dog.pausedUntil = t + pause
-						end
-					end
-				end
-			end
-		end
+	local aboard = Config.Map.SleighStopRadius
+	return GuardDogs.start(run, specs, run.route.model, function(position)
+		-- MapBuilder.isAboard (not required here: MapBuilder loads this module)
+		local rel = stop.deckCFrame:PointToObjectSpace(position)
+		return Vector3.new(rel.X, 0, rel.Z).Magnitude <= aboard and rel.Y >= -4 and rel.Y <= 12
 	end)
-
-	return function()
-		connection:Disconnect()
-		for _, dog in dogs do
-			dog.model:Destroy()
-		end
-		dropper.cleanup()
-	end
 end
 
 ----------------------------------------------------------------------------

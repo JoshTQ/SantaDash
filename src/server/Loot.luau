@@ -16,6 +16,7 @@ export type PresentPlan = {
 	threats: number,
 	naughtyList: boolean?,
 	regrab: boolean?, -- a present a security dog knocked out of a sack: not a new grab
+	secret: boolean?, -- sits in a secret room until someone finds it
 }
 
 export type HousePlan = {
@@ -28,6 +29,7 @@ export type HousePlan = {
 	chimney: boolean,
 	hideSpots: number,
 	isLanding: boolean,
+	secret: boolean, -- has a secret room; its present is flagged `secret`
 	presents: { PresentPlan },
 }
 
@@ -124,6 +126,16 @@ local function planHouse(
 	for _ = 1, count do
 		table.insert(presents, planPresent(rng, houseType.PresentSize, mult, houseType.Threats))
 	end
+	-- A secret room (Config.Houses.Secret) holds one extra Big present.
+	local secret = not isLanding
+		and not houseType.Locked
+		and not houseType.NaughtyList
+		and rng:NextNumber() < Config.Houses.Secret.Chance
+	if secret then
+		local present = planPresent(rng, Config.Houses.Secret.PresentSize, mult, houseType.Threats)
+		present.secret = true
+		table.insert(presents, present)
+	end
 	if houseType.NaughtyList then
 		table.insert(presents, {
 			size = 1,
@@ -143,6 +155,7 @@ local function planHouse(
 		chimney = not houseType.NoChimney,
 		hideSpots = if houseType.Locked then 0 else houseType.HideSpots or Config.Houses.HideSpots,
 		isLanding = isLanding,
+		secret = secret,
 		presents = presents,
 	}
 end

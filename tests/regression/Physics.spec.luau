@@ -154,6 +154,40 @@ describe("security dogs", function()
 		end)
 	end)
 
+	-- Josh's first playtest (6 Nov 2026): "I can walk by them and they don't find me."
+	it("a market dog spots a Santa in front of it and runs them down", function()
+		local world, engine, _, Run, players = boot({ "A" })
+		local santa = players[1]
+		world.run(function()
+			local run = startAtStop(world, Run, players, 1)
+			local corgi = findAll(run.route.model, "DogCorgi")[1]
+			local pivot = corgi:GetPivot()
+			local spot = pivot.Position + pivot.LookVector * 12
+			engine:teleport(santa, Vector3.new(spot.X, 3, spot.Z))
+			world.wait(2) -- standing still in front of it: seen, not heard
+			expect(banners(engine, santa, "SPOTTED")).toBe(1)
+			expect((corgi:GetPivot().Position - spot).Magnitude).toBeLessThan(6) -- ran at them
+			run.ended = true
+		end)
+	end)
+
+	it("a Santa hiding in a wardrobe is never sniffed out", function()
+		local world, engine, _, Run, players = boot({ "A" })
+		local santa = players[1]
+		world.run(function()
+			local run = startAtStop(world, Run, players, 1)
+			local corgi = findAll(run.route.model, "DogCorgi")[1]
+			run.players[santa].hidden = { occupant = santa } -- in a wardrobe
+			local p = corgi:GetPivot()
+			engine:teleport(santa, p.Position + p.LookVector * 6)
+			world.wait(2)
+			local mark = corgi:FindFirstChild("DogAlert", true)
+			expect(mark.Enabled).toBeFalsy()
+			run.players[santa].hidden = nil
+			run.ended = true
+		end)
+	end)
+
 	it("an empty sack gets a bump but nothing to drop", function()
 		local world, engine, _, Run, players = boot()
 		local santa = players[1]

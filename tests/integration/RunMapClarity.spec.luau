@@ -66,12 +66,13 @@ describe("gift markers", function()
 						string.find(house.marker.Text, tostring(Config.Buys.VaultDoor.Cost), 1, true) ~= nil
 					).toBeTruthy()
 				else
+					-- A secret room's present isn't counted until someone finds it.
+					local shown = 0
+					for _, present in house.presents do
+						shown += if present.hidden then 0 else 1
+					end
 					expect(house.marker.Text).toBe(
-						string.format(
-							"ROB ME · %d GIFT%s",
-							#house.presents,
-							if #house.presents == 1 then "" else "S"
-						)
+						string.format("ROB ME · %d GIFT%s", shown, if shown == 1 then "" else "S")
 					)
 				end
 			end

@@ -27,6 +27,7 @@ local Loot = require(script.Parent.Loot)
 local KrampusBrain = require(script.Parent.KrampusBrain)
 local Krampus = require(script.Parent.Krampus)
 local MapBuilder = require(script.Parent.MapBuilder)
+local Telemetry = require(script.Parent.Telemetry)
 local MapEventBrain = require(script.Parent.MapEventBrain)
 local MapEvents = require(script.Parent.MapEvents)
 local MapFeatures = require(script.Parent.MapFeatures)
@@ -415,6 +416,13 @@ function Run:_wirePrompts()
 				self:_hide(player, spot)
 			end)
 		end
+		for _, secret in stop.secrets or {} do
+			-- A soft bell twinkle from the hiding place, heard from the next room.
+			secret.hum = SoundPlayer.loop("SecretHum", secret.trigger)
+			on(secret.prompt, function(player)
+				self:_findSecret(player, stop, secret)
+			end)
+		end
 		for _, door in stop.doors do
 			on(door.prompt, function(player)
 				if self:_free(player) then
@@ -560,7 +568,13 @@ function Run:presentCandidates(): { ElfBrain.PresentCandidate }
 	local vaultShut = stop ~= nil and stop.vaultPrompt ~= nil and stop.vaultPrompt.Enabled
 	local function add(presents)
 		for _, present in presents do
-			if not present.taken and not (present.inVault and vaultShut) then
+			-- Secret-room presents stay for Santas: an elf can't climb into a cellar.
+			if
+				not present.taken
+				and not present.hidden
+				and not present.plan.secret
+				and not (present.inVault and vaultShut)
+			then
 				table.insert(list, { present = present, position = present.model:GetPivot().Position })
 			end
 		end
@@ -641,6 +655,59 @@ function Run:_buyVault(player: Player, stop)
 		self:_sendPlayer(player)
 		self:_banner(nil, player.DisplayName .. " opened the vault!", 3)
 	end
+end
+
+-- Someone held Search on a secret room's bookcase / rug / hatch (Room Mix
+-- houses, Josh 6 Nov 2026): it opens, glows gold for the whole crew, the
+-- Big present inside can be grabbed, and the finder gets a Jingle bonus.
+function Run:_findSecret(player: Player, stop, secret)
+	local st = self:_free(player)
+	if not st or secret.found then
+		return
+	end
+	secret.found = true
+	secret.prompt.Enabled = false
+	if secret.hum then
+		secret.hum.stop(0.5)
+		secret.hum = nil
+	end
+	for _, d in secret.model:GetDescendants() do
+		if d:IsA("BasePart") then
+			local open = d:GetAttribute("Open")
+			if typeof(open) == "CFrame" then
+				d.CFrame = d.CFrame * open
+			end
+			if d.Name == "SecretReveal" then
+				d.Transparency = 0
+			elseif d.Name == "SecretGlow" then
+				d.Transparency = 0.35
+			end
+		elseif d:IsA("PointLight") then
+			d.Enabled = true
+		elseif d:IsA("ParticleEmitter") then
+			d.Enabled = false
+		end
+	end
+	if secret.climb then
+		secret.climb.down.Enabled = true
+		secret.climb.up.Enabled = true
+	end
+	local present = secret.present
+	if present and not present.taken then
+		present.hidden = nil
+		present.prompt.Enabled = true
+	end
+	for _, house in stop.houses or {} do
+		if house.secret == secret then
+			MapBuilder.refreshMarker(house, stop.vaultPrompt ~= nil and stop.vaultPrompt.Enabled)
+		end
+	end
+	st.jingle += Config.Houses.Secret.FinderJingle
+	SoundPlayer.at("SecretFound", secret.trigger)
+	self:_sfx(player, "JingleGain")
+	self:_sendPlayer(player)
+	self:_banner(nil, player.DisplayName .. " found a secret room! The best gift in the house is inside.", 3)
+	Telemetry.count("SecretFound", secret.kind)
 end
 
 function Run:_hide(player: Player, spot)

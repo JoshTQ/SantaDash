@@ -158,6 +158,16 @@ Config.Houses = {
 	ThreatLootBonus = 0.25,
 	PresentsPerHouse = { Near = 5, Mid = 4, Far = 4 },
 	HideSpots = 1, -- wardrobes per house, unless the type says otherwise
+	-- Secret rooms in the Room Mix houses (Josh, 6 Nov 2026: "2-3 houses out
+	-- of 5"). Never the landing house, the vault or the Lair. A bookcase, a rug
+	-- over a trapdoor or a ceiling hatch hides a room with a Big present; it
+	-- twinkles when you're near and glows gold once someone finds it.
+	Secret = {
+		Chance = 0.5, -- per robbable house: 2-3 houses in every 5
+		PresentSize = 2, -- the Big size: worth 4 normal presents
+		FinderJingle = 100,
+		SearchSeconds = 1, -- hold Search on the bookcase / rug / hatch
+	},
 }
 
 -- Present value follows the size-squared rule: value = BaseValue * size^2.
@@ -211,6 +221,71 @@ Config.Noise = {
 		HitRadius = 4,
 		Cooldown = 4, -- seconds before the same dog can bump the same Santa again
 		RepathSeconds = 0.75,
+	},
+}
+
+-- Guard dog senses (server/DogBrain.luau), shared by the Christmas Market
+-- patrols and the alarm dogs. Josh's first playtest (6 Nov 2026): "I can walk
+-- by them and they don't find me." Now they look, listen and sniff:
+--   Patrol -> Alert "?" (heard you, glimpsed you, smelt your trail: comes to
+--   look) -> Chase "!" (spotted: barks, calls the pack, runs you down) ->
+--   Search (lost you: sniffs your trail) -> back on patrol.
+-- To shake one: break its line of sight, hide in a wardrobe, get up high,
+-- skate the canal (ice holds no scent) or reach the Sleigh Stop. A dog runs
+-- out of puff after its chase burst, which is your window.
+Config.DogAI = {
+	-- Sight: a cone in front of the dog, blocked by walls (a raycast).
+	-- Lit streets show you up: after the lights come on dogs see much further.
+	SightRange = { Sneak = 30, Lit = 52 },
+	CloseSense = 7, -- studs: a dog notices a moving Santa this close behind it
+	StillSight = 0.55, -- a Santa standing still is seen at this share of the range
+	SpotSeconds = 1.2, -- in view at the edge of its sight: "!" after this long
+	-- (twice as fast up close, so walking right past its nose is a chase)
+	Forget = 0.3, -- awareness lost per second with nothing to see, hear or smell
+	AlertAt = 0.3, -- awareness at which it stops patrolling to look ("?")
+	HearCap = 0.65, -- footsteps alone make it suspicious, never certain
+	-- Hearing: footsteps in this radius, louder as the street's NOISE fills
+	-- (x2 at a full meter). Tiptoeing in the sneak phase is quiet.
+	Footsteps = { Walk = 15, Tiptoe = 5 },
+	HearRate = 0.6, -- awareness per second while it can hear you
+	LoudRange = 45, -- grabs, gasps and barks this close bring it to look (x2 full meter)
+	-- Scent: Santas leave a trail (one crumb a second, not on canal ice).
+	ScentEvery = 1,
+	ScentRadius = 6, -- a dog this close to a crumb picks up the trail
+	SearchSeconds = 5, -- sniffing round where it lost you before giving up
+	-- The pack: a dog that spots you barks; dogs this close come running,
+	-- and the bark adds to the NOISE meter (once per chase).
+	PackRadius = 70,
+	BarkNoise = 4,
+	AlertSpeed = 11, -- walking over to look
+	LeashRange = 70, -- market dogs give up past this far from their patrol path
+	LookAroundSeconds = 1.5, -- a patrol stops and looks round at each end
+	-- One spotted banner per Santa this often, so it reads without spamming.
+	SpottedBannerCooldown = 8,
+	Kinds = {
+		-- Corgi Patrol: sharp nose, low to the ground, fast in short bursts.
+		DogCorgi = {
+			Fov = 110,
+			SightScale = 0.85,
+			HearScale = 1.2,
+			ScentSeconds = 12,
+			ChaseSpeed = 18, -- quicker than a walking Santa (16) ...
+			ChaseBurst = 4, -- ... for this long, then it pants
+			TiredSeconds = 2.5,
+		},
+		-- Tin Sausage Dog: lamp eyes that sweep the street, poor nose,
+		-- slower but keeps going.
+		DogTin = {
+			Fov = 70,
+			SightScale = 1.25,
+			HearScale = 0.7,
+			ScentSeconds = 5,
+			ChaseSpeed = 15,
+			ChaseBurst = 9,
+			TiredSeconds = 1.5,
+			Sweep = 40, -- degrees its head lamp swings either side
+			SweepSeconds = 3, -- one full swing and back
+		},
 	},
 }
 
