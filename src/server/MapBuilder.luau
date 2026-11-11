@@ -284,6 +284,8 @@ export type Stop = {
 	hideSpots: { HideSpot },
 	cocoaPrompt: ProximityPrompt,
 	bonePrompt: ProximityPrompt?, -- dog treats at the Sleigh Stop (Config.DogAI.Bone)
+	launcherPrompt: ProximityPrompt?, -- toy stand (Config.Toys, server/Toys)
+	glitterPrompt: ProximityPrompt?,
 	dogFlaps: { any }?, -- front doors as dog flaps (GuardDogs.flapsFor), built on first use
 	wardrobePrompts: { [string]: ProximityPrompt }, -- server/Wardrobe stand, empty while off
 	vaultPrompt: ProximityPrompt?,
@@ -716,6 +718,34 @@ local function buildStop(
 		)
 		addLabel(tin, "DOG TREATS\n" .. Config.DogAI.Bone.Cost .. " Jingle", Color3.new(1, 1, 1), 4)
 		stop.bonePrompt = addPrompt(tin, "Buy bone", "Dog treat", 0.3)
+	end
+
+	-- Toy stand (Config.Toys) on the sign's other side, every stop (the Lair
+	-- too: that's where Krampus is). GREYBOX crate and jar, art round pending.
+	if Config.Toys.Enabled then
+		local crate = newPart(
+			model,
+			"ToyLauncher",
+			Vector3.new(2.4, 2, 2),
+			landing * CFrame.new(radius - 1, 1, -3),
+			Color3.fromRGB(235, 245, 255)
+		)
+		addLabel(
+			crate,
+			"SNOWBALL LAUNCHER\n" .. Config.Toys.Launcher.Cost .. " Jingle",
+			Color3.new(1, 1, 1),
+			4
+		)
+		stop.launcherPrompt = addPrompt(crate, "Buy", "Snowball Launcher", 0.3)
+		local jar = newPart(
+			model,
+			"ToyGlitter",
+			Vector3.new(1.6, 2, 1.6),
+			landing * CFrame.new(radius - 1, 1, -6),
+			Color3.fromRGB(255, 120, 220)
+		)
+		addLabel(jar, "GLITTER BOMB\n" .. Config.Toys.Glitter.Cost .. " Jingle", Color3.new(1, 1, 1), 4)
+		stop.glitterPrompt = addPrompt(jar, "Buy", "Glitter Bomb", 0.3)
 	end
 
 	-- Cocoa machine (Peppermint Rush) by the landing house, Near ring.

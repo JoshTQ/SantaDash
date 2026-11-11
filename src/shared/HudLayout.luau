@@ -36,7 +36,7 @@ HudLayout.TopStack = {
 	order = { event = 1, heat = 2, banner = 3, tip = 4 },
 }
 
-export type Spots = { snow: UDim2, bone: UDim2, quit: UDim2, music: UDim2, musicHub: UDim2 }
+export type Spots = { snow: UDim2, bone: UDim2, toys: UDim2, quit: UDim2, music: UDim2, musicHub: UDim2 }
 
 -- Positions for the controls that would otherwise sit under the touch
 -- thumbstick (quit) or the jump button (throw).
@@ -46,6 +46,8 @@ function HudLayout.spots(touch: boolean): Spots
 		snow = if touch then UDim2.new(1, -12, 1, -260) else UDim2.new(1, -12, 1, -110),
 		-- Dog treats: just left of the snowballs.
 		bone = if touch then UDim2.new(1, -192, 1, -260) else UDim2.new(1, -192, 1, -110),
+		-- Toys (Snowball Launcher, Glitter Bomb): just left of the dog treats.
+		toys = if touch then UDim2.new(1, -372, 1, -260) else UDim2.new(1, -372, 1, -110),
 		-- Back to hub: under the stats panel (top-left) everywhere, so a thumb
 		-- on the stick never quits the run.
 		quit = UDim2.fromOffset(12, 112),

@@ -7,7 +7,7 @@
 	(LookSeconds). Any free Santa inside the den who moves more than a shuffle
 	while it looks is spotted: "CUCKOO!", noise, and Krampus Bell Blinks to
 	them (KrampusMagic:summon). Hidden, snatched, iced or frozen Santas and
-	anyone outside the den are safe. Rules in ListBrain.
+	anyone outside the den (or in a Glitter Bomb cloud) are safe. Rules in ListBrain.
 
 	The cuckoo itself is LairAnimator.client: we stamp CuckooAt (and a short
 	CuckooHold) on the Lair model; the HUD shows "TICK TOCK..." then "FREEZE!".
@@ -73,6 +73,9 @@ function CuckooWatch:_watched(player: Player, st): Vector3?
 		return nil
 	end
 	local at = root.CFrame.Position
+	if self.run.inGlitter and self.run:inGlitter(at) then
+		return nil -- lost in a Glitter Bomb cloud (server/Toys)
+	end
 	return if ListBrain.inDen(self.box, self.size, at) then at else nil
 end
 
