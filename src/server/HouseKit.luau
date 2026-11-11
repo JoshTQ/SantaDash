@@ -211,12 +211,18 @@ function HouseKit.build(ctx: Context): CFrame?
 				door.CFrame * CFrame.new(0, -door.Size.Y / 2, 0)
 			)
 		if vault then
+			-- The approved VaultDoor's meshes import with CanCollide off (Meshy
+			-- props never collide), and the Frame's ring has a hole in it anyway,
+			-- so an invisible blocker fills the doorway until the vault is bought.
+			stop.vaultBlocker =
+				HouseKit.vaultBlocker(model, door.CFrame, Vector3.new(door.Size.X + 0.1, door.Size.Y + 0.1, 1))
 			door:Destroy()
 		else
 			vault = door
 			door.Name = "VaultDoor"
 			door.Color = Color3.fromRGB(255, 200, 60)
 			door.Material = Enum.Material.Neon
+			door.CanCollide = true
 		end
 		stop.vaultDoor = vault
 		stop.vaultPrompt =
@@ -452,6 +458,23 @@ function HouseKit.placeVaultDoor(parent: Instance, template: Model, bottom: CFra
 	vault.Parent = parent
 	local door = vault:FindFirstChild("Door", true)
 	return if door and door:IsA("BasePart") then door else nil
+end
+
+-- An invisible wall filling a vault doorway: solid until Run._buyVault opens it.
+-- The approved VaultDoor model is all looks (its parts don't collide).
+function HouseKit.vaultBlocker(parent: Instance, cframe: CFrame, size: Vector3): BasePart
+	local blocker = Instance.new("Part")
+	blocker.Name = "VaultBlocker"
+	blocker.Size = size
+	blocker.CFrame = cframe
+	blocker.Anchored = true
+	blocker.CanCollide = true
+	blocker.CanTouch = false
+	blocker.CanQuery = false
+	blocker.CastShadow = false
+	blocker.Transparency = 1
+	blocker.Parent = parent
+	return blocker
 end
 
 -- Swings a door about its left edge (its local -X side). Pure CFrame maths.

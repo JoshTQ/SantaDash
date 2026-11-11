@@ -275,6 +275,7 @@ export type Stop = {
 	wardrobePrompts: { [string]: ProximityPrompt }, -- server/Wardrobe stand, empty while off
 	vaultPrompt: ProximityPrompt?,
 	vaultDoor: BasePart?,
+	vaultBlocker: BasePart?, -- invisible wall in the vault doorway while it's shut (approved model)
 	krampusSpawn: CFrame,
 	doors: { Door }, -- approved houses' front doors (Run swings them)
 	houses: { RobHouse }, -- the houses you can rob, with their gift markers
@@ -459,7 +460,13 @@ local function buildHouse(
 		local vaultDoor = kit
 			and kit.vaultDoor
 			and HouseKit.placeVaultDoor(model, kit.vaultDoor, cframe * CFrame.new(0, FLOOR_TOP, frontZ))
-		if not vaultDoor then
+		if vaultDoor then
+			stop.vaultBlocker = HouseKit.vaultBlocker(
+				model,
+				cframe * CFrame.new(0, FLOOR_TOP + door.Y / 2, frontZ),
+				Vector3.new(door.X, door.Y, t + 0.4)
+			)
+		else
 			vaultDoor = newPart(
 				model,
 				"VaultDoor",

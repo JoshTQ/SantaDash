@@ -646,6 +646,9 @@ function Run:_buyVault(player: Player, stop)
 		local vaultDoor = stop.vaultDoor
 		vaultDoor.CFrame = HouseKit.doorCFrame(vaultDoor.CFrame, vaultDoor.Size, true)
 		vaultDoor.CanCollide = false
+		if stop.vaultBlocker then
+			stop.vaultBlocker.CanCollide = false
+		end
 		SoundPlayer.at("VaultOpen", vaultDoor)
 		self:_sendPlayer(player)
 		self:_banner(nil, player.DisplayName .. " opened the vault!", 3)

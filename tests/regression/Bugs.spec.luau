@@ -118,3 +118,43 @@ describe("noise alarm (Josh, 6 Nov)", function()
 		end, { maxSeconds = 120 })
 	end)
 end)
+
+describe("bugs found 11 Nov", function()
+	-- Josh: "you can walk through the vault without unlocking it". The imported
+	-- VaultDoor's parts all have CanCollide off (Meshy props never collide), and
+	-- the house's own door was removed to make room for it.
+	it("the real VaultDoor model leaves its doorway solid until the vault is bought", function()
+		local fs = require("@lune/fs")
+		local roblox = require("@lune/roblox")
+		local vault = roblox.deserializeModel(fs.readFile("assets/models/VaultDoor.rbxm"))[1]
+		local Config = load("ReplicatedStorage.Shared.Config")
+		local Loot = load("ServerScriptService.Server.Loot")
+		local MapBuilder = load("ServerScriptService.Server.MapBuilder")
+		local rng = Random.new(11)
+		local plans, onFoot = {}, {}
+		for i = 1, #Config.Run.StopKinds do
+			plans[i] = Loot.planStop(rng, i)
+			onFoot[i] = if i < #Config.Run.StopKinds then Loot.planOnFoot(rng) else nil
+		end
+		local route = MapBuilder.buildRoute(
+			Instance.new("Folder"),
+			1,
+			rng,
+			plans,
+			onFoot,
+			{ houseKit = { houses = {}, vaultDoor = vault } }
+		)
+		local vaults = 0
+		for _, stop in route.stops do
+			if stop.vaultPrompt then
+				vaults += 1
+				expect(stop.vaultDoor.CanCollide).toBe(false) -- the model itself is all looks
+				expect(stop.vaultBlocker.CanCollide).toBe(true)
+				local offset = stop.vaultBlocker.CFrame:PointToObjectSpace(stop.vaultDoor.CFrame.Position)
+				expect(math.abs(offset.X) < stop.vaultBlocker.Size.X / 2).toBe(true)
+				expect(math.abs(offset.Y) < stop.vaultBlocker.Size.Y / 2).toBe(true)
+			end
+		end
+		expect(vaults).toBeGreaterThan(0)
+	end)
+end)
