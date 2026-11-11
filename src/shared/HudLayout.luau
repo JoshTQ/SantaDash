@@ -25,7 +25,7 @@ function HudLayout.scale(viewport: Vector2?): number
 	return math.max(HudLayout.MinScale, s)
 end
 
-export type Spots = { snow: UDim2, quit: UDim2 }
+export type Spots = { snow: UDim2, bone: UDim2, quit: UDim2 }
 
 -- Positions for the controls that would otherwise sit under the touch
 -- thumbstick (quit) or the jump button (throw).
@@ -33,6 +33,8 @@ function HudLayout.spots(touch: boolean): Spots
 	return {
 		-- Snowballs: bottom-right on keyboard; above the jump button on touch.
 		snow = if touch then UDim2.new(1, -12, 1, -260) else UDim2.new(1, -12, 1, -110),
+		-- Dog treats: just left of the snowballs.
+		bone = if touch then UDim2.new(1, -192, 1, -260) else UDim2.new(1, -192, 1, -110),
 		-- Back to hub: under the stats panel (top-left) everywhere, so a thumb
 		-- on the stick never quits the run.
 		quit = UDim2.fromOffset(12, 112),

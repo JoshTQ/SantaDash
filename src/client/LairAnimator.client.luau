@@ -155,13 +155,15 @@ local function animate(lair: Lair, t: number, now: number)
 	end
 	local sinceCuckoo = since(lair.model, "CuckooAt", now)
 	local sinceBells = since(lair.model, "BellsAt", now)
+	local hold = lair.model:GetAttribute("CuckooHold")
+	local cuckooHold = if type(hold) == "number" then hold else nil
 	for _, bell in lair.bells do
-		local swing, lit = LairMotion.bell(t, bell.index, sinceCuckoo, sinceBells)
+		local swing, lit = LairMotion.bell(t, bell.index, sinceCuckoo, sinceBells, cuckooHold)
 		turn(bell.pieces, bell.pivot, bell.axis, swing, parts, cframes)
 		local part = bell.bell :: BasePart
 		part.Material = if lit then Enum.Material.Neon else Enum.Material.Metal
 	end
-	local open = LairMotion.cuckoo(sinceCuckoo)
+	local open = LairMotion.cuckoo(sinceCuckoo, cuckooHold)
 	for _, door in lair.doors do
 		local swing = door.hinge * CFrame.Angles(0, door.sign * open * 1.8, 0) * door.hinge:Inverse()
 		table.insert(parts, door.piece.part)
