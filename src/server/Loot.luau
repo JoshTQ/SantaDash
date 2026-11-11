@@ -17,6 +17,8 @@ export type PresentPlan = {
 	naughtyList: boolean?,
 	regrab: boolean?, -- a present a security dog knocked out of a sack: not a new grab
 	secret: boolean?, -- sits in a secret room until someone finds it
+	floor: number?, -- Gingerbread Mansion: hidden on this floor (0 ground .. 3 attic)
+	tree: boolean?, -- Gingerbread Mansion: the real box under the hall tree
 }
 
 export type HousePlan = {
@@ -123,6 +125,21 @@ local function planHouse(
 	local count = houseType.Presents
 		or (Config.Houses.PresentsPerHouse[ring] + (houseType.ExtraPresents or 0))
 	local presents = {}
+	if houseType.Mansion then
+		-- Hidden in the furniture: bigger gifts higher up (Config.Mansion).
+		count = 0
+		for _, row in Config.Mansion.Gifts do
+			for _ = 1, row.count do
+				local present = planPresent(rng, row.size, mult, houseType.Threats)
+				present.floor = row.floor
+				table.insert(presents, present)
+			end
+		end
+		local tree = planPresent(rng, Config.Mansion.TreeGiftSize, mult, houseType.Threats)
+		tree.floor = 0
+		tree.tree = true
+		table.insert(presents, tree)
+	end
 	for _ = 1, count do
 		table.insert(presents, planPresent(rng, houseType.PresentSize, mult, houseType.Threats))
 	end
@@ -130,6 +147,7 @@ local function planHouse(
 	local secret = not isLanding
 		and not houseType.Locked
 		and not houseType.NaughtyList
+		and not houseType.Mansion
 		and rng:NextNumber() < Config.Houses.Secret.Chance
 	if secret then
 		local present = planPresent(rng, Config.Houses.Secret.PresentSize, mult, houseType.Threats)
@@ -178,6 +196,10 @@ function Loot.planStop(rng: Random, stopIndex: number, streetSlots: { any }?): S
 		local typeName = if i > 1 and kind.ForceType then kind.ForceType else types[i]
 		local distance = Config.Rings[slot.Ring].Distance + slot.Extra
 		table.insert(houses, planHouse(rng, typeName, slot.Ring, slot.Side, distance, i == 1))
+	end
+	local M = Config.Mansion
+	if M.Enabled and table.find(M.Stops, stopIndex) then
+		table.insert(houses, planHouse(rng, "Mansion", M.Ring, M.Side, M.Distance, false))
 	end
 	local endType = Config.Houses.Types[kind.EndHouse]
 	table.insert(

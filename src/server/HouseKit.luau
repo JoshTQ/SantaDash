@@ -346,6 +346,10 @@ function HouseKit.build(ctx: Context): CFrame?
 		table.insert(stop.secrets, secret)
 	end
 
+	-- Gingerbread Mansion (MansionBuilder): every gift hides in a search spot
+	-- on its planned floor, or in the one real box under the tree.
+	local hiding = HouseKit.wireSearch(model, ctx)
+
 	-- Presents: on the spawn points first, then scattered across the floor.
 	local spawns = {}
 	for i = 1, 8 do
@@ -374,9 +378,18 @@ function HouseKit.build(ctx: Context): CFrame?
 				rng:NextNumber(-halfZ, halfZ)
 			)).Position
 		end
+		local hideIn = hiding and hiding.take(presentPlan)
+		if hideIn then
+			at = hideIn.giftAt
+		end
 		local present = h.buildPresent(model, rng, at, presentPlan)
 		present.inVault = plan.locked or nil
-		if secretSpawn and secret then
+		if hideIn then
+			-- Inside the furniture until someone searches it.
+			present.hidden = true
+			present.prompt.Enabled = false
+			hideIn.present = present
+		elseif secretSpawn and secret then
 			-- Sealed in the secret room until someone finds it.
 			present.hidden = true
 			present.prompt.Enabled = false
@@ -392,6 +405,138 @@ function HouseKit.build(ctx: Context): CFrame?
 		return CFrame.new(spawnMarker.CFrame.Position.X, floorTop + 6, spawnMarker.CFrame.Position.Z)
 	end
 	return nil
+end
+
+-- Search spots, tree boxes and the piano in a Gingerbread Mansion (see
+-- MansionBuilder): adds their prompts and effects, lists them in
+-- stop.searchSpots, and returns a picker that hides each planned gift (its
+-- floor, or the tree) in a spot. Nil for any other house.
+function HouseKit.wireSearch(model: Model, ctx: Context)
+	local folder = model:FindFirstChild("SearchSpots")
+	if not folder then
+		return nil
+	end
+	local stop, rng, h = ctx.stop, ctx.rng, ctx.helpers
+	local M = Config.Mansion
+	stop.searchSpots = stop.searchSpots or {}
+	local function effects(on: BasePart)
+		local glow = Instance.new("ParticleEmitter")
+		glow.Name = "Searched" -- gold for the whole crew once searched
+		glow.Color = ColorSequence.new(Color3.fromRGB(255, 214, 90))
+		glow.LightEmission = 1
+		glow.Rate = 2
+		glow.Lifetime = NumberRange.new(1, 1.6)
+		glow.Speed = NumberRange.new(0.4, 1)
+		glow.Size = NumberSequence.new(0.3)
+		glow.Enabled = false
+		glow.Parent = on
+		local puff = Instance.new("ParticleEmitter")
+		puff.Name = "Puff" -- dust from an empty spot, confetti from a decoy box
+		puff.Color = ColorSequence.new(Color3.fromRGB(220, 214, 200))
+		puff.Rate = 0
+		puff.Lifetime = NumberRange.new(0.6, 1.1)
+		puff.Speed = NumberRange.new(3, 6)
+		puff.SpreadAngle = Vector2.new(180, 180)
+		puff.Size = NumberSequence.new(0.6)
+		puff.Enabled = false
+		puff.Parent = on
+	end
+	local byLevel: { [number]: { any } } = {}
+	for _, s in folder:GetChildren() do
+		local trigger = s:FindFirstChild("SpotTrigger")
+		local gift = trigger and trigger:FindFirstChild("GiftAt")
+		if trigger and trigger:IsA("BasePart") and gift and gift:IsA("Attachment") then
+			local level = s:GetAttribute("Level") or 0
+			effects(trigger)
+			local entry = {
+				kind = "Spot",
+				name = s.Name,
+				level = level,
+				model = s,
+				trigger = trigger,
+				prompt = h.addPrompt(trigger, "Search", s.Name, M.SearchSeconds),
+				giftAt = topOf(gift),
+				house = ctx.plan,
+				searched = false,
+				present = nil,
+			}
+			byLevel[level] = byLevel[level] or {}
+			table.insert(byLevel[level], entry)
+			table.insert(stop.searchSpots, entry)
+		end
+	end
+	local boxes = {}
+	local boxFolder = model:FindFirstChild("TreeBoxes")
+	for _, box in if boxFolder then boxFolder:GetChildren() else {} do
+		if box:IsA("BasePart") then
+			effects(box)
+			local entry = {
+				kind = "TreeBox",
+				name = "Present",
+				level = 0,
+				model = box,
+				trigger = box,
+				prompt = h.addPrompt(box, "Open", "Present", M.TreeBoxSeconds),
+				giftAt = box.CFrame.Position - Vector3.new(0, box.Size.Y / 2, 0),
+				house = ctx.plan,
+				searched = false,
+				present = nil,
+			}
+			table.insert(boxes, entry)
+			table.insert(stop.searchSpots, entry)
+		end
+	end
+	local piano = model:FindFirstChild("Piano")
+	if piano and piano:IsA("BasePart") then
+		-- Looks like any other search spot: a noisy trap.
+		table.insert(stop.searchSpots, {
+			kind = "Piano",
+			name = "Piano",
+			level = 2,
+			model = piano,
+			trigger = piano,
+			prompt = h.addPrompt(piano, "Search", "Piano", M.SearchSeconds),
+			house = ctx.plan,
+			searched = false,
+		})
+	end
+	-- Shuffle each floor's spots so the gifts move every run.
+	for _, list in byLevel do
+		for i = #list, 2, -1 do
+			local j = rng:NextInteger(1, i)
+			list[i], list[j] = list[j], list[i]
+		end
+	end
+	local realBox = if #boxes > 0 then boxes[rng:NextInteger(1, #boxes)] else nil
+	if realBox then
+		realBox.model:SetAttribute("Wobble", true) -- client/MansionFx gives it away
+	end
+	return {
+		take = function(presentPlan)
+			if presentPlan.tree and realBox and not realBox.present then
+				return realBox
+			end
+			if presentPlan.floor == nil then
+				return nil
+			end
+			local function free(list)
+				for _, e in list or {} do
+					if not e.present and not e.claimed then
+						e.claimed = true
+						return e
+					end
+				end
+				return nil
+			end
+			local found = free(byLevel[presentPlan.floor])
+			if not found then
+				for _, list in byLevel do
+					found = found or free(list)
+				end
+			end
+			return found
+		end,
+	}
 end
 
 -- What the Search prompt names on each secret room's trigger.
