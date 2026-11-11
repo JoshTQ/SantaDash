@@ -20,8 +20,11 @@
 	who has since queued again; and every failure is counted in Telemetry.
 
 	Only active once both places are published (Config.Places) and outside
-	Studio; Lobby falls back to same-server runs otherwise, and for anyone
-	still waiting after Config.Matchmaking.LocalFallbackSeconds.
+	Studio. Otherwise tickets wait in this server's own list and the same
+	CrewPacker rules form crews (Matchmaker.packLocal), so riders queue the
+	moment they sit down either way (Josh, 11 Nov 2026). Lobby also falls back
+	to same-server runs for anyone still waiting after
+	Config.Matchmaking.LocalFallbackSeconds.
 ]]
 
 local HttpService = game:GetService("HttpService")
@@ -42,14 +45,17 @@ local Teleporter = require(script.Parent.Teleporter)
 
 local Matchmaker = {}
 
-type Pending = { since: number, ticket: string }
+type Pending = { since: number, ticket: string, kind: string, shared: boolean }
 
 local pending: { [Player]: Pending } = {} -- waiting for a crew on this server
+local localTickets: { CrewPacker.Ticket } = {} -- the queue when the places aren't published
+local localCount = 0 -- local ticket ids
 local announced: { [string]: boolean } = {} -- crewIds already handled here
 local packedTickets: { [string]: number } = {} -- ticket id -> until when: crews this server started from a batch it couldn't remove
 local queue: MemoryStoreQueue? = nil
 local cancelledMap: MemoryStoreSortedMap? = nil -- UserId -> ticket id they hopped off
 local onFailed: ((players: { Player }, reason: string) -> ())? = nil
+local onFound: ((players: { Player }) -> ())? = nil
 
 function Matchmaker.enabled(): boolean
 	return Config.Places.Lobby ~= 0 and Config.Places.Run ~= 0 and not RunService:IsStudio()
@@ -61,7 +67,7 @@ function Matchmaker.overdue(now: number): { { Player } }
 	local groups: { [string]: { Player } } = {}
 	local out = {}
 	for player, p in pending do
-		if now - p.since >= Config.Matchmaking.LocalFallbackSeconds then
+		if p.shared and now - p.since >= Config.Matchmaking.LocalFallbackSeconds then
 			local group = groups[p.ticket]
 			if not group then
 				group = {}
@@ -79,6 +85,35 @@ function Matchmaker.isQueued(player: Player): boolean
 	return pending[player] ~= nil
 end
 
+-- The kind of ticket ("Public" | "Party") a player is waiting on, if any.
+function Matchmaker.queued(player: Player): string?
+	local p = pending[player]
+	return p and p.kind
+end
+
+-- When the player started waiting (nil if not queued).
+function Matchmaker.queuedSince(player: Player): number?
+	local p = pending[player]
+	return p and p.since
+end
+
+-- Takes a player out of a ticket in this server's own list.
+local function dropLocal(userId: number, ticketId: string)
+	for i, ticket in localTickets do
+		if ticket.id == ticketId then
+			local at = table.find(ticket.members, userId)
+			if at then
+				table.remove(ticket.members, at)
+				table.remove(ticket.servers, at)
+			end
+			if #ticket.members == 0 then
+				table.remove(localTickets, i)
+			end
+			return
+		end
+	end
+end
+
 -- Stop waiting for a crew (hopped off, left, or sent somewhere else). The
 -- ticket is already in the shared queue, so leave a short-lived note that
 -- takes this player out of it wherever it gets packed.
@@ -89,6 +124,7 @@ function Matchmaker.cancel(player: Player)
 		return
 	end
 	pending[player] = nil
+	dropLocal(player.UserId, p.ticket)
 	local map = cancelledMap
 	if map then
 		task.spawn(function()
@@ -174,6 +210,9 @@ local function onCrewReady(message)
 			table.insert(players, player)
 		end
 	end
+	if #players > 0 and onFound then
+		onFound(players)
+	end
 	task.spawn(teleport, players, message.code, data)
 end
 
@@ -207,13 +246,21 @@ local function addTicket(ticket)
 	end
 end
 
--- Puts a Public rider or a Party group in the shared queue.
+-- Puts a Public rider or a Party group in the queue (the shared one once
+-- the places are published, else this server's own list).
 function Matchmaker.enqueue(kind: string, players: { Player }, since: number?)
 	local now = Util.now()
-	local id = HttpService:GenerateGUID(false)
+	local shared = Matchmaker.enabled() and queue ~= nil
+	local id
+	if shared then
+		id = HttpService:GenerateGUID(false)
+	else
+		localCount += 1
+		id = "local-" .. localCount
+	end
 	local members, servers = {}, {}
 	for _, player in players do
-		pending[player] = { since = now, ticket = id }
+		pending[player] = { since = now, ticket = id, kind = kind, shared = shared }
 		table.insert(members, player.UserId)
 		table.insert(servers, game.JobId)
 	end
@@ -224,7 +271,55 @@ function Matchmaker.enqueue(kind: string, players: { Player }, since: number?)
 		servers = servers,
 		since = since or now,
 	}
-	task.spawn(addTicket, ticket)
+	if shared then
+		task.spawn(addTicket, ticket)
+	else
+		table.insert(localTickets, ticket)
+	end
+	Telemetry.count("MatchQueued", kind, #players)
+end
+
+-- Same-server queue (places not published, Studio): forms crews from this
+-- server's own tickets by the same rules as the shared queue, and returns
+-- the players of each crew that should leave now.
+function Matchmaker.packLocal(now: number): { { Player } }
+	if #localTickets == 0 then
+		return {}
+	end
+	local crews, keep = CrewPacker.pack(CrewPacker.clean(localTickets, now), now)
+	local kept: { [string]: boolean } = {}
+	for _, ticket in keep do
+		kept[ticket.id] = true
+	end
+	-- Expired or malformed tickets were dropped by clean: forget them too.
+	local still = {}
+	for _, ticket in localTickets do
+		if kept[ticket.id] then
+			table.insert(still, ticket)
+		end
+	end
+	localTickets = still
+	local out = {}
+	for _, crew in crews do
+		local ids: { [string]: boolean } = {}
+		for _, ticket in crew.tickets do
+			ids[ticket.id] = true
+		end
+		local players = {}
+		for _, userId in crew.members do
+			local player = Players:GetPlayerByUserId(userId)
+			local p = player and pending[player]
+			if player and p and ids[p.ticket] then
+				pending[player] = nil
+				table.insert(players, player)
+			end
+		end
+		if #players > 0 then
+			Telemetry.count("MatchCrewFormed", "Local " .. crew.kind .. " " .. #players)
+			table.insert(out, players)
+		end
+	end
+	return out
 end
 
 -- A Party group leaves as soon as it can, topped up by any waiting randoms.
@@ -310,9 +405,14 @@ local function pack()
 	end
 end
 
--- onFail(players, reason) is called when a teleport or reservation gives up.
-function Matchmaker.start(onFail: (players: { Player }, reason: string) -> ())
+-- onFail(players, reason) is called when a teleport or reservation gives up;
+-- found(players) when this server's riders of a crew are about to teleport.
+function Matchmaker.start(
+	onFail: (players: { Player }, reason: string) -> (),
+	found: ((players: { Player }) -> ())?
+)
 	onFailed = onFail
+	onFound = found
 	queue = MemoryStoreService:GetQueue(Config.Matchmaking.QueueName, Config.Matchmaking.InvisibleSeconds)
 	cancelledMap = MemoryStoreService:GetSortedMap(Config.Matchmaking.CancelledMapName)
 

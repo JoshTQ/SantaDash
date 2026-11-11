@@ -6,7 +6,7 @@
 
 	Station only moves things and seats riders. What happens to riders is up to
 	the handlers Lobby passes in:
-	  seated(bay, player)   a rider sat down (Public riders queue right away)
+	  seated(bay, player)   a rider sat down (they go into the game queue right away)
 	  unseated(bay, player) a rider hopped off or left
 	  depart(bay, riders)   the sleigh is leaving with these riders
 ]]
@@ -117,6 +117,11 @@ function Station.release(player: Player)
 	if state then
 		removeRider(state, player, true)
 	end
+end
+
+-- Is this player sitting in a station sleigh right now?
+function Station.isAboard(player: Player): boolean
+	return stateOf[player] ~= nil
 end
 
 local function inZone(zone: BasePart, position: Vector3): boolean

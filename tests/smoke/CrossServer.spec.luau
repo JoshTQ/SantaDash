@@ -520,6 +520,136 @@ describe("Cross-server matchmaking: Party and Private sleighs", function()
 	end)
 end)
 
+describe("Cross-server: queued the moment you board (Josh, 11 Nov)", function()
+	local function banners(world, player): { string }
+		local out = {}
+		for _, m in world.engine:hudMessages(player, "Banner") do
+			table.insert(out, m.data.text)
+		end
+		return out
+	end
+
+	local function lastQueue(world, player)
+		local list = world.engine:hudMessages(player, "Queue")
+		return list[#list] and list[#list].data
+	end
+
+	it("tells a Public rider they're queued, then that the crew is found, before the teleport", function()
+		local c = newCloud()
+		local lobby = c:lobby()
+		c:run(function()
+			local Lobby = lobby.load("ServerScriptService.Server.Lobby")
+			local ann = c:join(lobby, "Ann")
+			waitForBoarding(c, lobby, "Public", 11)
+			board(c, lobby, "Public", { ann })
+			c:wait(0.3)
+			expect(banners(lobby, ann)).toContain(Lobby.Text.Queued)
+			expect(lastQueue(lobby, ann).state).toBe("Searching")
+			c:waitUntil(function()
+				return serverOf(c, "Ann").kind == "Run"
+			end, 30, "Ann to be teleported")
+			expect(banners(lobby, ann)).toContain(Lobby.Text.Found)
+			expect(lastQueue(lobby, ann).state).toBe("Found")
+		end)
+	end)
+
+	it("puts a Party of friends in the shared queue while their sleigh is still boarding", function()
+		local c = newCloud()
+		local lobby = c:lobby()
+		c:run(function()
+			local ann = c:join(lobby, "Ann")
+			local amy = c:join(lobby, "Amy", { ann })
+			waitForBoarding(c, lobby, "Party", 14)
+			local takeoff = phase(c, lobby, "Party").endsAt
+			board(c, lobby, "Party", { ann, amy })
+			c:waitUntil(function()
+				return inRunServer(c, { "Ann", "Amy" }) ~= nil
+			end, 10, "the party's run server")
+			expect(c.now).toBeLessThan(takeoff)
+			local t = teleportsTo(c, c.RunPlace)
+			expect(t[1].data.kind).toBe("Party")
+			expect(#t[1].data.members).toBe(2)
+		end)
+	end)
+
+	it("a friend who climbs in just after the Party was queued joins the same crew", function()
+		local c = newCloud(function(Config)
+			Config.Matchmaking.PackEverySeconds = 20 -- the Party ticket sits in the queue a while
+		end)
+		local lobby = c:lobby()
+		c:run(function()
+			local ann = c:join(lobby, "Ann")
+			local amy = c:join(lobby, "Amy", { ann })
+			local bo = c:join(lobby, "Bo") -- not yet a friend Roblox knows about
+			waitForBoarding(c, lobby, "Party", 16)
+			board(c, lobby, "Party", { ann, amy })
+			c:waitUntil(function()
+				return lastQueue(lobby, ann).state == "Searching"
+			end, 5, "the party to be queued")
+			c:wait(1)
+			board(c, lobby, "Party", { bo })
+			c:wait(lobby.Config.Lobby.GatherSeconds + 1) -- Bo isn't a friend, so the group waits for quiet
+			-- The group's ticket was swapped for one holding all three.
+			local three = nil
+			for _, ticket in c:queued(QUEUE) do
+				if #ticket.members == 3 then
+					three = ticket
+				end
+			end
+			expect(three).never.toBeNil()
+			expect(three.kind).toBe("Party")
+			expect(three.members).toContain(bo.UserId)
+			c:waitUntil(function()
+				return inRunServer(c, { "Ann", "Amy", "Bo" }) ~= nil
+			end, 60, "one crew of three")
+			expect(#c.reservations).toBe(1)
+		end)
+	end)
+
+	it("sends a Private sleigh of friends as soon as everyone is aboard", function()
+		local c = newCloud()
+		local lobby = c:lobby()
+		c:run(function()
+			local Lobby = lobby.load("ServerScriptService.Server.Lobby")
+			local ann = c:join(lobby, "Ann")
+			local amy = c:join(lobby, "Amy", { ann })
+			waitForBoarding(c, lobby, "Private", 14)
+			local takeoff = phase(c, lobby, "Private").endsAt
+			board(c, lobby, "Private", { ann })
+			c:wait(1)
+			expect(banners(lobby, ann)).toContain(Lobby.Text.PrivateGathering)
+			expect(#c.reservations).toBe(0) -- waiting for Amy
+			board(c, lobby, "Private", { amy })
+			c:waitUntil(function()
+				return inRunServer(c, { "Ann", "Amy" }) ~= nil
+			end, 10, "the Private run server")
+			expect(c.now).toBeLessThan(takeoff)
+			expect(#c:queued(QUEUE)).toBe(0) -- Private never touches the shared queue
+		end)
+	end)
+
+	it("hopping off a Party sleigh before the group goes keeps you out of its crew", function()
+		local c = newCloud()
+		local lobby = c:lobby()
+		c:run(function()
+			local ann = c:join(lobby, "Ann")
+			local amy = c:join(lobby, "Amy", { ann })
+			c:join(lobby, "Bo", { ann }) -- keeps the group waiting
+			waitForBoarding(c, lobby, "Party", 16)
+			board(c, lobby, "Party", { ann, amy })
+			c:wait(1)
+			humanoidOf(amy).Jump = true
+			c:waitUntil(function()
+				return serverOf(c, "Ann").kind == "Run"
+			end, 30, "Ann's crew")
+			c:wait(2)
+			expect(serverOf(c, "Amy")).toBe(lobby)
+			local data = teleportsTo(c, c.RunPlace)[1].data
+			expect(data.members).never.toContain(amy.UserId)
+		end)
+	end)
+end)
+
 describe("Cross-server matchmaking: the run server", function()
 	it("admits only the crew and sends strangers back to the lobby place", function()
 		local c = newCloud()
