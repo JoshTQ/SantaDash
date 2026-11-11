@@ -27,6 +27,7 @@ local SoundPlayer = require(ReplicatedStorage.Shared.SoundPlayer)
 local Util = require(ReplicatedStorage.Shared.Util)
 local CanalRules = require(script.Parent.CanalRules)
 local Boots = require(script.Parent.Boots)
+local PopInHouses = require(script.Parent.PopInHouses)
 local GuardDogs = require(script.Parent.GuardDogs)
 local Swimming = require(script.Parent.Swimming)
 
@@ -44,6 +45,12 @@ local CANDY = Color3.fromRGB(215, 40, 50)
 local WHITE = Color3.fromRGB(250, 250, 250)
 local GOLD = Color3.fromRGB(255, 200, 60)
 local WOOD = Color3.fromRGB(130, 85, 55)
+local DOOR_COLOURS = {
+	Color3.fromRGB(200, 40, 55),
+	Color3.fromRGB(45, 120, 80),
+	Color3.fromRGB(50, 90, 170),
+	Color3.fromRGB(110, 65, 40),
+}
 local FACADES = {
 	Color3.fromRGB(240, 170, 180),
 	Color3.fromRGB(170, 210, 240),
@@ -438,8 +445,10 @@ local function garden(ctx, house)
 	)
 end
 
--- Townhouse fronts (not enterable, so no front door) and low hedges fill the
--- stretches between the stop's real houses, so the canal reads as a street.
+-- Townhouses and low hedges fill the stretches between the stop's real
+-- houses, so the canal reads as a street. Each is one solid block with a real
+-- front door: walk up and PopInHouses swaps the block for a cosy room (Josh,
+-- 11 Nov 2026: "most houses on the map are closed with no entry").
 local function terraces(ctx, zEnd: number, ranges, houses, plaza: Vector3, skipBand: boolean)
 	local layout = ctx.map.layout
 	local inner = layout.RoadWidth / 2 + C.Promenade
@@ -459,13 +468,15 @@ local function terraces(ctx, zEnd: number, ranges, houses, plaza: Vector3, skipB
 				local height = ctx.rng:NextInteger(16, 26)
 				local color = FACADES[ctx.rng:NextInteger(1, #FACADES)]
 				local x = side * (layout.SideOffset + 14)
-				ctx.newPart(
+				local block = ctx.newPart(
 					ctx.model,
 					"Townhouse",
 					Vector3.new(24, height, 34),
 					ctx.origin * CFrame.new(x, height / 2, z),
 					color
 				)
+				-- PopInHouses hides and restores it: never culled by Detail.
+				block:SetAttribute("KeepDetail", true)
 				local roof = ctx.newPart(
 					ctx.model,
 					"TownhouseRoof",
@@ -484,21 +495,54 @@ local function terraces(ctx, zEnd: number, ranges, houses, plaza: Vector3, skipB
 					0.8,
 					2.6
 				)
-				-- No front door: only houses with a gold ROB ME marker open
-				-- (Josh's first playtest, 6 Nov 2026: fake doors read as
-				-- "lots of houses are locked"). A wreath over a lit window instead.
+				-- A real front door with a wreath on it. It swings open (and the
+				-- room inside is built) when a Santa walks up: PopInHouses.
+				local P = Config.PopIn
+				local door = ctx.newPart(
+					ctx.model,
+					"PopInDoor",
+					Vector3.new(0.5, P.DoorHeight, P.DoorWidth),
+					ctx.origin * CFrame.new(face - side * 0.25, P.DoorHeight / 2, z),
+					DOOR_COLOURS[(math.floor(z / 40) + (if side > 0 then 1 else 0)) % #DOOR_COLOURS + 1],
+					Enum.Material.Wood
+				)
+				door:SetAttribute("KeepDetail", true)
 				local wreath = ctx.newPart(
 					ctx.model,
 					"Wreath",
-					Vector3.new(0.6, 4, 4),
-					ctx.origin * CFrame.new(face - side * 0.2, 7, z),
+					Vector3.new(0.6, 3, 3),
+					ctx.origin * CFrame.new(face - side * 0.7, P.DoorHeight * 0.7, z),
 					HEDGE,
 					Enum.Material.Grass
 				)
 				wreath.Shape = Enum.PartType.Cylinder
-				ball(ctx, "WreathBow", Vector3.new(face - side * 0.5, 5.6, z), 1, CANDY, Enum.Material.Neon)
+				wreath:SetAttribute("KeepDetail", true)
+				local bow = ball(
+					ctx,
+					"WreathBow",
+					Vector3.new(face - side * 0.9, P.DoorHeight * 0.7 - 1.1, z),
+					0.8,
+					CANDY,
+					Enum.Material.Neon
+				)
+				bow:SetAttribute("KeepDetail", true)
+				ctx.stop.popIns = ctx.stop.popIns or {}
+				table.insert(ctx.stop.popIns, {
+					block = block,
+					door = door,
+					wreath = { wreath, bow },
+					-- Room frame: centre of the floor, LookVector out of the front door.
+					frame = ctx.origin * CFrame.lookAt(Vector3.new(x, 0, z), Vector3.new(x - side, 0, z)),
+					size = Vector3.new(24, height, 34),
+					color = color,
+					-- Its own seed (not ctx.rng, so the rest of the map rolls as before).
+					seed = ctx.stop.plan.index * 100000 + math.floor(z) * 2 + (if side > 0 then 1 else 0),
+				})
 				for row = 1, math.floor((height - 4) / 7) do
 					for _, dz in { -10, 0, 10 } do
+						if row == 1 and dz == 0 then
+							continue -- the front door is here
+						end
 						ctx.newPart(
 							ctx.model,
 							"Window",
@@ -2214,6 +2258,11 @@ function Woodland.build(ctx)
 			end
 		end
 	end
+end
+
+-- Filler townhouses open up as Santas walk to their doors (PopInHouses).
+function CanalStreet.start(ctx)
+	return PopInHouses.start(ctx.run, ctx.stop)
 end
 
 CanalTown.features = {

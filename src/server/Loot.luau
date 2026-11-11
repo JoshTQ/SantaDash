@@ -17,6 +17,8 @@ export type PresentPlan = {
 	naughtyList: boolean?,
 	regrab: boolean?, -- a present a security dog knocked out of a sack: not a new grab
 	secret: boolean?, -- sits in a secret room until someone finds it
+	jingle: number?, -- Jingle for grabbing it, instead of JinglePerGrab x ring (pop-in houses)
+	popIn: boolean?, -- in a filler townhouse's pop-in room (PopInHouses)
 }
 
 export type HousePlan = {
@@ -193,6 +195,16 @@ function Loot.planStop(rng: Random, stopIndex: number, streetSlots: { any }?): S
 	}
 end
 
+-- The small gift in a filler townhouse's pop-in room (Config.PopIn): always
+-- a size-1 Near-ring present with a token of Jingle, so the gold ROB ME
+-- houses stay the ones worth the risk.
+function Loot.planPopIn(): PresentPlan
+	local plan = planPresent(nil :: any, 1, Config.Rings.Near.LootMultiplier, 0)
+	plan.jingle = Config.PopIn.Jingle
+	plan.popIn = true
+	return plan
+end
+
 -- Hidden loot along the walk between two stops.
 function Loot.planOnFoot(rng: Random): { PresentPlan }
 	local presents = {}
@@ -237,7 +249,7 @@ function Loot.grab(state: PlayerState, present: PresentPlan): boolean
 	if not present.regrab then
 		state.grabs += 1
 	end
-	state.jingle += Loot.jingleForGrab(present.ringMultiplier)
+	state.jingle += present.jingle or Loot.jingleForGrab(present.ringMultiplier)
 	return true
 end
 

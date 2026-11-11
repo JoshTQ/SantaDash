@@ -940,4 +940,23 @@ Config.Audio = {
 	MusicFade = 1.2, -- seconds to cross-fade between music loops
 }
 
+-- Pop-in houses (Josh, 11 Nov 2026: "most houses on the map are closed with
+-- no entry, feels wrong"). A route has ~44 filler townhouses between the
+-- robbable ones, and full kit houses cost 95-150 parts each, which no phone
+-- budget pays for. So each filler is one solid block with a real front door;
+-- when a Santa walks up, the block steps aside and a cosy one-room interior is
+-- built (PopInHouses), then packed away again once everyone has left.
+Config.PopIn = {
+	OpenRadius = 18, -- a Santa this close to the door (studs, flat) opens it
+	CloseRadius = 46, -- no Santa this close ...
+	CloseSeconds = 6, -- ... for this long packs the room away
+	MaxOpen = 6, -- rooms open at once per stop (each ~20 parts): the budget test adds this
+	GiftChance = 0.65, -- rolled once per house per stop; the rest have a plate of cookies
+	Jingle = 10, -- per gift (robbable houses give Presents.JinglePerGrab x ring)
+	RoomHeight = 13, -- ceiling height inside (studs)
+	DoorWidth = 8, -- doorway (studs): roomy enough for a Santa, his camera and Krampus
+	DoorHeight = 11,
+	TickSeconds = 0.25,
+}
+
 return Config

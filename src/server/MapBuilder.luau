@@ -279,6 +279,8 @@ export type Stop = {
 	doors: { Door }, -- approved houses' front doors (Run swings them)
 	houses: { RobHouse }, -- the houses you can rob, with their gift markers
 	secrets: { any }, -- secret rooms (HouseKit): trigger, prompt, present, climb, found
+	popIns: { any }, -- filler townhouses with pop-in rooms (CanalTown, PopInHouses)
+	buildPresent: (parent: Instance, rng: Random, position: Vector3, plan: any) -> BuiltPresent,
 	origin: CFrame, -- stop space: +Z runs down the street from the landing house
 }
 
@@ -610,6 +612,8 @@ local function buildStop(
 		doors = {},
 		houses = {},
 		secrets = {},
+		popIns = {},
+		buildPresent = buildPresent,
 		krampusSpawn = origin * CFrame.new(0, 6, far + map.StreetOverrun - 20), -- past the vault
 		origin = origin,
 	}
