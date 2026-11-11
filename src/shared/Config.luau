@@ -278,7 +278,7 @@ Config.DogAI = {
 	--    room), pacing its front garden, leashed close to home.
 	Yard = { Stops = { 2 }, Count = 3, Leash = 40, Garden = 7 },
 	-- 3. Dog treats: buy a bone at the Sleigh Stop (GREYBOX tin, art round
-	--    pending), throw it (T) and dogs near where it lands go and chew it.
+	--    pending), throw it (G) and dogs near where it lands go and chew it.
 	Bone = { Cost = 200, Max = 2, Throw = 30, Radius = 50, ChewSeconds = 8, GiveUp = 6 },
 	-- 4. Dog flaps: dogs go through closed front doors (GREYBOX flap).
 	Flaps = true,
