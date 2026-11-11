@@ -270,14 +270,14 @@ button(snowPanel, "THROW (F)", UDim2.new(1, -20, 0, 50), UDim2.fromOffset(10, 38
 	input:FireServer("Throw")
 end)
 
--- Above that: the Naughty List's pass button while you carry it (G / L2 / tap).
+-- Above that: the Naughty List's pass button while you carry it (Q / L1 / tap; G and L2 are the dog bone).
 local listSpot =
 	UDim2.new(spots.snow.X.Scale, spots.snow.X.Offset, spots.snow.Y.Scale, spots.snow.Y.Offset - 106)
 local listPanel = panel(UDim2.fromOffset(190, 96), listSpot, Vector2.new(1, 0))
 local listLabel = label(listPanel, UDim2.new(1, 0, 0, 30), UDim2.fromOffset(0, 4), 20)
 listLabel.Text = "You have the List!"
 listLabel.TextColor3 = GOLD
-button(listPanel, "PASS LIST (G)", UDim2.new(1, -20, 0, 50), UDim2.fromOffset(10, 38), function()
+button(listPanel, "PASS LIST (Q)", UDim2.new(1, -20, 0, 50), UDim2.fromOffset(10, 38), function()
 	input:FireServer("PassList")
 end)
 
@@ -619,7 +619,7 @@ function handlers.List(data)
 				input:FireServer("PassList")
 			end
 			return Enum.ContextActionResult.Sink
-		end, false, Enum.KeyCode.G, Enum.KeyCode.ButtonL2)
+		end, false, Enum.KeyCode.Q, Enum.KeyCode.ButtonL1)
 	else
 		ContextActionService:UnbindAction("SleighHeistPassList")
 	end

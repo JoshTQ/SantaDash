@@ -741,7 +741,7 @@ function Run:_hide(player: Player, spot)
 		return
 	end
 	if st.carryingList then
-		self:_banner(player, "The Naughty List rattles too much to hide! Pass it to a friend (G).", 2)
+		self:_banner(player, "The Naughty List rattles too much to hide! Pass it to a friend (Q).", 2)
 		self:_sfx(player, "Nope")
 		return
 	end
