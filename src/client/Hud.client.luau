@@ -14,6 +14,7 @@ local UserInputService = game:GetService("UserInputService")
 local BodyHeat = require(ReplicatedStorage.Shared.BodyHeat)
 local Config = require(ReplicatedStorage.Shared.Config)
 local HudLayout = require(ReplicatedStorage.Shared.HudLayout)
+local QueueText = require(ReplicatedStorage.Shared.QueueText)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Util = require(ReplicatedStorage.Shared.Util)
 local CutscenePlayer = require(script.Parent:WaitForChild("CutscenePlayer"))
@@ -229,7 +230,8 @@ breakoutButton.Visible = false
 local queuePanel = panel(UDim2.fromOffset(380, 100), UDim2.new(0.5, 0, 1, -110), Vector2.new(0.5, 0))
 local queueLabel = label(queuePanel, UDim2.new(1, 0, 0, 50), UDim2.fromOffset(0, 4), 24)
 queueLabel.TextWrapped = true
-button(queuePanel, "Leave crew", UDim2.fromOffset(160, 34), UDim2.new(0.5, -80, 0, 58), leave)
+local queueButton =
+	button(queuePanel, "Leave queue", UDim2.fromOffset(160, 34), UDim2.new(0.5, -80, 0, 58), leave)
 
 -- Top left, under the stats: quit the run back to the hub (never in the
 -- bottom-left, where a phone's thumbstick is).
@@ -365,6 +367,7 @@ function handlers.Queue(data)
 	queueState = data
 	queuePanel.Visible = true
 	resultsPanel.Visible = false
+	queueButton.Text = if data.requeue then "Leave crew" else "Leave queue"
 end
 
 function handlers.QueueClear()
@@ -617,19 +620,7 @@ while true do
 		setText(timerLabel, Util.clock(secondsLeft(stopState.departAt)))
 	end
 	if queueState then
-		local prefix = if queueState.requeue then "Heist again together! " else ""
-		setText(
-			queueLabel,
-			if queueState.waiting
-				then prefix .. "Waiting for a free street... (" .. queueState.count .. " Santas)"
-				else string.format(
-					"%sSleigh leaves in %d  ·  %d/%d Santas",
-					prefix,
-					secondsLeft(queueState.departAt),
-					queueState.count,
-					Config.Lobby.CrewMax
-				)
-		)
+		setText(queueLabel, QueueText.line(queueState, Util.now()))
 	end
 	if eventEndsAt then
 		setText(eventLabel, eventName .. "  " .. Util.clock(secondsLeft(eventEndsAt)))

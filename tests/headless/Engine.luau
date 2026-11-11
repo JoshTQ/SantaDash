@@ -843,6 +843,36 @@ function Engine.new()
 		return engine.now
 	end
 
+	-- Roblox friends (Engine:befriend). Cloud points every server at one
+	-- shared table. Pages hold 2 friends so paging gets exercised; set
+	-- engine.friendsDown to make the web call fail.
+	self.friendships = {} -- [userId] = { [userId] = true }
+	self.friendsDown = false
+	props(players).GetFriendsAsync = function(_, userId)
+		if engine.friendsDown then
+			error("HTTP 503 (Service Unavailable)")
+		end
+		local ids = {}
+		for id in engine.friendships[userId] or {} do
+			table.insert(ids, id)
+		end
+		table.sort(ids)
+		local page = 1
+		local pages = { IsFinished = #ids <= 2 }
+		function pages.GetCurrentPage(_)
+			local out = {}
+			for i = (page - 1) * 2 + 1, math.min(#ids, page * 2) do
+				table.insert(out, { Id = ids[i], Username = "user" .. ids[i], IsOnline = true })
+			end
+			return out
+		end
+		function pages.AdvanceToNextPageAsync(_)
+			page += 1
+			pages.IsFinished = page * 2 >= #ids
+		end
+		return pages
+	end
+
 	local runService = self:service("RunService")
 	self.isServer = true
 	props(runService).IsServer = function()
@@ -1314,7 +1344,11 @@ local function buildCharacter(engine, player, at)
 end
 
 -- A player who joined the server, with a character at `at`.
-function Engine:addPlayer(name: string, options: { at: CFrame?, joinData: any?, userId: number? }?)
+-- friends: players (or UserIds) this player is Roblox friends with.
+function Engine:addPlayer(
+	name: string,
+	options: { at: CFrame?, joinData: any?, userId: number?, friends: { any }? }?
+)
 	local opts = options or {}
 	self.nextUserId += 1
 	local player = newInstance(self, "Player")
@@ -1368,11 +1402,24 @@ function Engine:addPlayer(name: string, options: { at: CFrame?, joinData: any?, 
 	local gui = newInstance(self, "PlayerGui")
 	rawset(gui, "_name", "PlayerGui")
 	gui.Parent = player
+	for _, friend in opts.friends or {} do
+		self:befriend(p.UserId, friend)
+	end
 	table.insert(self.players, player)
 	player.Parent = self.Players
 	player:LoadCharacter()
 	self.Players.PlayerAdded:Fire(player)
 	return player
+end
+
+-- Makes two players (or UserIds) Roblox friends.
+function Engine:befriend(a: any, b: any)
+	local ida = if type(a) == "number" then a else a.UserId
+	local idb = if type(b) == "number" then b else b.UserId
+	self.friendships[ida] = self.friendships[ida] or {}
+	self.friendships[idb] = self.friendships[idb] or {}
+	self.friendships[ida][idb] = true
+	self.friendships[idb][ida] = true
 end
 
 -- The player whose client scripts (Hud.client) run in this world.

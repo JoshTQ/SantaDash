@@ -44,6 +44,12 @@ Config.Lobby = {
 	CrewMax = 6,
 	QuickJoinSeconds = 10, -- a public sleigh departs within 10 s of its first rider
 	MaxRunsPerServer = 4, -- concurrent routes built in one server
+	-- Riders go into the game queue the moment they sit in a station sleigh
+	-- (Josh, 11 Nov); the sleigh's takeoff is only an animation. Party and
+	-- Private sleighs hold their riders together while friends climb in, and
+	-- queue the group once the sleigh is full, every friend in the server is
+	-- aboard, nobody has climbed in for GatherSeconds, or the sleigh takes off.
+	GatherSeconds = 6,
 }
 
 -- Cross-server matchmaking (Josh, 1 Nov 2026): the lobby place queues crews
@@ -67,7 +73,7 @@ Config.Matchmaking = {
 	ReadBatch = 50, -- tickets read per pack (MemoryStore max is 100)
 	InvisibleSeconds = 30, -- a read batch is hidden from other servers while one server packs it
 	TicketTTLSeconds = 120, -- a ticket nobody packed in this long is dropped
-	PublicWaitSeconds = 12, -- a crew leaves part-full once its oldest rider waited this long (bots fill)
+	PublicWaitSeconds = 10, -- a crew leaves part-full once its oldest rider waited this long (bots fill): "filled within 10 s"
 	PartyFillSeconds = 8, -- a Party group waits this long for randoms to top it up
 	LocalFallbackSeconds = 25, -- no crew by then (MemoryStore down): leave with whoever is on this server
 	-- Roblox's cloud calls fail now and then (throttling, flood limits):

@@ -74,6 +74,7 @@ function Cloud.new(headless, options: Options?)
 	self.nextGuid = 0
 	self.nextJob = 0
 	self.accounts = {} -- [userId] = name
+	self.friendships = {} -- [userId] = { [userId] = true }, shared by every server
 	-- Set these to break the cloud on purpose: true = always fails, a
 	-- number n = the next n calls fail (a hiccup), then it works again.
 	self.faults = {
@@ -395,6 +396,7 @@ function Cloud:start(kind: string, code: string?)
 	local world = self.headless()
 	local engine = world.engine
 	engine.now = self.now
+	engine.friendships = self.friendships -- one friends list across Roblox
 	self.nextJob += 1
 	local jobId = string.format("%s-%d", if kind == "Run" then "run" else "lobby", self.nextJob)
 	engine.DataModel.JobId = jobId
@@ -427,11 +429,12 @@ function Cloud:lobby()
 	return self:start("Lobby")
 end
 
--- A new player joining a server from the Roblox app.
-function Cloud:join(world, name: string)
+-- A new player joining a server from the Roblox app (friends: Players or
+-- UserIds they are Roblox friends with).
+function Cloud:join(world, name: string, friends: { any }?)
 	self.nextUserId += 1
 	self.accounts[self.nextUserId] = name
-	return world.engine:addPlayer(name, { userId = self.nextUserId })
+	return world.engine:addPlayer(name, { userId = self.nextUserId, friends = friends })
 end
 
 -- Which server a player (by name) is in now, and their Player there.

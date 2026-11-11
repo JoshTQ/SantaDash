@@ -142,14 +142,28 @@ signpost that forks to three bays: **Public** (anyone), **Party** (your group,
 topped up with randoms) and **Private** (just your crew). Each bay runs a
 timetable (`StationClock`): a sleigh pulls in, the gate opens under a
 "BOARDING NOW!" sign, you step into the glowing zone to sit down (jump to hop
-off), then the gate shuts and the sleigh leaves. Layout numbers are in
-`Config.LobbyMap`, timings in `Config.Matchmaking` and `Config.LobbyMap`.
+off). Sitting down puts you in the game queue straight away, with a banner
+and a "In the queue!" panel (and a Leave queue button) to say so; the sleigh's
+takeoff is only an animation, so nobody waits for it (Josh, 11 Nov). Layout
+numbers are in `Config.LobbyMap`, timings in `Config.Matchmaking`,
+`Config.Lobby` and `Config.LobbyMap`.
 
-Cross-server (`Matchmaker`): Public riders queue in a shared MemoryStore queue
-as soon as they sit; a Party sleigh queues its group when it leaves; any lobby
-server packs crews (`CrewPacker`), reserves a run server, and announces it over
-MessagingService so each lobby server teleports its own riders. Private sleighs
-reserve a server straight away. If no crew forms within
+- **Public:** each rider is queued the moment they sit; a crew leaves when
+  full or `Config.Matchmaking.PublicWaitSeconds` after its first rider.
+- **Party / Private:** the riders show as queued at once but are held together
+  (`PartyGather`) until the sleigh is full, every Roblox friend of theirs in
+  the lobby is aboard, nobody has climbed in for `Config.Lobby.GatherSeconds`,
+  or the sleigh takes off. Then a Party is queued as one group (topped up with
+  randoms) and a Private sleigh goes to its own run. A friend who climbs in
+  just after joins the same group if nobody has been picked yet.
+- Hopping off (jump), Leave queue, or leaving the game takes you out.
+
+Cross-server (`Matchmaker`): tickets go in a shared MemoryStore queue; any
+lobby server packs crews (`CrewPacker`), reserves a run server, and announces
+it over MessagingService so each lobby server teleports its own riders.
+Private sleighs reserve a server straight away. Until the places are
+published (Studio, offline tests) the same rules run on the server's own
+ticket list (`Matchmaker.packLocal`). If the shared queue forms no crew within
 `Config.Matchmaking.LocalFallbackSeconds` (queue down), riders run in the
 lobby server instead.
 

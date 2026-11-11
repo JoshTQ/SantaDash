@@ -245,3 +245,24 @@ describe("lights on has a consequence (Josh, 6 Nov 2026)", function()
 		end
 	)
 end)
+
+describe("riders queue the moment they board; takeoff is only an animation (Josh, 11 Nov)", function()
+	local PartyGather = load("ReplicatedStorage.Shared.PartyGather")
+	local QueueText = load("ReplicatedStorage.Shared.QueueText")
+
+	it("a Public crew forms within 10 s of its first rider, whatever the sleigh timetable says", function()
+		expect(Config.Matchmaking.PublicWaitSeconds).toBeLessThanOrEqual(10)
+	end)
+
+	it("Party/Private sleighs never hold riders longer than GatherSeconds after the last one sat", function()
+		expect(Config.Lobby.GatherSeconds).toBeLessThanOrEqual(Config.LobbyMap.BoardSeconds.Party)
+		expect(PartyGather.ready({ "Ann" }, 0, Config.Lobby.GatherSeconds, { "Amy" }, function()
+			return true
+		end)).toBe("Quiet")
+	end)
+
+	it("the HUD confirms the queue in words", function()
+		local line = QueueText.line({ state = "Searching", kind = "Public", since = 0 }, 0)
+		expect(string.find(line, "In the queue!", 1, true)).toBe(1)
+	end)
+end)
