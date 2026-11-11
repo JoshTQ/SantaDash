@@ -20,6 +20,7 @@ local HudLayout = require(ReplicatedStorage.Shared.HudLayout)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Util = require(ReplicatedStorage.Shared.Util)
 local CutscenePlayer = require(script.Parent:WaitForChild("CutscenePlayer"))
+local PuppetPlayer = require(script.Parent:WaitForChild("PuppetPlayer"))
 
 local player = Players.LocalPlayer
 local hud = Remotes.get("Hud")
@@ -957,8 +958,14 @@ function handlers.Cutscene(data)
 	CutscenePlayer.play(data)
 end
 
+-- The sleigh in flight and Krampus's scripted moves, posed smoothly here.
+function handlers.Puppets(data)
+	PuppetPlayer.play(data)
+end
+
 function handlers.RunEnd()
 	CutscenePlayer.stop()
+	PuppetPlayer.clear()
 	handlers.MapEvent({})
 	handlers.Weather({})
 	handlers.Snowballs({ count = 0 })

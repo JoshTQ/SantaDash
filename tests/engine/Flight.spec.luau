@@ -13,7 +13,6 @@ local describe, it, expect = JestGlobals.describe, JestGlobals.it, JestGlobals.e
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
-local SleighFlight = require(ReplicatedStorage.Shared.SleighFlight)
 local MapBuilder = require(ServerStorage.Server.MapBuilder)
 local Run = require(ServerStorage.Server.Run)
 local Rig = require(script.Parent.Rig)
@@ -39,9 +38,10 @@ describe("sleigh flight", function()
 				task.wait()
 			end
 		end)
-		run:_ride({ rider }, seconds, function(t)
-			return SleighFlight.deckAt(from, to, t, seconds, Config.Run.FlightArcHeight)
-		end)
+		run:_ride(
+			{ rider },
+			{ path = "flight", base = from, to = to, peak = Config.Run.FlightArcHeight, seconds = seconds }
+		)
 		sampling = false
 
 		expect(worst).toBeLessThan(0.5) -- glued to the seat the whole way

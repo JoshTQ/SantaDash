@@ -298,6 +298,27 @@ function Cutscenes.cuesBetween(scene: Scene, from: number, to: number): { Cue }
 	return fired
 end
 
+-- Fires the cues in (from, to] through `run`, one at a time and each in its
+-- own pcall, and returns the time to pass as `from` next frame. A cue that
+-- errors is reported and skipped: it never stops the others, and it never
+-- leaves `from` behind, which would re-fire every earlier cue (music, bells,
+-- roars, fireworks) on every frame after it.
+function Cutscenes.fireCues(
+	scene: Scene,
+	from: number,
+	to: number,
+	run: (cue: Cue) -> ()
+): (number, { string })
+	local errors = {}
+	for _, cue in Cutscenes.cuesBetween(scene, from, to) do
+		local ok, err = pcall(run, cue)
+		if not ok then
+			table.insert(errors, cue.kind .. " at " .. cue.at .. ": " .. tostring(err))
+		end
+	end
+	return math.max(from, to), errors
+end
+
 -- Checks the rules every scene must follow. Returns nil when fine, else why not.
 function Cutscenes.problem(scene: Scene, maxSeconds: number): string?
 	if scene.seconds <= 0 or scene.seconds > maxSeconds then
