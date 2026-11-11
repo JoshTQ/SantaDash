@@ -272,6 +272,8 @@ export type Stop = {
 	chimneys: { Chimney },
 	hideSpots: { HideSpot },
 	cocoaPrompt: ProximityPrompt,
+	bonePrompt: ProximityPrompt?, -- dog treats at the Sleigh Stop (Config.DogAI.Bone)
+	dogFlaps: { any }?, -- front doors as dog flaps (GuardDogs.flapsFor), built on first use
 	wardrobePrompts: { [string]: ProximityPrompt }, -- server/Wardrobe stand, empty while off
 	vaultPrompt: ProximityPrompt?,
 	vaultDoor: BasePart?,
@@ -674,6 +676,19 @@ local function buildStop(
 		Color3.fromRGB(200, 30, 40)
 	)
 	addLabel(sign, "SLEIGH STOP", Color3.new(1, 1, 1), 5)
+
+	-- Dog treats (Config.DogAI.Bone) by the sign: GREYBOX tin, art round pending.
+	if plan.kindName ~= "Finale" then
+		local tin = newPart(
+			model,
+			"DogTreats",
+			Vector3.new(2, 2, 2),
+			landing * CFrame.new(radius - 1, 1, 3),
+			Color3.fromRGB(70, 140, 220)
+		)
+		addLabel(tin, "DOG TREATS\n" .. Config.DogAI.Bone.Cost .. " Jingle", Color3.new(1, 1, 1), 4)
+		stop.bonePrompt = addPrompt(tin, "Buy bone", "Dog treat", 0.3)
+	end
 
 	-- Cocoa machine (Peppermint Rush) by the landing house, Near ring.
 	local machineAt = origin * CFrame.new(map.CocoaMachine)

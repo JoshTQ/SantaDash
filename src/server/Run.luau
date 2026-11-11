@@ -20,6 +20,7 @@ local SleighFlight = require(ReplicatedStorage.Shared.SleighFlight)
 local SoundPlayer = require(ReplicatedStorage.Shared.SoundPlayer)
 local Util = require(ReplicatedStorage.Shared.Util)
 local AlarmDogs = require(script.Parent.AlarmDogs)
+local YardDogs = require(script.Parent.YardDogs)
 local Assets = require(script.Parent.Assets)
 local ElfBot = require(script.Parent.ElfBot)
 local ElfBrain = require(script.Parent.ElfBrain)
@@ -59,6 +60,7 @@ type PlayerState = Loot.PlayerState & {
 	swimming: boolean?, -- in the Lair lake's water (server/Swimming)
 	frozen: boolean?, -- stuck in an ice cube after running out of body heat
 	soggyUntil: number?, -- slow after thawing
+	bones: number?, -- dog treats bought this run (Config.DogAI.Bone)
 }
 
 local TICK = 0.25
@@ -257,6 +259,7 @@ function Run:_addPlayer(player: Player)
 	st.captive = false
 	st.breath = 1
 	st.lastTapAt = 0
+	st.bones = 0
 	st.wardrobe = {}
 	-- Respawns (reset button, falling off the map) put you back on the sleigh.
 	st.characterConnection = player.CharacterAdded:Connect(function(character)
@@ -382,6 +385,11 @@ function Run:_wirePrompts()
 		on(stop.cocoaPrompt, function(player)
 			self:_buyPeppermintRush(player)
 		end)
+		if stop.bonePrompt then
+			on(stop.bonePrompt, function(player)
+				self:_buyBone(player)
+			end)
+		end
 		for id, prompt in stop.wardrobePrompts or {} do
 			on(prompt, function(player)
 				ServerWardrobe.buy(self, player, id)
@@ -634,6 +642,63 @@ function Run:_buyPeppermintRush(player: Player)
 	end
 end
 
+-- Dog treats (Config.DogAI.Bone): buy at the Sleigh Stop, throw with G.
+function Run:_sendBones(player: Player)
+	local st = self.players[player]
+	if st then
+		self:_send(player, "Bones", { count = st.bones or 0 })
+	end
+end
+
+function Run:_buyBone(player: Player)
+	local st = self.players[player]
+	local B = Config.DogAI.Bone
+	if st and (st.bones or 0) >= B.Max then
+		self:_banner(player, "Your pockets are full of bones (" .. B.Max .. ")", 2)
+		self:_sfx(player, "Nope")
+	elseif st and self:_spend(player, B.Cost) then
+		st.bones = (st.bones or 0) + 1
+		self:_sendPlayer(player)
+		self:_sendBones(player)
+		self:_banner(player, "Dog treat! Press G (or the BONE button) to throw it and distract the dogs.", 3)
+	end
+end
+
+-- Throws a bone ahead of the Santa; dogs near where it lands go and chew it.
+function Run:_throwBone(player: Player)
+	local st = self:_free(player)
+	local root = rootOf(player)
+	if not st or not root or (st.bones or 0) <= 0 then
+		return
+	end
+	st.bones -= 1
+	self:_sendBones(player)
+	local look = root.CFrame.LookVector
+	local flat = Vector3.new(look.X, 0, look.Z)
+	flat = if flat.Magnitude > 1e-3 then flat.Unit else Vector3.zAxis
+	local landing = root.Position + flat * Config.DogAI.Bone.Throw - Vector3.new(0, 2.5, 0)
+	local bone = Instance.new("Part") -- GREYBOX bone (art round pending)
+	bone.Name = "DogBone"
+	bone.Size = Vector3.new(1.6, 0.5, 0.5)
+	bone.Color = Color3.fromRGB(245, 235, 210)
+	bone.Anchored = true
+	bone.CanCollide = false
+	bone.CFrame = CFrame.new(landing + Vector3.new(0, 0.3, 0))
+	bone.Parent = self.route.model
+	task.delay(Config.DogAI.Bone.ChewSeconds + Config.DogAI.Bone.GiveUp, function()
+		bone:Destroy()
+	end)
+	local dogs = 0
+	for _, pack in self.dogPacks or {} do
+		dogs += pack.distract(landing)
+	end
+	self:_banner(
+		player,
+		if dogs > 0 then "Fetch, doggy! The dogs are after the bone." else "Bone thrown... no dogs near it.",
+		2
+	)
+end
+
 function Run:_buyVault(player: Player, stop)
 	local prompt = stop.vaultPrompt
 	if prompt.Enabled and self:_spend(player, Config.Buys.VaultDoor.Cost) then
@@ -766,6 +831,8 @@ function Run:onInput(player: Player, action: string)
 			st.breath = KrampusBrain.tapBreath(st.breath)
 			self:_send(player, "Hide", { hidden = true, breath = st.breath })
 		end
+	elseif action == "Bone" then
+		self:_throwBone(player)
 	elseif self.eventInput then
 		self.eventInput(player, action) -- e.g. "Throw" during a Blizzard
 	end
@@ -1146,6 +1213,14 @@ function Run:_playStop(stop): { Player }
 		self:_spawnElves() -- elves hop off with their Santa at the first stop
 	end
 	self:_startFeatures(stop)
+	if YardDogs.applies(plan.index, plan.kindName) then
+		local ok, cleanup = pcall(YardDogs.start, self, stop)
+		if not ok then
+			warn("[Run] yard dogs failed to start: " .. tostring(cleanup))
+		elseif cleanup then
+			table.insert(self.featureCleanups, cleanup)
+		end
+	end
 	self:_startSnores(stop)
 	self:_teachLanding(stop)
 

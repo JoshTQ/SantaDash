@@ -295,3 +295,131 @@ describe("Josh's 11 Nov pass: fiercer chases and a red alert mark", function()
 		expect(intent.direct).toBe(true)
 	end)
 end)
+
+describe("Josh's 11 Nov follow-ups: Fetch, bones, flaps, yard dogs", function()
+	it("a corgi with your present keeps away from Santas, then drops it", function()
+		local dog = Brain.new("DogCorgi")
+		Brain.fetch(dog, 0)
+		local w = world({ santa("A", 10) })
+		local intent = think(dog, origin, w, 0.2)
+		expect(intent.mode).toBe("Fetch")
+		expect(intent.goal.X).toBeLessThan(0) -- away from the Santa at +X
+		expect(intent.speed).toBeLessThan(Config.Player.WalkSpeed) -- catchable
+		intent = think(dog, origin, w, AI.Fetch.Seconds)
+		expect(intent.drop).toBe(true)
+	end)
+
+	it("a bone: trots over, chews, ignores Santas, then goes back to work", function()
+		local dog = Brain.new("DogCorgi")
+		local bone = Vector3.new(20, 0, 0)
+		Brain.distract(dog, bone, 0)
+		local w = world({ santa("A", 6) }) -- right in front of it
+		local intent = think(dog, origin, w, 0.2)
+		expect(intent.mode).toBe("Chew")
+		expect(intent.goal).toEqual(bone)
+		intent = think(dog, bone, w, 0.2)
+		expect(intent.chewing).toBe(true)
+		intent = think(dog, bone, w, AI.Bone.ChewSeconds - 0.6)
+		expect(intent.mode).toBe("Chew")
+		expect(dog.awareness).toBe(0)
+		Brain.alert(dog, origin, w.now) -- the pack can't call it off the bone
+		expect(dog.mode).toBe("Chew")
+		intent = think(dog, bone, w, 1)
+		expect(intent.mode).never.toBe("Chew")
+	end)
+
+	it("a bone never makes a corgi drop your present", function()
+		local dog = Brain.new("DogCorgi")
+		Brain.fetch(dog, 0)
+		Brain.distract(dog, Vector3.new(5, 0, 0), 0)
+		expect(dog.mode).toBe("Fetch")
+	end)
+
+	it("dog flaps: a dog goes in through a closed front door", function()
+		local flap = {
+			box = CFrame.new(0, 0, 0),
+			size = Vector3.new(20, 10, 20),
+			outside = Vector3.new(0, 0, 13),
+			inside = Vector3.new(0, 0, 7),
+			open = false,
+		}
+		local street = Vector3.new(0, 0, 40)
+		local indoors = Vector3.new(2, 0, -3)
+		local wp, straight = Brain.flapWaypoint(street, indoors, { flap })
+		expect(wp).toEqual(flap.outside) -- first, to the door
+		expect(straight).toBe(false)
+		wp, straight = Brain.flapWaypoint(Vector3.new(0, 0, 14), indoors, { flap })
+		expect(wp).toEqual(flap.inside) -- then through the flap
+		expect(straight).toBe(true)
+		-- and back out the same way
+		wp = Brain.flapWaypoint(indoors, street, { flap })
+		expect(wp).toEqual(flap.inside)
+		-- an open door needs no flap, nor does a walk outside
+		flap.open = true
+		expect(Brain.flapWaypoint(street, indoors, { flap })).toBeNil()
+		flap.open = false
+		expect(Brain.flapWaypoint(street, Vector3.new(30, 0, 40), { flap })).toBeNil()
+	end)
+
+	it("yard dogs leash close to home", function()
+		local dog = Brain.new("DogTin", { patrol = { origin, Vector3.new(0, 0, 10) }, leash = AI.Yard.Leash })
+		expect(dog.leash).toBe(AI.Yard.Leash)
+		expect(Brain.new("DogTin").leash).toBe(AI.LeashRange)
+	end)
+end)
+
+describe("yard dogs", function()
+	local YardDogs = load("ServerScriptService.Server.YardDogs")
+
+	it("come out on Yard.Stops, never in the Lair", function()
+		expect(YardDogs.applies(2, "Street")).toBeTruthy()
+		expect(YardDogs.applies(1, "Street")).toBeFalsy()
+		expect(YardDogs.applies(2, "Finale")).toBeFalsy()
+	end)
+
+	it("guard the richer houses: secret rooms first, then the Far ring", function()
+		local function h(name, ring, secret, distance, side)
+			return {
+				plan = { name = name, ring = ring, secret = secret, distance = distance, side = side or 1 },
+			}
+		end
+		local picked = YardDogs.pick({
+			h("near", "Near", false, 50),
+			h("far1", "Far", false, 450),
+			h("secret", "Mid", true, 250),
+			h("far2", "Far", false, 480),
+			h("end", "Far", false, 560, 0),
+			h("far3", "Far", false, 470),
+		})
+		expect(#picked).toBe(AI.Yard.Count)
+		expect(picked[1].name).toBe("secret")
+		expect(picked[2].name).toBe("far2")
+		for _, p in picked do
+			expect(p.name ~= "near" and p.name ~= "end").toBeTruthy()
+		end
+	end)
+
+	it("pace the front garden, between the house and the street", function()
+		local stop = {
+			origin = CFrame.new(),
+			houses = {
+				{
+					plan = {
+						ring = "Far",
+						secret = false,
+						distance = 400,
+						side = 1,
+						size = Vector3.new(24, 14, 20),
+					},
+				},
+			},
+		}
+		local specs = YardDogs.specs(stop, 46)
+		expect(#specs).toBe(1)
+		local a, b = specs[1].patrol[1], specs[1].patrol[2]
+		expect(a.X).toBe(46 - 10 - AI.Yard.Garden)
+		expect(a.X).toBeGreaterThan(0)
+		expect(math.abs(b.Z - a.Z)).toBeGreaterThan(8)
+		expect(specs[1].leash).toBe(AI.Yard.Leash)
+	end)
+end)

@@ -268,6 +268,20 @@ Config.DogAI = {
 	PounceRange = 10,
 	PounceSpeed = 30,
 	NoticeAt = 0.1, -- a faint yellow "?" from here; red "?" once it's on alert
+	-- Josh, 11 Nov 2026 ("All of them"): the four follow-ups.
+	-- 1. Fetch: a corgi that bumps you steals a present and runs off with it.
+	--    It's slower than a Santa, so the crew can catch it: touch it and it
+	--    drops the present (not in its first Grace s, so the bump itself
+	--    doesn't count). After Seconds it drops it wherever it is.
+	Fetch = { Speed = 14, Seconds = 10, CatchRadius = 5, Grace = 1, StunAfter = 1.5, FleeFrom = 40 },
+	-- 2. Yard dogs on later stops: one per richer house (Far ring or a secret
+	--    room), pacing its front garden, leashed close to home.
+	Yard = { Stops = { 2 }, Count = 3, Leash = 40, Garden = 7 },
+	-- 3. Dog treats: buy a bone at the Sleigh Stop (GREYBOX tin, art round
+	--    pending), throw it (G) and dogs near where it lands go and chew it.
+	Bone = { Cost = 200, Max = 2, Throw = 30, Radius = 50, ChewSeconds = 8, GiveUp = 6 },
+	-- 4. Dog flaps: dogs go through closed front doors (GREYBOX flap).
+	Flaps = true,
 	-- One spotted banner per Santa this often, so it reads without spamming.
 	SpottedBannerCooldown = 8,
 	Kinds = {

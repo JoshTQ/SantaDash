@@ -270,6 +270,13 @@ button(snowPanel, "THROW (F)", UDim2.new(1, -20, 0, 50), UDim2.fromOffset(10, 38
 	input:FireServer("Throw")
 end)
 
+-- Dog treats (Config.DogAI.Bone): left of the snowballs, G / L2 / tap.
+local bonePanel = panel(UDim2.fromOffset(170, 96), spots.bone, Vector2.new(1, 0))
+local boneLabel = label(bonePanel, UDim2.new(1, 0, 0, 30), UDim2.fromOffset(0, 4), 22)
+button(bonePanel, "BONE (G)", UDim2.new(1, -20, 0, 50), UDim2.fromOffset(10, 38), function()
+	input:FireServer("Bone")
+end)
+
 -- Full-screen splat when a crewmate's snowball hits you (cosmetic only).
 local splatFrame = Instance.new("Frame")
 splatFrame.Size = UDim2.fromScale(1, 1)
@@ -580,6 +587,21 @@ function handlers.Snowballs(data)
 	end
 end
 
+function handlers.Bones(data)
+	bonePanel.Visible = data.count > 0
+	boneLabel.Text = "Dog treats: " .. data.count
+	if data.count > 0 then
+		ContextActionService:BindAction("SleighHeistBone", function(_, state)
+			if state == Enum.UserInputState.Begin then
+				input:FireServer("Bone")
+			end
+			return Enum.ContextActionResult.Sink
+		end, false, Enum.KeyCode.G, Enum.KeyCode.ButtonL2)
+	else
+		ContextActionService:UnbindAction("SleighHeistBone")
+	end
+end
+
 function handlers.Splat(data)
 	splatUntil = Util.now() + data.seconds
 	splatLabel.Text = "SPLAT! (" .. data.by .. ")"
@@ -594,6 +616,7 @@ function handlers.RunEnd()
 	handlers.MapEvent({})
 	handlers.Weather({})
 	handlers.Snowballs({ count = 0 })
+	handlers.Bones({ count = 0 })
 	setInRun(false)
 	setTapMode(false)
 	handlers.Krampus({})

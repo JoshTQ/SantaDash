@@ -63,6 +63,8 @@ export type Intent = {
 	awareness: number,
 	spotted: Santa?, -- set on the tick a chase starts
 	direct: boolean?, -- chasing a Santa it can see: steer straight, no path
+	drop: boolean?, -- Fetch is over: drop the present where it stands
+	chewing: boolean?, -- set on the tick it starts chewing a bone
 }
 
 local function flat(v: Vector3): Vector3
@@ -85,7 +87,10 @@ end
 
 -- options.patrol: points it walks back and forth along (market dogs, leashed
 -- to them). options.hunt: alarm dogs, which head for the nearest Santa.
-function DogBrain.new(kind: string, options: { patrol: { Vector3 }?, startIndex: number?, hunt: boolean? }?)
+function DogBrain.new(
+	kind: string,
+	options: { patrol: { Vector3 }?, startIndex: number?, hunt: boolean?, leash: number? }?
+)
 	local o = options or {}
 	return {
 		kind = kind,
@@ -106,6 +111,11 @@ function DogBrain.new(kind: string, options: { patrol: { Vector3 }?, startIndex:
 		patrolStep = 1,
 		hunt = o.hunt == true,
 		returning = false,
+		leash = o.leash or AI.LeashRange,
+		fetchUntil = 0,
+		bone = nil :: Vector3?,
+		boneUntil = 0,
+		chewUntil = 0,
 	}
 end
 
@@ -224,7 +234,13 @@ end
 
 -- Another dog barked at `position`: come and look (unless already chasing).
 function DogBrain.alert(dog, position: Vector3, _now: number)
-	if dog.mode == "Chase" or dog.mode == "Stunned" or dog.returning then
+	if
+		dog.mode == "Chase"
+		or dog.mode == "Stunned"
+		or dog.mode == "Chew"
+		or dog.mode == "Fetch"
+		or dog.returning
+	then
 		return
 	end
 	dog.investigate = position
@@ -242,6 +258,53 @@ end
 function DogBrain.tire(dog, now: number)
 	dog.mode = "Tired"
 	dog.tiredUntil = now + dog.cfg.TiredSeconds
+end
+
+-- A corgi that just stole a present runs off with it for Fetch.Seconds.
+function DogBrain.fetch(dog, now: number)
+	dog.mode = "Fetch"
+	dog.fetchUntil = now + AI.Fetch.Seconds
+	dog.awareness, dog.target, dog.investigate = 0, nil, nil
+	dog.returning = false
+end
+
+-- A bone landed at `position`: go and chew it (not while it has your present).
+function DogBrain.distract(dog, position: Vector3, now: number)
+	if dog.mode == "Fetch" then
+		return
+	end
+	dog.mode = "Chew"
+	dog.bone = position
+	dog.boneUntil = now + AI.Bone.GiveUp
+	dog.chewUntil = 0
+	dog.awareness, dog.target, dog.investigate = 0, nil, nil
+	dog.returning = false
+end
+
+-- Dog flaps: a dog heading into (or out of) a house with its door shut goes
+-- via the door. flaps: { box: CFrame, size: Vector3, outside: Vector3,
+-- inside: Vector3, open: boolean }. Returns the waypoint and whether to walk
+-- straight at it (through the flap), or nil when no detour is needed.
+local function inBox(box: CFrame, size: Vector3, p: Vector3): boolean
+	local rel = box:PointToObjectSpace(p)
+	return math.abs(rel.X) <= size.X / 2 and math.abs(rel.Z) <= size.Z / 2
+end
+
+function DogBrain.flapWaypoint(from: Vector3, goal: Vector3, flaps: { any }): (Vector3?, boolean)
+	for _, flap in flaps do
+		if not flap.open then
+			local dogIn, goalIn = inBox(flap.box, flap.size, from), inBox(flap.box, flap.size, goal)
+			if dogIn ~= goalIn then
+				local near = if dogIn then flap.inside else flap.outside
+				local far = if dogIn then flap.outside else flap.inside
+				if flatDistance(near, from) > 2.5 then
+					return near, dogIn -- inside a house, walk straight to the door
+				end
+				return far, true -- through the flap
+			end
+		end
+	end
+	return nil, false
 end
 
 local function startSearch(dog, at: Vector3?, now: number)
@@ -306,14 +369,49 @@ function DogBrain.step(dog, from: Vector3, facing: Vector3, world: World): Inten
 		startSearch(dog, dog.lastSeen, now)
 	end
 
+	-- A thrown bone: it trots over and chews, ignoring everyone.
+	if dog.mode == "Chew" then
+		local bone = dog.bone :: Vector3
+		if dog.chewUntil > 0 then
+			if now < dog.chewUntil then
+				return { mode = "Chew", speed = 0, look = flat(facing), awareness = 0 }
+			end
+		elseif now < dog.boneUntil and flatDistance(bone, from) >= REACHED then
+			return { mode = "Chew", goal = bone, speed = AI.AlertSpeed, look = flat(facing), awareness = 0 }
+		elseif now < dog.boneUntil then
+			dog.chewUntil = now + AI.Bone.ChewSeconds
+			return { mode = "Chew", speed = 0, look = flat(facing), awareness = 0, chewing = true }
+		end
+		dog.mode, dog.bone, dog.chewUntil = idleMode(dog), nil, 0
+		dog.awareness = 0
+	end
+
+	-- Fetch: a corgi off with your present, keeping away from Santas.
+	if dog.mode == "Fetch" then
+		if now >= dog.fetchUntil then
+			dog.mode = idleMode(dog)
+			return { mode = dog.mode, speed = 0, look = flat(facing), awareness = 0, drop = true }
+		end
+		local away = Vector3.zero
+		for _, santa in world.santas do
+			local offset = flat(from - santa.position)
+			local d = offset.Magnitude
+			if not santa.safe and d < AI.Fetch.FleeFrom and d > 1e-3 then
+				away += offset.Unit * (AI.Fetch.FleeFrom - d)
+			end
+		end
+		local goal = if away.Magnitude > 1e-3 then from + away.Unit * 15 else nil
+		return { mode = "Fetch", goal = goal, speed = AI.Fetch.Speed, look = flat(facing), awareness = 0 }
+	end
+
 	-- Back to its beat after straying too far: it ignores everything on the way.
-	if dog.patrol and not dog.returning and DogBrain.leashDistance(dog.patrol, from) > AI.LeashRange then
+	if dog.patrol and not dog.returning and DogBrain.leashDistance(dog.patrol, from) > dog.leash then
 		dog.returning = true
 		dog.mode = "Patrol"
 		dog.awareness, dog.target, dog.investigate = 0, nil, nil
 	end
 	if dog.returning then
-		if DogBrain.leashDistance(dog.patrol, from) <= AI.LeashRange / 2 then
+		if DogBrain.leashDistance(dog.patrol, from) <= dog.leash / 2 then
 			dog.returning = false
 		else
 			local home = nearestPatrolPoint(dog.patrol, from)
