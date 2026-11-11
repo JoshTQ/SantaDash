@@ -58,8 +58,12 @@ Tutorial.Lessons = {
 	lesson("Cocoa", "You can afford cocoa! Find the booth.", nil, 5, "show", false),
 	lesson("Lair", "Krampus's Lair! Steal the Naughty List!", nil, 5, "show", true),
 	lesson("Krampus", "Krampus! Hide in a wardrobe or run!", nil, 5, "show", true),
+	lesson("Cuckoo", "Cuckoo! Freeze while it looks!", nil, 4, "show", false),
+	lesson("List", "It rattles! Pass it with Q!", "It rattles! Tap PASS LIST!", 5, "show", false),
 	lesson("Hide", "Tap fast to hold your breath!", nil, 4, "show", false),
 	lesson("Snatched", "Tap fast to wiggle out of the basket!", nil, 4, "show", false),
+	lesson("IceCube", "Ice cube! Tap fast to crack out!", nil, 4, "show", false),
+	lesson("FrostRing", "JUMP over Krampus's frost ring!", nil, 4, "show", false),
 	lesson("Missed", "Missed it! Run to the next stop!", nil, 5, "show", false),
 	lesson("Done", "First heist done! Go again with your crew!", nil, 5, "show", true),
 }

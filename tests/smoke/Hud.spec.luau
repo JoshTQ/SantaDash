@@ -93,6 +93,11 @@ describe("the HUD", function()
 			shows(world, "KRAMPUS IS COMING!", 5)
 			shows(world, "Best thief: Me", 200)
 			shows(world, "(escaped x2)")
+			-- Your own line, and your Coal counted up to the real total.
+			shows(world, "You grabbed")
+			local rows = engine:hudMessages(me, "Results")
+			local coal = rows[#rows].data.rows[1].coal
+			shows(world, "You got +" .. coal .. " Coal!", 5)
 			shows(world, "Next run in")
 			shows(world, "Heist again together!", 30)
 		end)
@@ -123,9 +128,102 @@ describe("the HUD", function()
 
 			boardPublic(world, me)
 			shows(world, "STOP 1/2", 60)
-			engine:guiButton("Back to hub").Activated:Fire()
+			-- One tap only asks (a stray thumb on a phone never quits a run).
+			local quit = engine:guiButton("Back to hub")
+			quit.Activated:Fire()
+			world.wait(0.5)
+			expect(engine:guiShows("STOP 1/2")).toBe(true)
+			expect(quit.Text).toBe("Tap again to leave")
+			-- Unconfirmed, it goes back to normal after a few seconds.
+			world.wait(4)
+			expect(quit.Text).toBe("Back to hub")
+			quit.Activated:Fire()
+			quit.Activated:Fire()
 			world.wait(0.5)
 			expect(engine:guiShows("STOP 1/2")).toBe(false)
+		end)
+	end)
+
+	it("puts the banner, map event chip, body heat and tip card in one column", function()
+		local world, engine, me = boot()
+		world.run(function()
+			world.runScript("StarterPlayer.StarterPlayerScripts.Client.Tips")
+			world.wait(0.5)
+			local gui = me.PlayerGui.SleighHeistHud
+			local stack = gui:FindFirstChild("TopStack")
+			expect(stack).toBeTruthy()
+			expect(stack:FindFirstChild("Banner")).toBeTruthy()
+			expect(stack:FindFirstChild("TipCard")).toBeTruthy()
+			local orders = {}
+			for _, child in stack:GetChildren() do
+				if child:IsA("GuiObject") then
+					expect(orders[child.LayoutOrder]).toBe(nil) -- no two share a slot
+					orders[child.LayoutOrder] = child.Name
+				end
+			end
+			expect(stack:FindFirstChildOfClass("UIListLayout")).toBeTruthy()
+		end)
+	end)
+
+	it("Music button switches music off and on, and saves it", function()
+		local world, engine, me = boot()
+		world.run(function()
+			world.runScript("StarterPlayer.StarterPlayerScripts.Client.Audio")
+			world.wait(1)
+			local PlayerData = world.load("ServerScriptService.Server.PlayerData")
+			local group = engine:service("SoundService"):FindFirstChild("SleighHeistMusic")
+			local music = engine:guiButton("Music: ON")
+			expect(music).toBeTruthy()
+			music.Activated:Fire()
+			world.wait(0.5)
+			expect(me:GetAttribute("MusicOff")).toBe(true)
+			expect(music.Text).toBe("Music: OFF")
+			expect(PlayerData.get(me).settings.musicOff).toBe(true)
+			group = engine:service("SoundService"):FindFirstChild("SleighHeistMusic")
+			expect(group.Volume).toBe(0)
+			music.Activated:Fire()
+			world.wait(0.5)
+			expect(me:GetAttribute("MusicOff")).toBe(false)
+			expect(music.Text).toBe("Music: ON")
+			expect(group.Volume > 0).toBe(true)
+		end)
+	end)
+
+	it("labels buttons for the device: no keyboard keys on phones", function()
+		local world, engine, me = boot()
+		world.run(function()
+			boardPublic(world, me)
+			shows(world, "STOP 1/2", 60)
+			-- The headless player has no touch screen: keyboard labels.
+			expect(engine:guiButton("TAP! (Space)")).toBeTruthy()
+			expect(engine:guiButton("THROW (F)")).toBeTruthy()
+		end)
+	end)
+
+	it("floats +numbers off the stats panel and marks a full sack", function()
+		local world, engine, me = boot()
+		world.run(function()
+			boardPublic(world, me)
+			shows(world, "STOP 1/2", 60)
+			local hud = world.load("ReplicatedStorage.Shared.Remotes").get("Hud")
+			local base = { jingle = 0, sackCount = 0, sackValue = 0, banked = 0, sackCapacity = 2 }
+			hud:FireClient(me, "Player", base)
+			world.wait(0.2)
+			hud:FireClient(
+				me,
+				"Player",
+				{ jingle = 5, sackCount = 2, sackValue = 30, banked = 0, sackCapacity = 2 }
+			)
+			world.wait(0.2)
+			expect(engine:guiShows("FULL")).toBe(true)
+			hud:FireClient(
+				me,
+				"Player",
+				{ jingle = 5, sackCount = 0, sackValue = 0, banked = 30, sackCapacity = 2 }
+			)
+			world.wait(0.2)
+			expect(engine:guiShows("Banked in sleigh: 30")).toBe(true)
+			expect(engine:guiShows("FULL")).toBe(false)
 		end)
 	end)
 

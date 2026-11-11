@@ -9,7 +9,9 @@ local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Handoff = require(ReplicatedStorage.Shared.Handoff)
+local Preload = require(ReplicatedStorage.Shared.Preload)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Assets = require(script.Parent.Assets)
 local Lobby = require(script.Parent.Lobby)
 local LobbyMap = require(script.Parent.LobbyMap)
 local PlayerData = require(script.Parent.PlayerData)
@@ -18,10 +20,12 @@ local RunHost = require(script.Parent.RunHost)
 local SantaCharacter = require(script.Parent.SantaCharacter)
 local Skins = require(script.Parent.Skins)
 local Boots = require(script.Parent.Boots)
+local Settings = require(script.Parent.Settings)
 local Store = require(script.Parent.Store)
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Telemetry = require(script.Parent.Telemetry)
+local Analytics = require(script.Parent.Analytics)
 
 Remotes.init()
 local isRunPlace = Handoff.isRunPlace(game.PlaceId, workspace:GetAttribute("RunPlace"))
@@ -31,6 +35,20 @@ Telemetry.start(if isRunPlace then "Run" else "Lobby", Remotes.get("ClientError"
 SantaCharacter.install()
 -- First-time player tips, saved in the shared player data (data.tutorial).
 Onboarding.start(PlayerData)
+-- Clients warm up the content of models that only appear mid-run (Krampus),
+-- so his intro cutscene doesn't freeze on a mesh download (shared/Preload).
+do
+	local ids = {}
+	for _, name in Preload.LateModels do
+		local model = Assets.get(name)
+		if model then
+			for _, id in Preload.contentIds(model) do
+				table.insert(ids, id)
+			end
+		end
+	end
+	ReplicatedStorage:SetAttribute(Preload.Attribute, Preload.encode(ids))
+end
 
 -- Christmas Eve night, always (Josh, 2 Nov): a bright moon so kids can see,
 -- stars, and bloom so the Christmas lights glow. Lighting.Technology is
@@ -66,9 +84,12 @@ effect(
 -- Saved data and the store, in both places. Runs happen here if this is the
 -- run place, or while the places aren't published (single server).
 PlayerData.start()
+-- Funnels, economy and custom events for the Creator Dashboard (docs/ANALYTICS.md).
+Analytics.start(if isRunPlace then "Run" else "Lobby", PlayerData, Remotes.get("ClientStats"))
 Store.start({ runServer = isRunPlace or Config.Places.Run == 0 })
 Skins.start() -- each player's chosen Santa suit
 Boots.start() -- boots over any suit (bought with Coal)
+Settings.start() -- saved player settings (the HUD's Music button)
 
 local hub = LobbyMap.build(workspace)
 if isRunPlace then

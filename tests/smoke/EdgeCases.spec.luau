@@ -190,6 +190,8 @@ describe("players during a run", function()
 		world.run(function()
 			local run = start(world, Run, players)
 			local krampus = atLair(world, run)
+			-- No bells during his KrampusArrives intro (CutscenePlayer): wait it out.
+			world.wait(world.load("ReplicatedStorage.Shared.Cutscenes").get("KrampusArrives").seconds + 0.1)
 			krampus.stunnedUntil = math.huge
 			local front = (krampus.body.root.CFrame * CFrame.new(0, 0, -4)).Position
 			engine:teleport(a, front)

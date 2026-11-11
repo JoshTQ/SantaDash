@@ -4,7 +4,8 @@
 	default; PlayerDefaults.reconcile fills them into older saves.
 
 	Owners: store thread (playSeconds, coal, owned, receipts, inventory),
-	tutorial thread (tutorial). skin: shared/SkinRules.luau. boots: shared/BootRules.luau.
+	tutorial thread (tutorial), analytics (server/Analytics.luau).
+	skin: shared/SkinRules.luau. boots: shared/BootRules.luau.
 ]]
 
 local PlayerDefaults = {}
@@ -24,6 +25,16 @@ function PlayerDefaults.new()
 		tutorial = {
 			done = {}, -- [lessonId] = true
 			tipsOff = false, -- the player's "no more tips" switch
+		},
+		settings = {
+			musicOff = false, -- the HUD's Music button (server/Settings.luau)
+		},
+		analytics = {
+			-- First-game funnel (shared/Funnels.luau): 0 = not decided yet,
+			-- -1 = joined before analytics (never enters it), n = last step logged.
+			onboarding = 0,
+			runs = 0, -- runs started, every place
+			bought = false, -- has made a Robux purchase (FirstPurchase is logged once)
 		},
 	}
 end

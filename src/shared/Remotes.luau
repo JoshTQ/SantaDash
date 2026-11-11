@@ -4,6 +4,7 @@
 	Hud (server -> client): fire(kind: string, data: table). Kinds:
 		Queue, QueueClear, Stop, Banner, Noise, Player, Results, RunEnd,
 		Krampus, KrampusTease, Hide, Captive, MapEvent, Weather, Snowballs, Splat, Cutscene,
+		Puppets (shared/Puppets: scripted sleigh and Krampus paths each client poses),
 		Tip, TipDone, Guide (first-time player tips, server/Onboarding.luau)
 	LeaveCrew (client -> server): leave the queue or the current run.
 	Input (client -> server): "Tap" (breath / wiggle), "Unhide", "Throw" (snowball),
@@ -11,6 +12,8 @@
 		"TipsReady" / "TipsOff" (first-time tips).
 	Store (both ways): see server/Store.luau.
 	ClientError (client -> server): a client script error, for Telemetry.
+	ClientStats (client -> server): device, load time, frame rate and
+		cutscene freezes (shared/ClientStats.luau), for Analytics.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -19,7 +22,7 @@ local RunService = game:GetService("RunService")
 local Remotes = {}
 
 local FOLDER_NAME = "Remotes"
-local NAMES = { "Hud", "LeaveCrew", "Input", "Store", "ClientError" }
+local NAMES = { "Hud", "LeaveCrew", "Input", "Store", "ClientError", "ClientStats" }
 
 local function serverFolder(): Folder
 	local folder = ReplicatedStorage:FindFirstChild(FOLDER_NAME)

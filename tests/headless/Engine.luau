@@ -842,6 +842,14 @@ function Engine.new()
 	props(workspace).GetServerTimeNow = function()
 		return engine.now
 	end
+	-- Off unless a test sets engine.raycasts = true (a whole map is a lot of
+	-- boxes): then rays test every BasePart's box, skipping excluded ones.
+	props(workspace).Raycast = function(_, origin, direction, params)
+		if not engine.raycasts then
+			return nil
+		end
+		return engine:_raycast(origin, direction, params)
+	end
 
 	-- Roblox friends (Engine:befriend). Cloud points every server at one
 	-- shared table. Pages hold 2 friends so paging gets exercised; set
@@ -906,6 +914,15 @@ function Engine.new()
 	local pathfinding = self:service("PathfindingService")
 	props(pathfinding).CreatePath = function()
 		return engine:_newPath()
+	end
+
+	-- Unique ids (analytics funnel sessions, crews). Cloud.luau swaps in its own.
+	local http = self:service("HttpService")
+	local guids = 0
+	props(http).GenerateGUID = function(_, wrap)
+		guids += 1
+		local guid = string.format("00000000-0000-4000-9000-%012d", guids)
+		return if wrap == false then guid else "{" .. guid .. "}"
 	end
 
 	local teleport = self:service("TeleportService")
@@ -1273,6 +1290,64 @@ function Engine:_overlaps(part, root): boolean
 	local rel = props(part).CFrame:PointToObjectSpace(props(root).CFrame.Position)
 	local half = props(part).Size / 2 + Vector3.new(1, 3, 1)
 	return math.abs(rel.X) <= half.X and math.abs(rel.Y) <= half.Y and math.abs(rel.Z) <= half.Z
+end
+
+-- The nearest BasePart box a ray from origin along direction hits, as a
+-- RaycastResult-like table, honouring an Exclude filter list.
+function Engine:_raycast(origin, direction, params)
+	local exclude = (params and params.FilterDescendantsInstances) or {}
+	local length = direction.Magnitude
+	if length < 1e-6 then
+		return nil
+	end
+	local best, bestT = nil, length
+	for _, part in self.workspace:GetDescendants() do
+		if not part:IsA("BasePart") then
+			continue
+		end
+		local skip = false
+		for _, ex in exclude do
+			if part == ex or part:IsDescendantOf(ex) then
+				skip = true
+				break
+			end
+		end
+		if skip then
+			continue
+		end
+		local cf, size = props(part).CFrame, props(part).Size
+		local o = cf:PointToObjectSpace(origin)
+		local d = cf:VectorToObjectSpace(direction.Unit)
+		local tMin, tMax = 0, bestT
+		local hit = true
+		for _, axis in { "X", "Y", "Z" } do
+			local half = size[axis] / 2
+			local oa, da = o[axis], d[axis]
+			if math.abs(da) < 1e-9 then
+				if math.abs(oa) > half then
+					hit = false
+					break
+				end
+			else
+				local t1, t2 = (-half - oa) / da, (half - oa) / da
+				if t1 > t2 then
+					t1, t2 = t2, t1
+				end
+				tMin, tMax = math.max(tMin, t1), math.min(tMax, t2)
+				if tMin > tMax then
+					hit = false
+					break
+				end
+			end
+		end
+		if hit and tMin < bestT then
+			best, bestT = part, tMin
+		end
+	end
+	if not best then
+		return nil
+	end
+	return { Instance = best, Position = origin + direction.Unit * bestT, Distance = bestT }
 end
 
 -- Straight-line pathfinding: start, then the goal.

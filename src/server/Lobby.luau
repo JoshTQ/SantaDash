@@ -32,6 +32,7 @@ local CrewPacker = require(ReplicatedStorage.Shared.CrewPacker)
 local PartyGather = require(ReplicatedStorage.Shared.PartyGather)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Util = require(ReplicatedStorage.Shared.Util)
+local Analytics = require(script.Parent.Analytics)
 local Matchmaker = require(script.Parent.Matchmaker)
 local Onboarding = require(script.Parent.Onboarding)
 local Telemetry = require(script.Parent.Telemetry)
@@ -72,6 +73,7 @@ local crews: { Crew } = {}
 local runsBySlot: { [number]: any } = {}
 local runOf: { [Player]: any } = {}
 local crewOf: { [Player]: Crew } = {}
+local seated: { [Player]: boolean } = {} -- in a station sleigh seat (for LeftLobby)
 local gatherings: { [any]: Gathering } = {} -- by bay
 local gatheringOf: { [Player]: Gathering } = {}
 local lastParty: { [any]: { Player } } = {} -- the group a Party bay queued this boarding, for late friends
@@ -248,6 +250,7 @@ local function departLocally(players: { Player })
 		Util.removeValue(crews, crew)
 		return
 	end
+	Analytics.crewFound(crew.players)
 	for _, player in crew.players do
 		banner(player, Lobby.Text.Found)
 	end
@@ -401,6 +404,8 @@ local stationHandlers = {
 			return -- mid-run (same-server runs share the place with the station)
 		end
 		Onboarding.complete(player, "Board")
+		seated[player] = true
+		Analytics.boarded(player)
 		leaveLocalCrew(player) -- walked onto a sleigh while their old crew counted down
 		if bay.kind == "Public" then
 			-- Already waiting on a Public ticket (dropped back on the platform
@@ -418,6 +423,7 @@ local stationHandlers = {
 		end
 	end,
 	unseated = function(_bay, player: Player)
+		seated[player] = nil
 		local wasQueued = Matchmaker.queued(player) ~= nil
 		local wasGathering = leaveGathering(player)
 		local wasInCrew = leaveLocalCrew(player)
@@ -442,12 +448,34 @@ local stationHandlers = {
 	end,
 }
 
+-- What a player was doing in the lobby, for LeftLobby (fixed labels only).
+local function doing(player: Player): string
+	if crewOf[player] then
+		return "Crew leaving"
+	elseif Matchmaker.queued(player) or gatheringOf[player] then
+		return "Queued for a crew"
+	elseif seated[player] then
+		return "Sitting in a sleigh"
+	end
+	return "Exploring"
+end
+
 -- The local run a player is in (tests check crews stay together).
 function Lobby.runOf(player: Player): any?
 	return runOf[player]
 end
 
 function Lobby.leave(player: Player, leftGame: boolean?)
+	if leftGame then
+		local run = runOf[player]
+		if run then
+			local st = run.players[player]
+			Analytics.leftRun(player, run, "Quit the game", st and st.jingle)
+		else
+			Analytics.leftLobby(player, doing(player))
+		end
+		seated[player] = nil
+	end
 	local wasQueued = Matchmaker.queued(player) ~= nil
 	local wasGathering = leaveGathering(player)
 	forgetParty(player)

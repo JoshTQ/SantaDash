@@ -16,6 +16,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Handoff = require(ReplicatedStorage.Shared.Handoff)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Util = require(ReplicatedStorage.Shared.Util)
+local Analytics = require(script.Parent.Analytics)
 local Run = require(script.Parent.Run)
 local Telemetry = require(script.Parent.Telemetry)
 local Teleporter = require(script.Parent.Teleporter)
@@ -139,6 +140,13 @@ end
 local function leave(player: Player, leftGame: boolean)
 	Util.removeValue(waiting, player)
 	if type(current) == "table" and current:hasPlayer(player) then
+		local st = current.players[player]
+		Analytics.leftRun(
+			player,
+			current,
+			if leftGame then "Quit the game" else "Left the crew",
+			st and st.jingle
+		)
 		current:removePlayer(player)
 	end
 	if not leftGame then
