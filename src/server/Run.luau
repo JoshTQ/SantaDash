@@ -16,7 +16,7 @@ local Cutscenes = require(ReplicatedStorage.Shared.Cutscenes)
 local Maps = require(ReplicatedStorage.Shared.Maps)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local SantaMoves = require(ReplicatedStorage.Shared.SantaMoves)
-local SleighFlight = require(ReplicatedStorage.Shared.SleighFlight)
+local Puppets = require(ReplicatedStorage.Shared.Puppets)
 local SoundPlayer = require(ReplicatedStorage.Shared.SoundPlayer)
 local Util = require(ReplicatedStorage.Shared.Util)
 local AlarmDogs = require(script.Parent.AlarmDogs)
@@ -1069,15 +1069,26 @@ end
 function Run:_fly(fromDeck: CFrame, toDeck: CFrame, riders: { Player })
 	self.phase = "Flight"
 	self:_sendStop()
-	self:_ride(riders, Config.Run.FlightSeconds, function(t)
-		return SleighFlight.deckAt(fromDeck, toDeck, t, Config.Run.FlightSeconds, Config.Run.FlightArcHeight)
-	end)
+	self:_ride(riders, {
+		path = "flight",
+		base = fromDeck,
+		to = toDeck,
+		peak = Config.Run.FlightArcHeight,
+		seconds = Config.Run.FlightSeconds,
+	})
 end
 
--- Moves the sleigh along deckAt(t) for `seconds`, carrying the riders in
--- their seats, and leaves it at deckAt(seconds). keepSeated leaves riders
--- anchored in the sleigh (the Getaway ends in the sky; _finish frees them).
-function Run:_ride(riders: { Player }, seconds: number, deckAt: (t: number) -> CFrame, keepSeated: boolean?)
+-- Moves the sleigh along a Puppets path (a flight or the Getaway) for its
+-- seconds, carrying the riders in their seats, and leaves it at the path's
+-- end. keepSeated leaves riders anchored in the sleigh (the Getaway ends in
+-- the sky; _finish frees them). The crew's clients pose the same path
+-- themselves (client/PuppetPlayer), so the sleigh glides instead of stepping
+-- at the network rate.
+function Run:_ride(riders: { Player }, path: Puppets.Puppet, keepSeated: boolean?)
+	local seconds = path.seconds
+	local function deckAt(t: number): CFrame
+		return Puppets.poseAt(path, t)
+	end
 	local seats: { [BasePart]: CFrame } = {}
 	for i, player in riders do
 		local root = rootOf(player)
@@ -1100,9 +1111,19 @@ function Run:_ride(riders: { Player }, seconds: number, deckAt: (t: number) -> C
 	end
 
 	self.flightSeats = seats -- respawns mid-flight are seated too
-	local started = os.clock()
+	-- One clock for the server and the clients' copies (Util.now is server time).
+	local started = now()
+	local deckPuppet = table.clone(path) :: any
+	deckPuppet.target = sleigh
+	local puppets = { deckPuppet }
+	for root, seat in seats do
+		local rider = table.clone(path) :: any
+		rider.target, rider.offset = root, seat
+		table.insert(puppets, rider)
+	end
+	self:_send(nil, "Puppets", { startedAt = started, puppets = puppets })
 	local connection = RunService.Heartbeat:Connect(function()
-		place(deckAt(math.min(os.clock() - started, seconds)))
+		place(deckAt(now() - started))
 	end)
 	task.wait(seconds)
 	connection:Disconnect()
@@ -1320,10 +1341,7 @@ function Run:_getaway(stop, riders: { Player })
 	if self.krampus then
 		self.krampus:playFlop(seconds, stop.deckCFrame.Position)
 	end
-	local deck = stop.deckCFrame
-	self:_ride(riders, seconds, function(t)
-		return deck * Cutscenes.getawaySleigh(t)
-	end, true)
+	self:_ride(riders, { path = "getawaySleigh", base = stop.deckCFrame, seconds = seconds }, true)
 	self:_stopKrampus()
 end
 

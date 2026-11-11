@@ -14,7 +14,7 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
-local Cutscenes = require(ReplicatedStorage.Shared.Cutscenes)
+local Puppets = require(ReplicatedStorage.Shared.Puppets)
 local SoundPlayer = require(ReplicatedStorage.Shared.SoundPlayer)
 local Util = require(ReplicatedStorage.Shared.Util)
 local KrampusBrain = require(script.Parent.KrampusBrain)
@@ -111,21 +111,25 @@ end
 -- Cutscene choreography (the camera side lives in CutscenePlayer)
 ----------------------------------------------------------------------------
 
--- Drives his pivot from a pure path (Cutscenes.krampusIntro / krampusFlop)
--- for `seconds`, anchored so the Humanoid can't fight it.
-function Krampus:_puppet(seconds: number, pivotAt: (t: number) -> CFrame, keepAnchored: boolean?)
+-- Drives his pivot along a Puppets path for its seconds, anchored so the
+-- Humanoid can't fight it. The crew's clients pose the same path themselves
+-- (client/PuppetPlayer), so cutscene cameras following him stay smooth.
+function Krampus:_puppet(path: Puppets.Puppet, keepAnchored: boolean?)
 	local root = self.body.root
 	root.Anchored = true
-	local started = os.clock()
+	local started = Util.now() -- server time: the clients' copies use the same clock
+	local puppet = table.clone(path) :: any
+	puppet.target = self.body.model
+	self.run:_send(nil, "Puppets", { startedAt = started, puppets = { puppet } })
 	local connection
 	connection = RunService.Heartbeat:Connect(function()
 		if not self.alive then
 			connection:Disconnect()
 			return
 		end
-		local t = os.clock() - started
-		self.body.model:PivotTo(pivotAt(math.min(t, seconds)))
-		if t >= seconds then
+		local t = Util.now() - started
+		self.body.model:PivotTo(Puppets.poseAt(path, t))
+		if t >= path.seconds then
 			connection:Disconnect()
 			if not keepAnchored then
 				root.Anchored = false
@@ -134,12 +138,18 @@ function Krampus:_puppet(seconds: number, pivotAt: (t: number) -> CFrame, keepAn
 	end)
 end
 
--- KrampusArrives: tiptoe in from behind his spawn, clonk, roar.
+-- KrampusArrives: tiptoe in from behind his spawn, clonk, roar. No bells
+-- until it is over: a ring would spin him mid-walk and could cut his
+-- hold short while the crew is still watching (CutscenePlayer).
 function Krampus:playIntro(seconds: number)
-	local spawn = self.stop.krampusSpawn
-	self:_puppet(seconds, function(t)
-		return spawn * Cutscenes.krampusIntro(t)
+	self.introUntil = Util.now() + seconds
+	self.body.bellPrompt.Enabled = false
+	task.delay(seconds, function()
+		if self.alive then
+			self.body.bellPrompt.Enabled = true
+		end
 	end)
+	self:_puppet({ path = "krampusIntro", base = self.stop.krampusSpawn, seconds = seconds })
 end
 
 -- Getaway: he gives up the hunt, leaps for the sleigh and belly-flops.
@@ -147,10 +157,11 @@ function Krampus:playFlop(seconds: number, deck: Vector3)
 	self:release()
 	self.stunnedUntil = math.huge
 	self.mover:stop()
-	local start = self.body.model:GetPivot()
-	self:_puppet(seconds, function(t)
-		return Cutscenes.krampusFlop(t, start, deck)
-	end, true)
+	self.body.bellPrompt.Enabled = false
+	self:_puppet(
+		{ path = "krampusFlop", base = self.body.model:GetPivot(), deck = deck, seconds = seconds },
+		true
+	)
 end
 
 function Krampus:destroy()
@@ -277,7 +288,7 @@ function Krampus:_ringBells(player: Player)
 		return
 	end
 	local t = Util.now()
-	if t - self.lastBellAt < K.BellCooldown then
+	if t < (self.introUntil or -math.huge) or t - self.lastBellAt < K.BellCooldown then
 		return
 	end
 	if not KrampusBrain.isBehind(self.body.root.CFrame, root.Position) then
@@ -285,8 +296,9 @@ function Krampus:_ringBells(player: Player)
 		return
 	end
 	self.lastBellAt = t
-	self.stunnedUntil = t + K.StunSeconds
-	self.dizzyUntil = self.stunnedUntil
+	-- Never shortens a longer hold (his intro grace, the Getaway).
+	self.stunnedUntil = math.max(self.stunnedUntil, t + K.StunSeconds)
+	self.dizzyUntil = t + K.StunSeconds
 	-- He spins round to find the bells.
 	self.body.root.CFrame *= CFrame.Angles(0, math.pi, 0)
 	SoundPlayer.at("BellBonk", self.body.root)

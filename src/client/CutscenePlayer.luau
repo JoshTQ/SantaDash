@@ -15,7 +15,9 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local Cutscenes = require(ReplicatedStorage.Shared.Cutscenes)
+local SoundPlayer = require(ReplicatedStorage.Shared.SoundPlayer)
 local Util = require(ReplicatedStorage.Shared.Util)
+local PuppetPlayer = require(script.Parent:WaitForChild("PuppetPlayer"))
 
 local player = Players.LocalPlayer
 local FONT = Enum.Font.FredokaOne
@@ -26,11 +28,18 @@ local CutscenePlayer = {}
 
 local current = nil -- the scene playing now, with everything to clean up
 
+-- Never waits: play() runs inside the Hud's remote handler, and a yield
+-- here held the whole scene (and every Hud message behind it) back.
 local function controls()
-	local ok, module = pcall(function()
-		return require(player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule") :: any):GetControls()
+	local scripts = player:FindFirstChildOfClass("PlayerScripts")
+	local module = scripts and scripts:FindFirstChild("PlayerModule")
+	if not module then
+		return nil
+	end
+	local ok, result = pcall(function()
+		return require(module :: any):GetControls()
 	end)
-	return if ok then module else nil
+	return if ok then result else nil
 end
 
 local function buildGui(onSkip: () -> ())
@@ -91,19 +100,18 @@ local function buildGui(onSkip: () -> ())
 	corner.Parent = skip
 	skip.Activated:Connect(onSkip)
 
-	gui.Parent = player:WaitForChild("PlayerGui")
+	gui.Parent = player:FindFirstChildOfClass("PlayerGui") or player:WaitForChild("PlayerGui")
 	return gui, pop, tint
 end
 
--- Plays a SoundAssets sound inside the cutscene GUI, so Skip (which destroys
+-- Plays a cutscene sound inside the cutscene GUI, so Skip (which destroys
 -- the GUI) cuts it off. `late` starts it part-way in when we joined late.
--- A key with no Sound yet is silent.
+-- SoundPlayer.make finds the audio the same way as every other sound: a
+-- SoundAssets override, else the catalogue id (this used to look only in
+-- SoundAssets, so scenes were silent without an override). No audio = silent.
 local function playSfx(state, key: string?, late: number)
-	local folder = key and ReplicatedStorage:FindFirstChild("SoundAssets")
-	local template = folder and folder:FindFirstChild(key :: string)
-	if template and template:IsA("Sound") then
-		local sound = template:Clone()
-		sound.Parent = state.gui -- a Sound under PlayerGui plays 2D for this player only
+	local sound = key and SoundPlayer.make(key, state.gui) -- under PlayerGui: 2D, this player only
+	if sound then
 		sound.TimePosition = late
 		sound:Play()
 	end
@@ -122,9 +130,17 @@ local function hatsOff(state, centre: Vector3)
 					and handle:IsA("BasePart")
 					and (accessory :: Accessory).AccessoryType == Enum.AccessoryType.Hat
 				then
-					local flying = handle:Clone()
-					for _, child in flying:GetChildren() do
-						if child:IsA("JointInstance") or child:IsA("WeldConstraint") then
+					local flying = handle:Clone() -- nil if the hat isn't Archivable
+					if not flying then
+						continue
+					end
+					for _, child in flying:GetDescendants() do
+						if
+							child:IsA("JointInstance")
+							or child:IsA("WeldConstraint")
+							or child:IsA("Constraint")
+							or child:IsA("BaseScript")
+						then
 							child:Destroy()
 						end
 					end
@@ -308,6 +324,9 @@ end
 
 -- data: { id, startedAt, anchor: CFrame, follow: Instance?, marks: {Vector3}?, map: string? }
 function CutscenePlayer.play(data)
+	if type(data) ~= "table" or type(data.startedAt) ~= "number" or typeof(data.anchor) ~= "CFrame" then
+		return
+	end
 	local scene = Cutscenes.get(data.id)
 	if not scene or Util.now() - data.startedAt >= scene.seconds then
 		return -- unknown, or it already ended (we joined late)
@@ -333,10 +352,25 @@ function CutscenePlayer.play(data)
 	local tintColor = scene.tint and Cutscenes.Colors[scene.tint.color]
 	local rng = Random.new()
 
-	RunService:BindToRenderStep(BIND, Enum.RenderPriority.Camera.Value + 1, function()
-		if current ~= state then
-			return
+	local function runCue(cue: Cutscenes.Cue, t: number, eye: Vector3)
+		if cue.kind == "sfx" then
+			playSfx(state, cue.key, math.max(0, t - cue.at))
+		elseif cue.kind == "shake" then
+			state.shake = { power = cue.power or 1, untilT = cue.at + (cue.hold or 0.3) }
+		elseif cue.kind == "hatsOff" then
+			hatsOff(state, eye)
+		elseif cue.kind == "drop" then
+			dropPresent(state)
+		elseif cue.kind == "fireworks" and cue.offset then
+			firework(state, data.anchor:PointToWorldSpace(cue.offset), cue.color)
+		elseif cue.kind == "snowPuff" then
+			snowPuff(state)
+		elseif cue.kind == "marks" then
+			showMarks(state, data.marks, cue.hold or 2)
 		end
+	end
+
+	local function frame()
 		local t = Util.now() - data.startedAt
 		if t >= scene.seconds then
 			CutscenePlayer.stop()
@@ -347,29 +381,22 @@ function CutscenePlayer.play(data)
 		local root = Util.rootOf(player)
 		local frames: Cutscenes.Frames = {
 			anchor = data.anchor,
-			follow = if follow and follow.Parent then (follow :: Model):GetPivot() else nil,
+			-- The pose PuppetPlayer gives a scripted mover this frame (smooth),
+			-- else the model's replicated pivot.
+			follow = if follow and follow.Parent
+				then PuppetPlayer.poseOf(follow) or (follow :: Model):GetPivot()
+				else nil,
 			self = if root then root.CFrame else nil,
 		}
 		local eye, look, fov = Cutscenes.camera(scene, t, frames)
 
-		for _, cue in Cutscenes.cuesBetween(scene, state.lastT, t) do
-			if cue.kind == "sfx" then
-				playSfx(state, cue.key, math.max(0, t - cue.at))
-			elseif cue.kind == "shake" then
-				state.shake = { power = cue.power or 1, untilT = cue.at + (cue.hold or 0.3) }
-			elseif cue.kind == "hatsOff" then
-				hatsOff(state, eye)
-			elseif cue.kind == "drop" then
-				dropPresent(state)
-			elseif cue.kind == "fireworks" and cue.offset then
-				firework(state, data.anchor:PointToWorldSpace(cue.offset), cue.color)
-			elseif cue.kind == "snowPuff" then
-				snowPuff(state)
-			elseif cue.kind == "marks" then
-				showMarks(state, data.marks, cue.hold or 2)
-			end
+		local errors
+		state.lastT, errors = Cutscenes.fireCues(scene, state.lastT, t, function(cue)
+			runCue(cue, t, eye)
+		end)
+		for _, err in errors do
+			warn("[Cutscene] " .. scene.id .. " " .. err)
 		end
-		state.lastT = t
 
 		if state.shake and t < state.shake.untilT then
 			local p = state.shake.power
@@ -383,7 +410,7 @@ function CutscenePlayer.play(data)
 		local pop = Cutscenes.popAt(scene, t)
 		if pop then
 			state.pop.Text = (string.gsub(pop.text, "{map}", data.map or ""))
-			state.pop.TextColor3 = Cutscenes.Colors[pop.color]
+			state.pop.TextColor3 = Cutscenes.Colors[pop.color] or Cutscenes.Colors.snow
 			local grow = math.clamp((t - pop.at) / 0.12, 0, 1) -- slams in
 			state.pop.Size = UDim2.fromScale(0.9, 0.16 * (pop.size or 1) * (0.6 + 0.4 * grow))
 			state.pop.Rotation = -4
@@ -395,6 +422,21 @@ function CutscenePlayer.play(data)
 			local pulse = scene.tint and scene.tint.pulse or 0
 			state.tint.BackgroundColor3 = tintColor
 			state.tint.BackgroundTransparency = 0.82 + 0.1 * math.sin(t * pulse * math.pi * 2)
+		end
+	end
+
+	RunService:BindToRenderStep(BIND, Enum.RenderPriority.Camera.Value + 1, function()
+		if current ~= state then
+			return
+		end
+		-- Anything unexpected ends the scene and hands the camera and controls
+		-- back, instead of erroring every frame with the player stuck.
+		local ok, err = pcall(frame)
+		if not ok then
+			warn("[Cutscene] " .. scene.id .. " stopped: " .. tostring(err))
+			if current == state then
+				CutscenePlayer.stop()
+			end
 		end
 	end)
 end
