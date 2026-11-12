@@ -892,6 +892,45 @@ function Engine.new()
 	props(runService).IsStudio = function()
 		return false
 	end
+	-- Ordered DataStores (the weekly leaderboards), in memory for this one
+	-- world. A Cloud swaps in one set shared by every server.
+	self.orderedStores = {}
+	props(self:service("DataStoreService")).GetOrderedDataStore = function(_, name: string)
+		engine.orderedStores[name] = engine.orderedStores[name] or {}
+		local data = engine.orderedStores[name]
+		local store = newInstance(engine, "OrderedDataStore")
+		rawset(store, "_name", name)
+		props(store).UpdateAsync = function(_, key, fn)
+			local value = fn(data[key])
+			if value ~= nil then
+				data[key] = value
+			end
+			return data[key]
+		end
+		props(store).IncrementAsync = function(_, key, delta)
+			data[key] = (data[key] or 0) + delta
+			return data[key]
+		end
+		props(store).GetSortedAsync = function(_, ascending, pageSize)
+			local rows = {}
+			for key, value in data do
+				table.insert(rows, { key = key, value = value })
+			end
+			table.sort(rows, function(a, b)
+				if a.value == b.value then
+					return a.key < b.key
+				end
+				return if ascending then a.value < b.value else a.value > b.value
+			end)
+			local page = table.move(rows, 1, math.min(pageSize, #rows), 1, {})
+			return {
+				GetCurrentPage = function()
+					return page
+				end,
+			}
+		end
+		return store
+	end
 	self.Heartbeat = runService.Heartbeat
 	-- BindToRenderStep callbacks run every frame, lowest priority first.
 	self.renderSteps = {}

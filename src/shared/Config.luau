@@ -614,6 +614,21 @@ Config.PlayerData = {
 	SaveInStudio = false, -- Studio plays use fresh defaults and save nothing
 }
 
+-- Weekly lobby leaderboards (server/Leaderboards.luau, shared/Leaderboard.luau).
+-- Run servers write each finished run; every lobby reads and redraws the
+-- Top Crews board, Most Wanted wall and Biggest Haul sign. Store names get
+-- the week ("TopCrews_v1/2026-11-09"), so the boards reset every Monday UTC.
+Config.Leaderboards = {
+	TopCrewsStore = "TopCrews_v1",
+	MostWantedStore = "MostWanted_v1",
+	TopCrews = 3, -- rows on the Top Crews board (one per podium step)
+	MostWanted = 8, -- posters on the Most Wanted wall
+	RefreshSeconds = 60, -- lobby reads: 2 per minute, far under the read limit
+	WriteAttempts = 3,
+	RetrySeconds = 4,
+	WriteInStudio = false, -- Studio test runs don't land on the live boards
+}
+
 -- Results: loot becomes Coal, saved in PlayerData.
 Config.Coal = {
 	PerLootValue = 1,

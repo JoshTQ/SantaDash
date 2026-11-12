@@ -26,6 +26,7 @@ local Assets = require(script.Parent.Assets)
 local ElfBot = require(script.Parent.ElfBot)
 local ElfBrain = require(script.Parent.ElfBrain)
 local Loot = require(script.Parent.Loot)
+local Leaderboards = require(script.Parent.Leaderboards)
 local CuckooWatch = require(script.Parent.CuckooWatch)
 local ListBrain = require(script.Parent.ListBrain)
 local NaughtyList = require(script.Parent.NaughtyList)
@@ -1689,7 +1690,10 @@ function Run:_main()
 	if not self:_isEmpty() then
 		self.phase = "Results"
 		local entries = {}
+		local board = {}
 		for player, st in self.players do
+			-- Weekly boards count the loot itself, before paid boosts.
+			table.insert(board, { player.UserId, Loot.finalLoot(st) })
 			-- Coal is saved here, through 2X Loot and any Santa's Blessing.
 			table.insert(
 				entries,
@@ -1700,6 +1704,7 @@ function Run:_main()
 			rows = Loot.results(entries),
 			endsAt = now() + Config.Run.ResultsSeconds + Config.Run.RequeueSeconds,
 		})
+		task.spawn(Leaderboards.record, board) -- Top Crews + Most Wanted
 		Onboarding.teachAll(self.order, "Done")
 		Analytics.runFinished(self, function(player)
 			local st = self.players[player]

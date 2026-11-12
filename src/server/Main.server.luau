@@ -14,6 +14,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Assets = require(script.Parent.Assets)
 local Lobby = require(script.Parent.Lobby)
 local LobbyMap = require(script.Parent.LobbyMap)
+local Leaderboards = require(script.Parent.Leaderboards)
 local PlayerData = require(script.Parent.PlayerData)
 local Onboarding = require(script.Parent.Onboarding)
 local RunHost = require(script.Parent.RunHost)
@@ -92,6 +93,7 @@ Boots.start() -- boots over any suit (bought with Coal)
 Settings.start() -- saved player settings (the HUD's Music button)
 
 local hub = LobbyMap.build(workspace)
+Leaderboards.start(hub) -- weekly Top Crews / Most Wanted, in both places' hubs
 if isRunPlace then
 	RunHost.start(hub) -- GREYBOX: crews wait in the hub between runs
 else
