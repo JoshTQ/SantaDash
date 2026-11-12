@@ -75,11 +75,28 @@ export type Bay = {
 	home: CFrame, -- sleigh pivot when parked (faces +X, along the platform)
 }
 
+-- The live parts of the show-off yard (filled by server/Leaderboards).
+export type WantedPoster = {
+	poster: BasePart,
+	title: TextLabel,
+	photo: ImageLabel,
+	name: TextLabel,
+	haul: TextLabel,
+}
+export type ShowOff = {
+	crewRows: { TextLabel }, -- 1st to 3rd on the Top Crews board
+	crewEmpty: TextLabel, -- "Rob the most presents..." while nobody has
+	crewReset: TextLabel,
+	biggestHaul: { TextLabel }, -- both faces of the sign over the giant present
+	wanted: { WantedPoster }, -- in rank order
+}
+
 export type Hub = {
 	model: Model,
 	spawn: CFrame,
 	bays: { Bay },
 	departureBoards: { TextLabel },
+	showOff: ShowOff,
 }
 
 local part = Parts.new
@@ -892,7 +909,7 @@ local function buildYard(model: Model)
 	end
 end
 
-local function buildShowOff(model: Model)
+local function buildShowOff(model: Model): ShowOff
 	local L = Config.LobbyMap
 	local m = Instance.new("Model")
 	m.Name = "ShowOff"
@@ -925,11 +942,20 @@ local function buildShowOff(model: Model)
 			deco(ball(m, "StatuePom", base + Vector3.new(0, 4.1, 0), 0.5, C.snow))
 		end
 	end
+	-- Filled from the weekly OrderedDataStores by server/Leaderboards.
 	local board = part(m, "TopCrewsBoard", Vector3.new(17, 9, 0.6), CFrame.new(P.X, 15, P.Z + 5), C.coal)
 	local bg = panel(board, Enum.NormalId.Front, C.navy)
-	row(bg, "Title", 0.08, 0.3, "TOP CREWS THIS WEEK", C.gold).TextXAlignment = Enum.TextXAlignment.Center
-	row(bg, "Body", 0.5, 0.36, "Rob the most presents to stand up here!", Color3.new(1, 1, 1)).TextXAlignment =
-		Enum.TextXAlignment.Center
+	row(bg, "Title", 0.05, 0.2, "TOP CREWS THIS WEEK", C.gold).TextXAlignment = Enum.TextXAlignment.Center
+	local empty = row(bg, "Body", 0.4, 0.26, "Rob the most presents to stand up here!", Color3.new(1, 1, 1))
+	empty.TextXAlignment = Enum.TextXAlignment.Center
+	local crewRows = {}
+	for i, colour in { C.gold, Color3.fromRGB(200, 208, 224), Color3.fromRGB(208, 138, 74) } do
+		local r = row(bg, "Crew" .. i, 0.27 + (i - 1) * 0.19, 0.16, "", colour)
+		r.Visible = false
+		table.insert(crewRows, r)
+	end
+	local reset = row(bg, "Reset", 0.86, 0.1, "", Color3.fromRGB(170, 180, 205))
+	reset.TextXAlignment = Enum.TextXAlignment.Center
 	for _, x in { -7, 7 } do
 		column(m, "BoardPost", 10.5, 0.8, Vector3.new(P.X + x, 0, P.Z + 5.4), C.coal)
 	end
@@ -969,7 +995,7 @@ local function buildShowOff(model: Model)
 	lightAt(m, Vector3.new(T.X, 4, T.Z - 12), 30, 1.2)
 	deco(part(m, "GiantRibbon", Vector3.new(11.1, 11.1, 2), giant.CFrame, C.red))
 	deco(part(m, "GiantRibbon", Vector3.new(2, 11.1, 11.1), giant.CFrame, C.red))
-	sign(
+	local _, haulLabels = sign(
 		m,
 		"BiggestHaul",
 		"THIS WEEK'S BIGGEST HAUL",
@@ -981,6 +1007,7 @@ local function buildShowOff(model: Model)
 		true
 	)
 	-- Most Wanted wall, facing the path (-X)
+	local wanted = {}
 	local Wt = L.Wanted
 	local wall = part(
 		m,
@@ -1004,19 +1031,31 @@ local function buildShowOff(model: Model)
 		local cf = wall.CFrame
 			* CFrame.new(-13.5 + (i % 4) * 9, 3.5 - math.floor(i / 4) * 6.6, -1.2)
 			* CFrame.Angles(0, 0, (i % 3 - 1) * 0.06)
-		local poster = sign(
-			m,
-			"WantedPoster",
-			"WANTED",
-			7,
-			5.6,
-			cf,
-			Color3.fromRGB(241, 223, 180),
-			Color3.fromRGB(122, 42, 26),
-			false,
-			Color3.fromRGB(201, 164, 106)
-		)
+		local poster = part(m, "WantedPoster", Vector3.new(7, 5.6, 0.6), cf, Color3.fromRGB(201, 164, 106))
 		poster:SetAttribute("Rank", i + 1)
+		local paper = panel(poster, Enum.NormalId.Front, Color3.fromRGB(241, 223, 180))
+		local ink = Color3.fromRGB(122, 42, 26)
+		local title = row(paper, "Title", 0.04, 0.24, "WANTED", ink)
+		title.TextXAlignment = Enum.TextXAlignment.Center
+		local photo = Instance.new("ImageLabel")
+		photo.Name = "Photo"
+		photo.Position = UDim2.fromScale(0.05, 0.32)
+		photo.Size = UDim2.fromScale(0.36, 0.62)
+		photo.BackgroundColor3 = Color3.fromRGB(222, 198, 150)
+		photo.BorderSizePixel = 0
+		photo.Image = ""
+		photo.Visible = false
+		photo.Parent = paper
+		local aspect = Instance.new("UIAspectRatioConstraint")
+		aspect.AspectRatio = 1
+		aspect.Parent = photo
+		local name = row(paper, "Name", 0.34, 0.26, "", ink)
+		name.Position = UDim2.fromScale(0.45, 0.34)
+		name.Size = UDim2.fromScale(0.5, 0.26)
+		local haul = row(paper, "Haul", 0.64, 0.22, "", Color3.fromRGB(70, 50, 30))
+		haul.Position = UDim2.fromScale(0.45, 0.64)
+		haul.Size = UDim2.fromScale(0.5, 0.22)
+		table.insert(wanted, { poster = poster, title = title, photo = photo, name = name, haul = haul })
 	end
 	sign(
 		m,
@@ -1028,6 +1067,13 @@ local function buildShowOff(model: Model)
 		C.red,
 		C.gold
 	)
+	return {
+		crewRows = crewRows,
+		crewEmpty = empty,
+		crewReset = reset,
+		biggestHaul = haulLabels,
+		wanted = wanted,
+	}
 end
 
 local function buildPath(model: Model)
@@ -1312,7 +1358,7 @@ function LobbyMap.build(parent: Instance): Hub
 	buildYard(model)
 	buildScenery(model)
 	local boards = buildWorkshop(model, floorH)
-	buildShowOff(model)
+	local showOff = buildShowOff(model)
 	buildPath(model)
 	local bays = buildStation(model, floorH)
 	Parts.settle(model)
@@ -1323,6 +1369,7 @@ function LobbyMap.build(parent: Instance): Hub
 		spawn = Config.Map.HubSpawn,
 		bays = bays,
 		departureBoards = boards,
+		showOff = showOff,
 	}
 end
 

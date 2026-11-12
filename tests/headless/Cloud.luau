@@ -11,6 +11,9 @@
 	  moves players to the reserved run server for that code (started on
 	  first use) or to a lobby server, with TeleportData in GetJoinData().
 	- HttpService:GenerateGUID, Instance.new("TeleportOptions").
+	- DataStoreService ordered stores (UpdateAsync, IncrementAsync,
+	  GetSortedAsync), shared by every place, and UserService names, for
+	  the weekly leaderboards.
 
 	Values sent through the cloud are deep-copied (as Roblox serialises
 	them), so a server never shares tables with another. Every server is a
@@ -65,6 +68,7 @@ function Cloud.new(headless, options: Options?)
 	self.runServers = {} -- [accessCode] = world
 	self.queues = {} -- [name] = { items, reads }
 	self.maps = {} -- [name] = { [key] = { value, expiresAt } }
+	self.ordered = {} -- [OrderedDataStore name] = { [key] = number }
 	self.subscribers = {} -- [topic] = { { world, callback } }
 	self.published = {} -- { { topic, data, from } }
 	self.reservations = {} -- { { code, by } }
@@ -85,13 +89,14 @@ function Cloud.new(headless, options: Options?)
 		reserve = false, -- ReserveServer errors
 		teleport = false, -- TeleportAsync errors
 		teleportInit = false, -- TeleportAsync accepts, then TeleportInitFailed fires
+		dataStore = false, -- every OrderedDataStore call errors
 	}
 	-- Random hiccups: [fault name] = chance (0-1) that any one call fails,
 	-- drawn from cloud.rng so a seed repeats exactly (fault soak).
 	self.flaky = {}
 	self.rng = Cloud.random(1)
 	-- Calls made to each cloud service, for request budgets (load tests).
-	self.calls = { memoryStore = 0, publish = 0, reserve = 0, teleport = 0 }
+	self.calls = { memoryStore = 0, publish = 0, reserve = 0, teleport = 0, dataStore = 0 }
 	return self
 end
 
@@ -166,6 +171,65 @@ function Cloud:_install(world, kind: string)
 	end
 	http.JSONEncode = function(_, value)
 		return require("@lune/serde").encode("json", value)
+	end
+
+	-- Ordered DataStores: one set for the whole universe (both places).
+	local dataStores = engine:service("DataStoreService")
+	dataStores.GetOrderedDataStore = function(_, name: string)
+		cloud.ordered[name] = cloud.ordered[name] or {}
+		local data = cloud.ordered[name]
+		local handle = engine.Instance.new("OrderedDataStore")
+		handle.Name = name
+		handle.UpdateAsync = function(_, key: string, fn)
+			cloud.calls.dataStore += 1
+			fault("dataStore")
+			local value = fn(data[key])
+			if value ~= nil then
+				assert(type(value) == "number" and value == math.floor(value), "ordered stores hold integers")
+				data[key] = value
+			end
+			return data[key]
+		end
+		handle.IncrementAsync = function(_, key: string, delta: number)
+			cloud.calls.dataStore += 1
+			fault("dataStore")
+			assert(delta == math.floor(delta), "ordered stores hold integers")
+			data[key] = (data[key] or 0) + delta
+			return data[key]
+		end
+		handle.GetSortedAsync = function(_, ascending: boolean, pageSize: number)
+			cloud.calls.dataStore += 1
+			fault("dataStore")
+			assert(pageSize >= 1 and pageSize <= 100, "page size must be 1-100")
+			local rows = {}
+			for key, value in data do
+				table.insert(rows, { key = key, value = value })
+			end
+			table.sort(rows, function(a, b)
+				if a.value == b.value then
+					return a.key < b.key
+				end
+				return if ascending then a.value < b.value else a.value > b.value
+			end)
+			local page = table.move(rows, 1, math.min(pageSize, #rows), 1, {})
+			return {
+				GetCurrentPage = function()
+					return copy(page)
+				end,
+			}
+		end
+		return handle
+	end
+	local users = engine:service("UserService")
+	users.GetUserInfosByUserIdsAsync = function(_, ids: { number })
+		local out = {}
+		for _, id in ids do
+			local name = cloud.accounts[id]
+			if name then
+				table.insert(out, { Id = id, Username = name, DisplayName = name })
+			end
+		end
+		return out
 	end
 
 	local memory = engine:service("MemoryStoreService")
