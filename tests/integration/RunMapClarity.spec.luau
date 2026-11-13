@@ -16,7 +16,7 @@ local function build(seed)
 	local rng = Random.new(seed)
 	local plans, onFoot = {}, {}
 	for i = 1, #Config.Run.StopKinds do
-		plans[i] = Loot.planStop(rng, i, map.layout.Slots)
+		plans[i] = Loot.planStop(rng, i, map.layout.Slots, map.layout.StopSlots)
 		onFoot[i] = if i < #Config.Run.StopKinds then Loot.planOnFoot(rng) else nil
 	end
 	return MapBuilder.buildRoute(newFolder(), 1, rng, plans, onFoot, { map = map }), map
@@ -216,4 +216,56 @@ end)
 test("ice is a real speed-up over walking", function()
 	expect(Config.Canal.SkateSpeed).toBeGreaterThan(Config.Player.WalkSpeed * 1.6)
 	expect(CanalRules.walkSpeed(Config.Player.WalkSpeed, true, false)).toBe(Config.Canal.SkateSpeed)
+end)
+
+-- Josh (13 Nov 2026): "Why are there still so many random houses. I'd like
+-- the ones you can enter being more dispersed, not just top & bottom."
+test("robbable houses are spread down every street, not just at its ends", function()
+	for _, seed in { 3, 11, 42 } do
+		local route = build(seed)
+		for i, stop in route.stops do
+			local zs = {}
+			for _, h in stop.houses do
+				if h.plan.side ~= 0 then
+					table.insert(zs, h.plan.distance)
+				end
+			end
+			table.sort(zs)
+			expect(#zs >= 2).toBeTruthy()
+			-- Something to rob in the middle of the street (between 100 and 350)...
+			local middle = false
+			for _, z in zs do
+				if z >= 100 and z <= 350 then
+					middle = true
+				end
+			end
+			expect(middle).toBeTruthy()
+			-- ...and, on the full streets, never a stretch over 200 studs without one.
+			if i < #route.stops then
+				for k = 2, #zs do
+					expect(zs[k] - zs[k - 1] <= 200).toBeTruthy()
+				end
+			end
+		end
+	end
+end)
+
+test("filler townhouses are thinned out and never crowd a robbable house", function()
+	local route = build(11)
+	local blocks = named(route.model, "Townhouse")
+	expect(#blocks <= 24).toBeTruthy() -- was 41 a route before 13 Nov 2026
+	for _, stop in route.stops do
+		for _, entry in stop.popIns do
+			local fz = stop.origin:PointToObjectSpace(entry.frame.Position).Z
+			for _, h in stop.houses do
+				if h.plan.side ~= 0 then
+					local same = (stop.origin:PointToObjectSpace(entry.frame.Position).X > 0)
+						== (h.plan.side > 0)
+					if same then
+						expect(math.abs(fz - h.plan.distance) >= h.plan.size.X / 2 + 26).toBeTruthy()
+					end
+				end
+			end
+		end
+	end
 end)

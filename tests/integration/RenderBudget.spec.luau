@@ -18,14 +18,17 @@ local serde = require("@lune/serde")
 -- Prompts counts the ones live when the route is built (what a phone checks
 -- each frame). Hidden ones (mansion gifts, secret-room gifts) wake up later,
 -- so they only count towards AllPrompts.
-local BUDGET = { Parts = 9000, Lights = 200, Prompts = 150, AllPrompts = 200, Billboards = 120 }
+-- Prompts/Billboards raised 13 Nov 2026 for 3 more robbable houses (Josh
+-- picked +3): each brings ~8 prompts (gifts, wardrobe, door, chimney) and a
+-- marker. Routes measure ~177 live prompts, ~197 in all, 123 billboards.
+local BUDGET = { Parts = 9000, Lights = 200, Prompts = 190, AllPrompts = 220, Billboards = 135 }
 
 local function build(seed)
 	local map = Maps.get("FrozenCanal")
 	local rng = Random.new(seed)
 	local plans, onFoot = {}, {}
 	for i = 1, #Config.Run.StopKinds do
-		plans[i] = Loot.planStop(rng, i, map.layout.Slots)
+		plans[i] = Loot.planStop(rng, i, map.layout.Slots, map.layout.StopSlots)
 		onFoot[i] = if i < #Config.Run.StopKinds then Loot.planOnFoot(rng) else nil
 	end
 	return MapBuilder.buildRoute(newFolder(), 1, rng, plans, onFoot, { map = map })
@@ -53,6 +56,7 @@ end
 
 local route = build(11)
 local c = census(route.model)
+print(string.format("  [budget] route parts %d, billboards %d", c.parts, c.billboards))
 
 test("a route stays inside the phone budget", function()
 	expect(c.parts).toBeLessThan(BUDGET.Parts)

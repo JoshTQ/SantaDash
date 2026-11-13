@@ -26,7 +26,12 @@ test("Loot plans one mansion per route, at Stop 2 only, with bigger gifts higher
 	for seed = 1, 20 do
 		local rng = Random.new(seed)
 		for i = 1, #Config.Run.StopKinds do
-			local plan = Loot.planStop(rng, i, Maps.get("FrozenCanal").layout.Slots)
+			local plan = Loot.planStop(
+				rng,
+				i,
+				Maps.get("FrozenCanal").layout.Slots,
+				Maps.get("FrozenCanal").layout.StopSlots
+			)
 			local mansions = {}
 			for _, h in plan.houses do
 				if h.typeName == "Mansion" then
@@ -125,7 +130,7 @@ test("on the street it lines up with the other houses and stays clear of the Ice
 	local rng = Random.new(5)
 	local plans, onFoot = {}, {}
 	for i = 1, #Config.Run.StopKinds do
-		plans[i] = Loot.planStop(rng, i, map.layout.Slots)
+		plans[i] = Loot.planStop(rng, i, map.layout.Slots, map.layout.StopSlots)
 		onFoot[i] = if i < #Config.Run.StopKinds then Loot.planOnFoot(rng) else nil
 	end
 	local route = MapBuilder.buildRoute(Instance.new("Folder"), 1, rng, plans, onFoot, { map = map })
