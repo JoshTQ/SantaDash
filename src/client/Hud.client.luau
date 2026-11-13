@@ -542,6 +542,9 @@ local glitterButton = button(
 
 launchButton.TextSize = 16
 glitterButton.TextSize = 16
+keyed[launchButton] = "Launch"
+keyed[glitterButton] = "Glitter"
+relabel()
 
 -- Full-screen splat when a crewmate's snowball hits you (cosmetic only).
 local splatFrame = Instance.new("Frame")

@@ -124,7 +124,7 @@ function Toys.buyLauncher(run, player: Player)
 			player,
 			if refill
 				then "Launcher refilled!"
-				else "Snowball Launcher! Press R (or LAUNCH) to knock over guards and make Krampus flinch.",
+				else "Snowball Launcher! Use LAUNCH to knock over guards and make Krampus flinch.",
 			3
 		)
 		Onboarding.teach(player, "Toys")
@@ -144,7 +144,7 @@ function Toys.buyGlitter(run, player: Player)
 		st.glitters = (st.glitters or 0) + 1
 		run:_sendPlayer(player)
 		Toys.send(run, player)
-		run:_banner(player, "Glitter Bomb! Press T (or GLITTER) to hide in a sparkly cloud.", 3)
+		run:_banner(player, "Glitter Bomb! Use GLITTER to hide in a sparkly cloud.", 3)
 	end
 end
 

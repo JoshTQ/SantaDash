@@ -73,6 +73,8 @@ local KEYS = {
 	Throw = { word = "THROW", Keyboard = "F", Gamepad = "R2" },
 	PassList = { word = "PASS LIST", Keyboard = "Q", Gamepad = "L1" },
 	Bone = { word = "BONE", Keyboard = "G", Gamepad = "L2" },
+	Launch = { word = "LAUNCH", Keyboard = "R", Gamepad = "R1" },
+	Glitter = { word = "GLITTER", Keyboard = "T", Gamepad = "Y" },
 }
 
 function HudFeedback.keyHint(action: string, device: string): string
