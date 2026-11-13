@@ -39,11 +39,14 @@ return {
 			{ Ring = "Mid", Side = 1, Extra = -50 }, -- z 150
 			{ Ring = "Mid", Side = -1, Extra = 110 }, -- z 310, past Stop 2's rink
 			{ Ring = "Far", Side = 1, Extra = 0 }, -- z 440, by the vault
+			{ Ring = "Mid", Side = 1, Extra = 30 }, -- z 230
+			{ Ring = "Mid", Side = -1, Extra = -50 }, -- z 150
+			{ Ring = "Mid", Side = -1, Extra = 30 }, -- z 230
 		},
 		StopSlots = {
-			{ 1, 2, 3, 4 }, -- Stop 1: market street
-			{ 1, 3, 4 }, -- Stop 2: the Mansion (z 115) takes the z 150 spot; rink at 230
-			{ 1, 2 }, -- Stop 3: one Risky house halfway to the Lair lake (z 300)
+			{ 1, 2, 5, 3, 4 }, -- Stop 1: market street, a house every ~80-130 studs
+			{ 1, 6, 3, 4 }, -- Stop 2: z 150 left faces the Mansion (z 115 right); rink at 230
+			{ 1, 2, 7 }, -- Stop 3: two Risky houses on the way to the Lair lake (z 300)
 		},
 		SideOffset = 46,
 		RoadWidth = 28,
