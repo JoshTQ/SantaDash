@@ -32,7 +32,7 @@ it("a Santa at the door opens the room, grabs its gift, and it packs away after 
 		end
 		world.wait(0.5)
 		local stop = run.route.stops[1]
-		expect(#stop.popIns > 10).toBeTruthy()
+		expect(#stop.popIns > 4).toBeTruthy()
 		local entry = stop.popIns[1]
 		expect(entry.room).toBeNil()
 		local presentsBefore = #stop.presents

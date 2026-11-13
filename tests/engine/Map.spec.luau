@@ -37,7 +37,7 @@ beforeAll(function()
 	local rng = Random.new(42)
 	local plans, onFoot = {}, {}
 	for i = 1, #Config.Run.StopKinds do
-		plans[i] = Loot.planStop(rng, i, map.layout.Slots)
+		plans[i] = Loot.planStop(rng, i, map.layout.Slots, map.layout.StopSlots)
 		onFoot[i] = if i < #Config.Run.StopKinds then Loot.planOnFoot(rng) else nil
 	end
 	route = MapBuilder.buildRoute(folder, 9, rng, plans, onFoot, { map = map, yieldEach = task.wait })

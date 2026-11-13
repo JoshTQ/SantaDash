@@ -27,6 +27,9 @@ export type Look = { any } -- { Color3, Enum.Material? }
 
 export type Layout = {
 	Slots: { { Ring: string, Side: number, Extra: number } }, -- slot 1 = Near landing house
+	-- Optional: which Slots each stop uses (by stop index), in place of the
+	-- stop kind's Slots.
+	StopSlots: { [number]: { number } }?,
 	SideOffset: number,
 	RoadWidth: number,
 	StreetStart: number,
