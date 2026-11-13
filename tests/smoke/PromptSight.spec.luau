@@ -73,3 +73,20 @@ test("a gift behind a wall can't be grabbed from outside, and can from inside", 
 	end)
 	expect(prompt.MaxActivationDistance).toBe(10)
 end)
+
+test("the server refuses a grab through a wall, and allows it round the door", function()
+	local world, head, prompt = setup()
+	local PromptSight = world.load("ReplicatedStorage.Shared.PromptSight")
+	local character = head.Parent
+	world.run(function()
+		head.CFrame = CFrame.new(0, 4.5, -4) -- outside, wall between
+		expect(PromptSight.serverAllows(character, prompt)).toBe(false)
+		head.CFrame = CFrame.new(0, 4.5, 8) -- inside
+		expect(PromptSight.serverAllows(character, prompt)).toBe(true)
+		-- Lag: the server sees you just round the end of the wall.
+		-- Lag: the server has you just short of the wall's end; a nudge sees round it.
+		head.CFrame = CFrame.new(11, 4.5, -0.6)
+		expect(PromptSight.sees(head.Position, prompt.Parent, character)).toBe(false)
+		expect(PromptSight.serverAllows(character, prompt)).toBe(true)
+	end)
+end)
