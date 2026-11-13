@@ -451,9 +451,13 @@ end
 local function terraces(ctx, zEnd: number, ranges, houses, plaza: Vector3, skipBand: boolean)
 	local layout = ctx.map.layout
 	local inner = layout.RoadWidth / 2 + C.Promenade
-	local z = layout.StreetStart + 26
-	while z < zEnd - 20 do
-		for _, side in { -1, 1 } do
+	-- Fewer of them since 13 Nov 2026 (Josh: "why are there still so many
+	-- random houses"): one plot every Spacing studs a side, the two sides
+	-- staggered, so the gold ROB ME houses stand out along the street.
+	local T = C.Terraces
+	for _, side in { -1, 1 } do
+		local z = layout.StreetStart + 26 + (if side > 0 then T.Stagger else 0)
+		while z < zEnd - 20 do
 			local free = not inRanges(z, ranges)
 			for _, h in houses do
 				if (h.side == side or h.side == 0) and math.abs(h.distance - z) < h.size.X / 2 + 26 then
@@ -565,8 +569,8 @@ local function terraces(ctx, zEnd: number, ranges, houses, plaza: Vector3, skipB
 					)
 				end
 			end
+			z += T.Spacing
 		end
-		z += 40
 	end
 end
 

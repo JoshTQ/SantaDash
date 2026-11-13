@@ -998,6 +998,10 @@ Config.Canal = {
 		LairLaneWidth = 14, -- the solid lane over the lake to the back gate
 		LairLaneTop = 1, -- as high as the bell bridge: never water, never a floe
 	},
+	-- Filler townhouses (pop-in rooms) between the real houses: one every
+	-- Spacing studs down each side, the right side shifted by Stagger. Was 40
+	-- a side, unstaggered; Josh (13 Nov 2026) found it too many.
+	Terraces = { Spacing = 80, Stagger = 40 },
 	HoopSpeed = 40, -- WalkSpeed for a moment after flying through a boost hoop
 	HoopBoostSeconds = 1.5,
 	Width = 44, -- the main canal between stops (runs along the on-foot path)
@@ -1035,7 +1039,7 @@ Config.Canal = {
 		Inner = 90, -- forest starts this far from the street's centre line
 		Edge = 160, -- forest depth around the outside of the town
 		TreeSpacing = 30,
-		TreeChance = 0.47, -- thinned ~15% to pay for the Gingerbread Mansion (phone budget)
+		TreeChance = 0.36, -- thinned to pay for the Mansion (6 Nov) and 3 more robbable houses (13 Nov)
 		TreeHeight = { 16, 30 },
 		LitChance = 0.15, -- trees wrapped in Christmas lights
 		HillArea = 9000, -- one hill per this many square studs of forest
