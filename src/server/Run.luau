@@ -118,7 +118,7 @@ function Run.new(
 	local stopCount = #Config.Run.StopKinds
 	local plans, onFoot = {}, {}
 	for i = 1, stopCount do
-		plans[i] = Loot.planStop(rng, i, map.layout.Slots)
+		plans[i] = Loot.planStop(rng, i, map.layout.Slots, map.layout.StopSlots)
 		if i < stopCount then
 			onFoot[i] = Loot.planOnFoot(rng)
 		end

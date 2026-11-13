@@ -987,10 +987,14 @@ Config.LobbyMap = {
 		{ Kind = "Party", Number = 2, X = 0, Colour = Color3.fromRGB(61, 123, 255), Sleigh = "Blue" },
 		{ Kind = "Private", Number = 3, X = -26, Colour = Color3.fromRGB(138, 92, 255), Sleigh = "Purple" },
 	},
-	ArriveSeconds = 3, -- sleigh flies in
-	BoardSeconds = { Public = 12, Party = 20, Private = 20 }, -- gate open, BOARDING NOW! lit
-	DepartSeconds = 5, -- sleigh takes off
-	GapSeconds = 3, -- empty bay before the next sleigh
+	-- Josh, 13 Nov 2026: a Public sleigh about every 15 s (cycle 16 s, was
+	-- 23 s). Takeoff + empty bay + fly-in is 6 s (was 11 s), and Public
+	-- boarding is cut to its floor: a Public crew leaves PublicWaitSeconds
+	-- after its first rider, so the gate stays open at least that long.
+	ArriveSeconds = 2, -- sleigh flies in
+	BoardSeconds = { Public = 10, Party = 20, Private = 20 }, -- gate open, BOARDING NOW! lit
+	DepartSeconds = 3, -- sleigh takes off
+	GapSeconds = 1, -- empty bay before the next sleigh
 	-- Forest, hills and snowfall round the yard (Josh's playtest, 6 Nov 2026:
 	-- the flat floor ran to the horizon). Seeded, so every server matches.
 	Scenery = {
@@ -1028,6 +1032,10 @@ Config.Canal = {
 		LairLaneWidth = 14, -- the solid lane over the lake to the back gate
 		LairLaneTop = 1, -- as high as the bell bridge: never water, never a floe
 	},
+	-- Filler townhouses (pop-in rooms) between the real houses: one every
+	-- Spacing studs down each side, the right side shifted by Stagger. Was 40
+	-- a side, unstaggered; Josh (13 Nov 2026) found it too many.
+	Terraces = { Spacing = 80, Stagger = 40 },
 	HoopSpeed = 40, -- WalkSpeed for a moment after flying through a boost hoop
 	HoopBoostSeconds = 1.5,
 	Width = 44, -- the main canal between stops (runs along the on-foot path)
@@ -1065,7 +1073,7 @@ Config.Canal = {
 		Inner = 90, -- forest starts this far from the street's centre line
 		Edge = 160, -- forest depth around the outside of the town
 		TreeSpacing = 30,
-		TreeChance = 0.47, -- thinned ~15% to pay for the Gingerbread Mansion (phone budget)
+		TreeChance = 0.36, -- thinned to pay for the Mansion (6 Nov) and 3 more robbable houses (13 Nov)
 		TreeHeight = { 16, 30 },
 		LitChance = 0.15, -- trees wrapped in Christmas lights
 		HillArea = 9000, -- one hill per this many square studs of forest
@@ -1135,7 +1143,14 @@ Config.Wardrobe = {
 		},
 	},
 	Order = { "Scarf", "Mittens", "DuckieRing", "HotWaterBottle" }, -- left to right on the stand
-	StandOffset = Vector3.new(0, 0, 8), -- from the cocoa machine, stop space
+	StandOffset = Vector3.new(13, 0, 8), -- from the cocoa stall, stop space (X points away from the street)
+}
+
+-- The Sleigh-Cart Pop-up shops (server/ShopStalls, Josh picked option C on
+-- 11 Nov 2026). Off until he approves the 3D preview: until then the
+-- approved Meshy cocoa booth and the greybox Wardrobe rack are used.
+Config.ShopCarts = {
+	Enabled = false,
 }
 
 -- Sound mix (Sounds.luau has the catalogue). Phone speakers clip easily, so

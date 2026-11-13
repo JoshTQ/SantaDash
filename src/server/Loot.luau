@@ -182,12 +182,19 @@ end
 
 -- Everything one stop contains, decided up front so MapBuilder only builds it.
 -- streetSlots: the map's house slots (Maps layout.Slots); defaults to Config.Street.Slots.
-function Loot.planStop(rng: Random, stopIndex: number, streetSlots: { any }?): StopPlan
+-- stopSlots: optional per-stop slot picks (Maps layout.StopSlots), in place of
+-- the stop kind's Slots, so a map can spread its houses round its landmarks.
+function Loot.planStop(
+	rng: Random,
+	stopIndex: number,
+	streetSlots: { any }?,
+	stopSlots: { [number]: { number } }?
+): StopPlan
 	local kindName = Config.Run.StopKinds[stopIndex]
 	local kind = Config.StopKinds[kindName]
 	local slots = streetSlots or Config.Street.Slots
 	local used = {}
-	for _, slotIndex in kind.Slots do
+	for _, slotIndex in (stopSlots and stopSlots[stopIndex]) or kind.Slots do
 		if slots[slotIndex] then
 			table.insert(used, slots[slotIndex])
 		end

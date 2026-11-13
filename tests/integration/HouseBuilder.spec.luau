@@ -199,7 +199,7 @@ describe("on the Frozen Canal street", function()
 	local rng = Random.new(8)
 	local plans, onFoot = {}, {}
 	for i = 1, #Config.Run.StopKinds do
-		plans[i] = Loot.planStop(rng, i, map.layout.Slots)
+		plans[i] = Loot.planStop(rng, i, map.layout.Slots, map.layout.StopSlots)
 		onFoot[i] = if i < #Config.Run.StopKinds then Loot.planOnFoot(rng) else nil
 	end
 	local route = MapBuilder.buildRoute(newFolder(), 1, rng, plans, onFoot, { map = map })

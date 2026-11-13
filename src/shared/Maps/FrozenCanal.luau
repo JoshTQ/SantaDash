@@ -6,7 +6,9 @@
 
 	Stop space (+Z runs down the street from the landing house):
 	  street canal  x -14..14 (the Road, in Ice), pavements out to x +/-20
-	  houses        x +/-46, fronts and doors facing the canal
+	  houses        x +/-46, fronts and doors facing the canal; robbable
+	                ones spread down the street (layout.Slots), filler
+	                townhouses with pop-in rooms between them
 	  Sleigh Stop   a plaza on the right bank across from the landing house
 	  main canal    along z = -40 to the next stop
 	  Stop 1        Christmas Market + security dogs (z 50..400)
@@ -29,11 +31,28 @@ return {
 		Path = { Color3.fromRGB(175, 220, 245), Enum.Material.Ice }, -- under the main canal
 	},
 	layout = {
+		-- House slots, spread down the street (Josh, 13 Nov 2026: the houses
+		-- you can rob shouldn't only be at the top and bottom). z = ring
+		-- distance + Extra: Near 0, Mid 200, Far 440.
+		Slots = {
+			{ Ring = "Near", Side = -1, Extra = 0 }, -- z 0: the landing house
+			{ Ring = "Mid", Side = 1, Extra = -50 }, -- z 150
+			{ Ring = "Mid", Side = -1, Extra = 110 }, -- z 310, past Stop 2's rink
+			{ Ring = "Far", Side = 1, Extra = 0 }, -- z 440, by the vault
+			{ Ring = "Mid", Side = 1, Extra = 30 }, -- z 230
+			{ Ring = "Mid", Side = -1, Extra = -50 }, -- z 150
+			{ Ring = "Mid", Side = -1, Extra = 30 }, -- z 230
+		},
+		StopSlots = {
+			{ 1, 2, 5, 3, 4 }, -- Stop 1: market street, a house every ~80-130 studs
+			{ 1, 6, 3, 4 }, -- Stop 2: z 150 left faces the Mansion (z 115 right); rink at 230
+			{ 1, 2, 7 }, -- Stop 3: two Risky houses on the way to the Lair lake (z 300)
+		},
 		SideOffset = 46,
 		RoadWidth = 28,
 		StreetStart = -20, -- the street canal meets the main canal
 		FootPathZ = -40, -- the main canal runs along the on-foot path
-		CocoaMachine = Vector3.new(24, 3.5, 32), -- by the Sleigh Stop plaza
+		CocoaMachine = Vector3.new(27, 3.5, 32), -- by the Sleigh Stop plaza, clear of the pavement
 		LandingAt = { LANDING, LANDING, LANDING },
 		EndHouseAt = {
 			Finale = CFrame.lookAt(ISLAND, Vector3.zero), -- Lair island
@@ -43,7 +62,7 @@ return {
 		{ kind = "CanalStreet" }, -- pavements, gardens, hedges, fences, canal barriers
 		{ kind = "Woodland" }, -- pine forest and snowy hills around the town
 		{ kind = "SkateCanal" }, -- main canal, boost hoops, skating, Thin Ice segments
-		{ kind = "ChristmasMarket", stops = { 1 } }, -- stalls + security dogs
+		{ kind = "ChristmasMarket", stops = { 1 } }, -- security dogs (no fake stalls)
 		{ kind = "IceRink", stops = { 2 }, centre = Vector3.new(0, 0, 230), radius = 46 },
 		{
 			kind = "FloeLake",
