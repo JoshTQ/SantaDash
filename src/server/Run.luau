@@ -15,6 +15,7 @@ local RunService = game:GetService("RunService")
 local Config = require(ReplicatedStorage.Shared.Config)
 local Cutscenes = require(ReplicatedStorage.Shared.Cutscenes)
 local Maps = require(ReplicatedStorage.Shared.Maps)
+local PromptSight = require(ReplicatedStorage.Shared.PromptSight)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local SantaMoves = require(ReplicatedStorage.Shared.SantaMoves)
 local Puppets = require(ReplicatedStorage.Shared.Puppets)
@@ -393,7 +394,13 @@ end
 function Run:_wirePrompts()
 	-- Prompts live under the route model, so destroying it disconnects these.
 	local function on(prompt: ProximityPrompt, handler: (Player) -> ())
-		prompt.Triggered:Connect(handler)
+		prompt.Triggered:Connect(function(player)
+			-- No grabbing, searching or hiding through a wall (Josh, 13 Nov);
+			-- the client hides those prompts too (client/PromptSight).
+			if PromptSight.serverAllows(player.Character, prompt) then
+				handler(player)
+			end
+		end)
 	end
 	local function wirePresents(list)
 		for _, present in list do
