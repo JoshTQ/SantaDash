@@ -21,6 +21,11 @@ local Rules = require(ReplicatedStorage.Shared.Wardrobe)
 local SoundPlayer = require(ReplicatedStorage.Shared.SoundPlayer)
 local Assets = require(script.Parent.Assets)
 local WearBuilder = require(script.Parent.WearBuilder)
+local ShopStalls = require(script.Parent.ShopStalls)
+
+local WOOD = Color3.fromRGB(201, 138, 84)
+local GOLD = Color3.fromRGB(255, 200, 61)
+local DARK = Color3.fromRGB(58, 33, 20)
 
 -- shared/GearAttach comes with the boots work (PR #39). Until it's in, the
 -- gear is bought and counted but not shown on Santa.
@@ -47,8 +52,9 @@ function Wardrobe.template(id: string): Model?
 	return WearBuilder.build(id)
 end
 
--- Shows a piece on a hanger: anchored, centred `at`.
-local function display(parent: Instance, id: string, at: CFrame)
+-- Shows a piece on a hanger: anchored, centred on `at` and standing on it
+-- (or hanging from it when `hang`).
+local function display(parent: Instance, id: string, at: CFrame, hang: boolean?)
 	local piece = Wardrobe.template(id)
 	if not piece then
 		return
@@ -66,7 +72,8 @@ local function display(parent: Instance, id: string, at: CFrame)
 		return
 	end
 	local centre = (lo + hi) / 2
-	local delta = at * CFrame.new(0, (hi.Y - lo.Y) / 2, 0) * CFrame.new(-centre)
+	local lift = if hang then -(hi.Y - lo.Y) / 2 else (hi.Y - lo.Y) / 2 -- hang: `at` is the top
+	local delta = at * CFrame.new(0, lift, 0) * CFrame.new(-centre)
 	for _, d in piece:GetDescendants() do
 		if d:IsA("BasePart") then
 			d.Anchored = true
@@ -78,16 +85,52 @@ local function display(parent: Instance, id: string, at: CFrame)
 	piece.Parent = parent
 end
 
--- A greybox clothes rack with one prompt per piece. `at` is where the stand
--- stands (world CFrame, on the ground).
+-- The Wardrobe cart (server/ShopStalls) with the gear hanging on its rail,
+-- a price tag under each piece and one prompt per piece. `at` is where the
+-- cart stands (world CFrame, on the ground, front facing its -Z).
 function Wardrobe.build(model: Instance, at: CFrame, newPart, addPrompt): { [string]: ProximityPrompt }
 	local prompts = {}
 	if not Rules.enabled() then
 		return prompts
 	end
 	local ids = Rules.onSale()
+	if not ShopStalls.enabled() then
+		return Wardrobe.buildRack(model, at, ids, newPart, addPrompt)
+	end
+	local stall, rail = ShopStalls.wardrobe(model, at)
+	local width = rail.width
+	for i, id in ids do
+		local item = Rules.item(id) :: Rules.Item
+		local x = -width / 2 + (i - 0.5) * width / #ids
+		local hanger = newPart(
+			stall,
+			"WardrobeItem",
+			Vector3.new(0.25, 0.6, 0.25),
+			at * CFrame.new(x, rail.y - 0.45, rail.z),
+			WOOD
+		)
+		hanger.CanCollide = false
+		hanger:SetAttribute("WardrobeId", id)
+		display(stall, id, at * CFrame.new(x, rail.y - 0.75, rail.z), true)
+		local tag = newPart(
+			stall,
+			"PriceTag",
+			Vector3.new(1.8, 0.8, 0.15),
+			at * CFrame.new(x, rail.shelfY - 0.75, rail.frontZ - 0.1),
+			GOLD
+		)
+		tag.CanCollide = false
+		ShopStalls.text(tag, tostring(item.price), GOLD, DARK)
+		prompts[id] = addPrompt(hanger, "Buy " .. item.price .. " Jingle", item.name, 0.4)
+	end
+	return prompts
+end
+
+-- The greybox clothes rack (until the Wardrobe cart is approved): one
+-- prompt per piece, standing on the ground at `at`.
+function Wardrobe.buildRack(model: Instance, at: CFrame, ids: { string }, newPart, addPrompt)
+	local prompts = {}
 	local width = math.max(6, #ids * 3)
-	local WOOD = Color3.fromRGB(200, 160, 90)
 	newPart(model, "WardrobeRail", Vector3.new(width, 0.4, 0.4), at * CFrame.new(0, 6, 0), WOOD)
 	for _, side in { -1, 1 } do
 		newPart(

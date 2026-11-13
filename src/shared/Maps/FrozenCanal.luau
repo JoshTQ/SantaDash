@@ -33,7 +33,7 @@ return {
 		RoadWidth = 28,
 		StreetStart = -20, -- the street canal meets the main canal
 		FootPathZ = -40, -- the main canal runs along the on-foot path
-		CocoaMachine = Vector3.new(24, 3.5, 32), -- by the Sleigh Stop plaza
+		CocoaMachine = Vector3.new(27, 3.5, 32), -- by the Sleigh Stop plaza, clear of the pavement
 		LandingAt = { LANDING, LANDING, LANDING },
 		EndHouseAt = {
 			Finale = CFrame.lookAt(ISLAND, Vector3.zero), -- Lair island
@@ -43,7 +43,7 @@ return {
 		{ kind = "CanalStreet" }, -- pavements, gardens, hedges, fences, canal barriers
 		{ kind = "Woodland" }, -- pine forest and snowy hills around the town
 		{ kind = "SkateCanal" }, -- main canal, boost hoops, skating, Thin Ice segments
-		{ kind = "ChristmasMarket", stops = { 1 } }, -- stalls + security dogs
+		{ kind = "ChristmasMarket", stops = { 1 } }, -- security dogs (no fake stalls)
 		{ kind = "IceRink", stops = { 2 }, centre = Vector3.new(0, 0, 230), radius = 46 },
 		{
 			kind = "FloeLake",

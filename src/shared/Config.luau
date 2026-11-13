@@ -1105,7 +1105,14 @@ Config.Wardrobe = {
 		},
 	},
 	Order = { "Scarf", "Mittens", "DuckieRing", "HotWaterBottle" }, -- left to right on the stand
-	StandOffset = Vector3.new(0, 0, 8), -- from the cocoa machine, stop space
+	StandOffset = Vector3.new(13, 0, 8), -- from the cocoa stall, stop space (X points away from the street)
+}
+
+-- The Sleigh-Cart Pop-up shops (server/ShopStalls, Josh picked option C on
+-- 11 Nov 2026). Off until he approves the 3D preview: until then the
+-- approved Meshy cocoa booth and the greybox Wardrobe rack are used.
+Config.ShopCarts = {
+	Enabled = false,
 }
 
 -- Sound mix (Sounds.luau has the catalogue). Phone speakers clip easily, so
