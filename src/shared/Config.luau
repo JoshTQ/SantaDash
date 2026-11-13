@@ -123,10 +123,10 @@ Config.Player = {
 -- Hazard bumps (security dogs): a LinearVelocity push for a moment, so it
 -- works on client-owned Santas (server/Knockback.luau).
 -- Stop gate (Josh, 13 Nov 2026: "You can just run to the next stop, and
--- steal everything before they spawn in"). Only the stop the sleigh is parked
--- at can be robbed: the server refuses every grab, buy, hide and search
--- anywhere else, and a ward bounces Santas out of streets the sleigh hasn't
--- reached yet (server/StopGate). Stop space: +Z runs down the street.
+-- steal everything before they spawn in"). A stop can't be robbed until the
+-- sleigh lands there (old streets stay open: "Let them do old streets"). The
+-- server refuses every grab, buy, hide and search at stops ahead, and a ward
+-- bounces Santas out of them (server/StopGate). Stop space: +Z down the street.
 Config.StopGate = {
 	Enabled = true,
 	HalfWidth = 220, -- ward reaches this far either side of the street (stops are 700 apart)

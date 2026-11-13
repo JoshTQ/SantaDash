@@ -8,16 +8,17 @@ local Maps = load("ReplicatedStorage.Shared.Maps")
 local StopGate = load("ServerScriptService.Server.StopGate")
 local G = Config.StopGate
 
-test("only the stop the sleigh is parked at is live", function()
+test("a stop opens when the sleigh lands and old streets stay open", function()
 	expect(StopGate.stopLive(1, 1, "Sneak")).toBe(true)
 	expect(StopGate.stopLive(1, 1, "LightsOn")).toBe(true)
 	expect(StopGate.stopLive(1, 1, "Horn")).toBe(true)
 	expect(StopGate.stopLive(2, 1, "Sneak")).toBe(false) -- running ahead
 	expect(StopGate.stopLive(3, 1, "Horn")).toBe(false) -- the Lair from Stop 1
-	expect(StopGate.stopLive(1, 2, "Sneak")).toBe(false) -- the sleigh has left
+	-- Josh, 13 Nov: "Let them do old streets" (Santas who missed the sleigh).
+	expect(StopGate.stopLive(1, 2, "Sneak")).toBe(true)
+	expect(StopGate.stopLive(1, 1, "Flight")).toBe(true) -- left behind as it flies off
 	expect(StopGate.stopLive(1, 0, "Takeoff")).toBe(false)
-	expect(StopGate.stopLive(1, 1, "Flight")).toBe(false) -- flying away
-	expect(StopGate.stopLive(3, 3, "Results")).toBe(false)
+	expect(StopGate.stopLive(2, 1, "Flight")).toBe(false) -- still in the air
 end)
 
 test("an on-foot gap opens when the sleigh reaches its first stop and stays open", function()
@@ -119,7 +120,6 @@ test("tag marks every stop's presents and splits on-foot presents by gap", funct
 	expect(route.onFootPresents[3].footGap).toBe(2)
 end)
 
-test("locked banners say too early ahead, gone behind", function()
-	expect(string.find(StopGate.lockedText(3, 1), "Too early", 1, true) ~= nil).toBe(true)
-	expect(string.find(StopGate.lockedText(1, 2), "left this street", 1, true) ~= nil).toBe(true)
+test("the locked banner says it's too early", function()
+	expect(string.find(StopGate.lockedText(), "Too early", 1, true) ~= nil).toBe(true)
 end)

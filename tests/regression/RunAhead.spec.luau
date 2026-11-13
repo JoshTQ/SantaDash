@@ -161,7 +161,7 @@ describe("running ahead (Josh, 13 Nov)", function()
 		end
 	)
 
-	it("the live street isn't warded, and the next one opens when the sleigh lands", function()
+	it("the live street isn't warded, the next opens on landing, and old streets stay open", function()
 		local world = headless()
 		world.run(function()
 			local run, engine, crew = atStop1(world)
@@ -178,16 +178,15 @@ describe("running ahead (Josh, 13 Nov)", function()
 			engine:teleport(a, present.model:GetPivot().Position + Vector3.new(0, 3, 0))
 			engine.trigger(present.prompt, a)
 			expect(present.taken).toBe(true)
-			-- Stop 1's leftovers are locked once the sleigh has gone.
+			-- Old streets stay open (Josh, 13 Nov: "Let them do old streets").
 			local before = run.players[a].sackCount
 			for _, left in run.route.stops[1].presents do
-				if not left.taken then
+				if not left.taken and left.prompt.Enabled then
 					engine.trigger(left.prompt, a)
 					break
 				end
 			end
-			expect(run.players[a].sackCount).toBe(before)
-			expect(sawBanner(engine, a, "The sleigh's left this street")).toBe(true)
+			expect(run.players[a].sackCount).toBe(before + 1)
 			run.ended = true
 		end, { maxSeconds = 300 })
 	end)

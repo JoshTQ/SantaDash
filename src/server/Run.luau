@@ -413,8 +413,8 @@ function Run:_wirePrompts()
 	end
 	for _, stop in self.route.stops do
 		wirePresents(stop.presents)
-		-- Buys, hiding, chimneys in and searches only work while the sleigh is
-		-- parked at this stop (StopGate). Doors and chimneys out stay open, so
+		-- Buys, hiding, chimneys in and searches only work once the sleigh has
+		-- reached this stop (StopGate). Doors and chimneys out stay open, so
 		-- nobody is ever shut in.
 		local function onStop(prompt: ProximityPrompt, handler: (Player) -> ())
 			on(prompt, function(player)
@@ -488,15 +488,15 @@ function Run:_wirePrompts()
 end
 
 ----------------------------------------------------------------------------
--- Stop gate: only the stop the sleigh is parked at can be robbed (StopGate)
+-- Stop gate: no robbing a stop before the sleigh lands there (StopGate)
 ----------------------------------------------------------------------------
 
 -- Tells a Santa (at most every BannerCooldown seconds) why it didn't work.
-function Run:_gateRefused(player: Player, index: number)
+function Run:_gateRefused(player: Player)
 	local t = now()
 	if (self.gateBannerAt[player] or -math.huge) + Config.StopGate.BannerCooldown <= t then
 		self.gateBannerAt[player] = t
-		self:_banner(player, StopGate.lockedText(index, self.stopIndex), 2)
+		self:_banner(player, StopGate.lockedText(), 2)
 	end
 end
 
@@ -505,7 +505,7 @@ function Run:_gateOpen(player: Player, index: number): boolean
 	if StopGate.stopLive(index, self.stopIndex, self.phase) then
 		return true
 	end
-	self:_gateRefused(player, index)
+	self:_gateRefused(player)
 	return false
 end
 
@@ -544,7 +544,7 @@ function Run:_wardTick()
 							Knockback.apply(root, StopGate.pushVelocity(stop.origin, footZ, root.Position))
 						end
 						SoundPlayer.at("Boing", root.Position)
-						self:_gateRefused(player, i)
+						self:_gateRefused(player)
 						break
 					end
 				end
@@ -571,7 +571,7 @@ end
 function Run:_grab(player: Player, present)
 	if not self:_presentLive(present) then
 		if not present.taken and self.players[player] then
-			self:_gateRefused(player, present.stopIndex or (present.footGap or self.stopIndex) + 1)
+			self:_gateRefused(player)
 		end
 		return
 	end

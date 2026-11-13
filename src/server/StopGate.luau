@@ -1,10 +1,11 @@
 --[[
-	Stop gate: only the stop the sleigh is parked at can be robbed (Josh,
+	Stop gate: a stop can't be robbed until the sleigh has landed there (Josh,
 	13 Nov 2026: running ahead on foot let you loot later stops, the Naughty
 	List included, before the sleigh got there).
 
 	Two layers, both server-side:
-	  1. Locks: Run asks canUse() before every grab, buy, hide and search.
+	  1. Locks: Run checks the gate before every grab, buy, hide and search
+	     at a stop the sleigh hasn't reached yet.
 	     This is the one that matters; a barrier alone can be skated past.
 	  2. Ward: a Santa inside a street the sleigh hasn't reached is bounced
 	     back towards the path (and put back on it if they're deep inside).
@@ -25,12 +26,14 @@ function StopGate.parked(phase: string): boolean
 	return LIVE_PHASES[phase] == true
 end
 
--- Stop `index` can be robbed only while the sleigh is parked there.
-function StopGate.stopLive(index: number, current: number, phase: string): boolean
+-- Stop `index` can be robbed once the sleigh has reached it, and stays open
+-- after it leaves (Josh, 13 Nov: "Let them do old streets"), so Santas who
+-- missed the sleigh can pick over what's left. Never before it lands.
+function StopGate.stopLive(index: number, current: number, _phase: string?): boolean
 	if not Config.StopGate.Enabled then
 		return true
 	end
-	return index == current and StopGate.parked(phase)
+	return current >= 1 and index <= current
 end
 
 -- The on-foot gap `gap` runs from stop gap to stop gap+1. It opens once the
@@ -127,11 +130,8 @@ function StopGate.tag(route: any, gapSizes: { number })
 end
 
 -- The banner for a Santa who tries something at a locked stop.
-function StopGate.lockedText(index: number, current: number): string
-	if index > current then
-		return "Too early! That street's still asleep. Wait for the sleigh!"
-	end
-	return "The sleigh's left this street. Follow the path to the next stop!"
+function StopGate.lockedText(): string
+	return "Too early! That street's still asleep. Wait for the sleigh!"
 end
 
 return StopGate
