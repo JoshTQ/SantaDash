@@ -957,10 +957,14 @@ Config.LobbyMap = {
 		{ Kind = "Party", Number = 2, X = 0, Colour = Color3.fromRGB(61, 123, 255), Sleigh = "Blue" },
 		{ Kind = "Private", Number = 3, X = -26, Colour = Color3.fromRGB(138, 92, 255), Sleigh = "Purple" },
 	},
-	ArriveSeconds = 3, -- sleigh flies in
-	BoardSeconds = { Public = 12, Party = 20, Private = 20 }, -- gate open, BOARDING NOW! lit
-	DepartSeconds = 5, -- sleigh takes off
-	GapSeconds = 3, -- empty bay before the next sleigh
+	-- Josh, 13 Nov 2026: a Public sleigh about every 15 s (cycle 16 s, was
+	-- 23 s). Takeoff + empty bay + fly-in is 6 s (was 11 s), and Public
+	-- boarding is cut to its floor: a Public crew leaves PublicWaitSeconds
+	-- after its first rider, so the gate stays open at least that long.
+	ArriveSeconds = 2, -- sleigh flies in
+	BoardSeconds = { Public = 10, Party = 20, Private = 20 }, -- gate open, BOARDING NOW! lit
+	DepartSeconds = 3, -- sleigh takes off
+	GapSeconds = 1, -- empty bay before the next sleigh
 	-- Forest, hills and snowfall round the yard (Josh's playtest, 6 Nov 2026:
 	-- the flat floor ran to the horizon). Seeded, so every server matches.
 	Scenery = {
