@@ -12,7 +12,7 @@ local function build(seed)
 	local rng = Random.new(seed)
 	local plans, onFoot = {}, {}
 	for i = 1, #Config.Run.StopKinds do
-		plans[i] = Loot.planStop(rng, i, map.layout.Slots)
+		plans[i] = Loot.planStop(rng, i, map.layout.Slots, map.layout.StopSlots)
 		onFoot[i] = if i < #Config.Run.StopKinds then Loot.planOnFoot(rng) else nil
 	end
 	return MapBuilder.buildRoute(newFolder(), 1, rng, plans, onFoot, { map = map }), map

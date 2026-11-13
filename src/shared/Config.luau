@@ -998,6 +998,10 @@ Config.Canal = {
 		LairLaneWidth = 14, -- the solid lane over the lake to the back gate
 		LairLaneTop = 1, -- as high as the bell bridge: never water, never a floe
 	},
+	-- Filler townhouses (pop-in rooms) between the real houses: one every
+	-- Spacing studs down each side, the right side shifted by Stagger. Was 40
+	-- a side, unstaggered; Josh (13 Nov 2026) found it too many.
+	Terraces = { Spacing = 80, Stagger = 40 },
 	HoopSpeed = 40, -- WalkSpeed for a moment after flying through a boost hoop
 	HoopBoostSeconds = 1.5,
 	Width = 44, -- the main canal between stops (runs along the on-foot path)
