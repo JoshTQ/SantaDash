@@ -113,7 +113,8 @@ local function cart(
 	at: CFrame,
 	colour: Color3,
 	stripe: Color3,
-	board: string
+	board: string,
+	lit: boolean
 ): (Model, BasePart)
 	local m = Instance.new("Model")
 	m.Name = name
@@ -229,7 +230,10 @@ local function cart(
 			Enum.Material.Neon
 		)
 	)
-	warmLight(lantern)
+	-- One real light per stop (the cocoa cart): phones get 80 lights a scene.
+	if lit then
+		warmLight(lantern)
+	end
 
 	-- Chalkboard on the front of the body.
 	local chalk = dressing(
@@ -248,7 +252,8 @@ local function cart(
 end
 
 function ShopStalls.cocoa(parent: Instance, at: CFrame, priceText: string): (Model, BasePart)
-	local m, counter = cart("CocoaMachine", at, BLUE, RED, "PEPPERMINT RUSH\n" .. priceText .. " Jingle")
+	local m, counter =
+		cart("CocoaMachine", at, BLUE, RED, "PEPPERMINT RUSH\n" .. priceText .. " Jingle", true)
 	local top = ShopStalls.Cart.counterTop
 
 	-- A bubbling copper pot with a ladle, steam rising off it.
@@ -295,7 +300,7 @@ end
 export type Rail = { y: number, z: number, shelfY: number, frontZ: number, width: number }
 
 function ShopStalls.wardrobe(parent: Instance, at: CFrame): (Model, Rail)
-	local m = cart("WardrobeStall", at, GREEN, GREEN, "WARDROBE\nwarm gear")
+	local m = cart("WardrobeStall", at, GREEN, GREEN, "WARDROBE\nwarm gear", false)
 	local C = ShopStalls.Cart
 
 	-- Hanging rail across the front posts, under the awning.
