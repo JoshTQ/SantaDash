@@ -153,8 +153,11 @@ end)
 
 describe("HudFeedback.summary", function()
 	it("says what you grabbed and whether you escaped", function()
-		expect(HudFeedback.summary({ grabs = 1, escaped = true }, false)).toBe(
+		expect(HudFeedback.summary({ grabs = 1, escaped = true, bonus = 2 }, false)).toBe(
 			"You grabbed 1 present · escaped x2!"
+		)
+		expect(HudFeedback.summary({ grabs = 2, escaped = true, bonus = 1 }, false)).toBe(
+			"You grabbed 2 presents · escaped!"
 		)
 		expect(HudFeedback.summary({ grabs = 4, escaped = false }, false)).toBe(
 			"You grabbed 4 presents · missed the sleigh"
@@ -203,5 +206,88 @@ describe("HudFeedback.edgeArrow", function()
 				true
 			)
 		end
+	end)
+end)
+
+describe("HudFeedback.escapeText", function()
+	it("only claims a multiplier that was earned", function()
+		expect(HudFeedback.escapeText({ escaped = true, bonus = 2 })).toBe("escaped x2")
+		expect(HudFeedback.escapeText({ escaped = true, bonus = 1 })).toBe("escaped") -- no Naughty List
+		expect(HudFeedback.escapeText({ escaped = true })).toBe("escaped")
+		expect(HudFeedback.escapeText({ escaped = true, bonus = 2.5 })).toBe("escaped x2.5")
+		expect(HudFeedback.escapeText({ escaped = false, bonus = 2 })).toBe("missed the sleigh")
+	end)
+end)
+
+describe("HudFeedback banner feed", function()
+	local function texts(feed)
+		local out = {}
+		for _, e in feed do
+			table.insert(out, e.text)
+		end
+		return table.concat(out, "|")
+	end
+
+	it("keeps a warning when crew news arrives right after it", function()
+		local feed = {}
+		HudFeedback.feedAdd(feed, "KRAMPUS IS COMING!", 4)
+		HudFeedback.feedAdd(feed, "Sam grabbed the Naughty List!", 2)
+		expect(texts(feed)).toBe("KRAMPUS IS COMING!|Sam grabbed the Naughty List!")
+		HudFeedback.feedTick(feed, 2.5, false)
+		expect(texts(feed)).toBe("KRAMPUS IS COMING!")
+		HudFeedback.feedTick(feed, 2, false)
+		expect(#feed).toBe(0)
+	end)
+
+	it("shows at most BannerMax, dropping the oldest", function()
+		local feed = {}
+		for i = 1, HudFeedback.BannerMax + 2 do
+			HudFeedback.feedAdd(feed, "line " .. i, 3)
+		end
+		expect(#feed).toBe(HudFeedback.BannerMax)
+		expect(feed[1].text).toBe("line 3")
+	end)
+
+	it("refreshes a repeat instead of stacking it", function()
+		local feed = {}
+		HudFeedback.feedAdd(feed, "HONK!", 3)
+		HudFeedback.feedTick(feed, 2, false)
+		HudFeedback.feedAdd(feed, "HONK!", 3)
+		expect(#feed).toBe(1)
+		HudFeedback.feedTick(feed, 2, false)
+		expect(#feed).toBe(1) -- the clock restarted
+	end)
+
+	it("waits out a cutscene, then shows for at most DeferredMax", function()
+		local feed = {}
+		HudFeedback.feedAdd(feed, "Take-off!", 4)
+		HudFeedback.feedAdd(feed, "KRAMPUS IS COMING!", 9)
+		HudFeedback.feedTick(feed, 5, true) -- a 5 s cutscene
+		expect(#feed).toBe(2) -- nothing used up while hidden
+		HudFeedback.feedTick(feed, HudFeedback.DeferredMax - 0.1, false)
+		expect(#feed).toBe(2)
+		HudFeedback.feedTick(feed, 0.2, false)
+		expect(#feed).toBe(0) -- not the full 9 s after Krampus already arrived
+	end)
+
+	it("ignores empty text", function()
+		local feed = {}
+		HudFeedback.feedAdd(feed, "", 3)
+		expect(#feed).toBe(0)
+	end)
+end)
+
+describe("HudFeedback.keyHint for the Lair buttons", function()
+	it("PASS LIST and BONE drop their keys on phones", function()
+		expect(HudFeedback.keyHint("PassList", "Touch")).toBe("PASS LIST")
+		expect(HudFeedback.keyHint("PassList", "Keyboard")).toBe("PASS LIST (Q)")
+		expect(HudFeedback.keyHint("PassList", "Gamepad")).toBe("PASS LIST (L1)")
+		expect(HudFeedback.keyHint("Bone", "Touch")).toBe("BONE")
+		expect(HudFeedback.keyHint("Bone", "Keyboard")).toBe("BONE (G)")
+		expect(HudFeedback.keyHint("Bone", "Gamepad")).toBe("BONE (L2)")
+		expect(HudFeedback.keyHint("Launch", "Touch")).toBe("LAUNCH")
+		expect(HudFeedback.keyHint("Launch", "Keyboard")).toBe("LAUNCH (R)")
+		expect(HudFeedback.keyHint("Glitter", "Touch")).toBe("GLITTER")
+		expect(HudFeedback.keyHint("Glitter", "Gamepad")).toBe("GLITTER (Y)")
 	end)
 end)

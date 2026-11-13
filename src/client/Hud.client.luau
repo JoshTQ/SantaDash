@@ -326,28 +326,57 @@ local function stacked(f: GuiObject, key: string)
 	f.Parent = topStack
 end
 
--- Banner: a dark pill behind the text so it reads on bright snow.
-local bannerPanel = Instance.new("Frame")
-bannerPanel.Name = "Banner"
-bannerPanel.Size = UDim2.new(1, 0, 0, 0)
-bannerPanel.AutomaticSize = Enum.AutomaticSize.Y
-bannerPanel.BackgroundColor3 = Color3.fromRGB(20, 25, 45)
-bannerPanel.BackgroundTransparency = 0.35
-bannerPanel.Visible = false
-local bannerCorner = Instance.new("UICorner")
-bannerCorner.CornerRadius = UDim.new(0, 14)
-bannerCorner.Parent = bannerPanel
-local bannerPad = Instance.new("UIPadding")
-bannerPad.PaddingTop = UDim.new(0, 6)
-bannerPad.PaddingBottom = UDim.new(0, 6)
-bannerPad.PaddingLeft = UDim.new(0, 12)
-bannerPad.PaddingRight = UDim.new(0, 12)
-bannerPad.Parent = bannerPanel
-stacked(bannerPanel, "banner")
-local banner = label(bannerPanel, UDim2.new(1, 0, 0, 0), UDim2.new(), 30)
-banner.AutomaticSize = Enum.AutomaticSize.Y
-banner.TextWrapped = true
-local bannerToken = 0
+-- Banners: up to three dark pills (HudFeedback.feedAdd), newest at the
+-- bottom, so a busy moment never wipes a warning; each reads on bright snow.
+local bannersFrame = Instance.new("Frame")
+bannersFrame.Name = "Banners"
+bannersFrame.Size = UDim2.new(1, 0, 0, 0)
+bannersFrame.AutomaticSize = Enum.AutomaticSize.Y
+bannersFrame.BackgroundTransparency = 1
+bannersFrame.Visible = false
+stacked(bannersFrame, "banner")
+local bannersLayout = Instance.new("UIListLayout")
+bannersLayout.FillDirection = Enum.FillDirection.Vertical
+bannersLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+bannersLayout.SortOrder = Enum.SortOrder.LayoutOrder
+bannersLayout.Padding = UDim.new(0, 4)
+bannersLayout.Parent = bannersFrame
+local bannerPills: { { frame: Frame, text: TextLabel } } = {}
+for i = 1, HudFeedback.BannerMax do
+	local pill = Instance.new("Frame")
+	pill.Name = "Banner" .. i
+	pill.LayoutOrder = i
+	pill.Size = UDim2.new(1, 0, 0, 0)
+	pill.AutomaticSize = Enum.AutomaticSize.Y
+	pill.BackgroundColor3 = Color3.fromRGB(20, 25, 45)
+	pill.BackgroundTransparency = 0.35
+	pill.Visible = false
+	local pillCorner = Instance.new("UICorner")
+	pillCorner.CornerRadius = UDim.new(0, 14)
+	pillCorner.Parent = pill
+	local pad = Instance.new("UIPadding")
+	pad.PaddingTop = UDim.new(0, 6)
+	pad.PaddingBottom = UDim.new(0, 6)
+	pad.PaddingLeft = UDim.new(0, 12)
+	pad.PaddingRight = UDim.new(0, 12)
+	pad.Parent = pill
+	pill.Parent = bannersFrame
+	local text = label(pill, UDim2.new(1, 0, 0, 0), UDim2.new(), 30)
+	text.AutomaticSize = Enum.AutomaticSize.Y
+	text.TextWrapped = true
+	bannerPills[i] = { frame = pill, text = text }
+end
+local bannerFeed: { HudFeedback.FeedEntry } = {}
+local function drawBanners()
+	for i, pill in bannerPills do
+		local e = bannerFeed[i]
+		pill.frame.Visible = e ~= nil
+		pill.text.Text = if e then e.text else ""
+		-- Older lines step down in size so the newest reads first.
+		pill.text.TextSize = if e and i < #bannerFeed then 24 else 30
+	end
+	bannersFrame.Visible = #bannerFeed > 0
+end
 
 -- Hiding / snatched panel with the big TAP button (Space works too).
 local krampusPanel = panel(UDim2.fromOffset(320, 130), UDim2.new(0.5, 0, 1, -250), Vector2.new(0.5, 0))
@@ -460,22 +489,34 @@ local listPanel = panel(UDim2.fromOffset(190, 96), listSpot, Vector2.new(1, 0))
 local listLabel = label(listPanel, UDim2.new(1, 0, 0, 30), UDim2.fromOffset(0, 4), 20)
 listLabel.Text = "You have the List!"
 listLabel.TextColor3 = GOLD
-button(listPanel, "PASS LIST (Q)", UDim2.new(1, -20, 0, 50), UDim2.fromOffset(10, 38), function()
-	input:FireServer("PassList")
-end)
+local passButton = button(
+	listPanel,
+	"PASS LIST",
+	UDim2.new(1, -20, 0, 50),
+	UDim2.fromOffset(10, 38),
+	function()
+		input:FireServer("PassList")
+	end
+)
+keyed[passButton] = "PassList"
 
 -- Middle of the screen: the Lair's Cuckoo Watch (server/CuckooWatch).
-local cuckooLabel = label(gui, UDim2.fromOffset(520, 70), UDim2.fromScale(0.5, 0.3), 48)
-cuckooLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+-- In the top column, above the banners, so a "SPOTTED!" banner and the
+-- big cuckoo words never sit on top of each other.
+local cuckooLabel = label(gui, UDim2.fromOffset(520, 60), UDim2.new(), 48)
+cuckooLabel.Name = "Cuckoo"
 cuckooLabel.Visible = false
+stacked(cuckooLabel, "cuckoo")
 local cuckooToken = 0
 
 -- Dog treats (Config.DogAI.Bone): left of the snowballs, G / L2 / tap.
 local bonePanel = panel(UDim2.fromOffset(170, 96), spots.bone, Vector2.new(1, 0))
 local boneLabel = label(bonePanel, UDim2.new(1, 0, 0, 30), UDim2.fromOffset(0, 4), 22)
-button(bonePanel, "BONE (G)", UDim2.new(1, -20, 0, 50), UDim2.fromOffset(10, 38), function()
+local boneButton = button(bonePanel, "BONE", UDim2.new(1, -20, 0, 50), UDim2.fromOffset(10, 38), function()
 	input:FireServer("Bone")
 end)
+keyed[boneButton] = "Bone"
+relabel()
 
 -- Toys (server/Toys): the Snowball Launcher and Glitter Bombs.
 local toysPanel = panel(UDim2.fromOffset(190, 96), spots.toys, Vector2.new(1, 0))
@@ -501,6 +542,9 @@ local glitterButton = button(
 
 launchButton.TextSize = 16
 glitterButton.TextSize = 16
+keyed[launchButton] = "Launch"
+keyed[glitterButton] = "Glitter"
+relabel()
 
 -- Full-screen splat when a crewmate's snowball hits you (cosmetic only).
 local splatFrame = Instance.new("Frame")
@@ -613,16 +657,8 @@ local function secondsLeft(endsAt: number): number
 end
 
 local function showBanner(text: string, seconds: number)
-	bannerToken += 1
-	local token = bannerToken
-	banner.Text = text
-	bannerPanel.Visible = text ~= ""
-	task.delay(seconds, function()
-		if bannerToken == token then
-			banner.Text = ""
-			bannerPanel.Visible = false
-		end
-	end)
+	HudFeedback.feedAdd(bannerFeed, text, seconds)
+	drawBanners()
 end
 
 local function setInRun(inRun: boolean)
@@ -776,6 +812,10 @@ end
 -- Frost Zap: frozen in an ice cube, tap to crack out (server/KrampusMagic).
 function handlers.Iced(data)
 	setTapMode(data.iced)
+	-- Only TAP! here: "Come out" (hiding) or "Break out" (snatched) left
+	-- over from earlier would do nothing in an ice cube.
+	unhideButton.Visible = false
+	breakoutButton.Visible = false
 	if data.iced then
 		krampusLabel.Text = "FROZEN! Tap to crack out"
 		setBar(
@@ -807,7 +847,7 @@ function handlers.Results(data)
 			Util.escapeRichText(row.name),
 			row.loot,
 			row.coal,
-			if row.escaped then "(escaped x2)" else "(missed the sleigh)"
+			"(" .. HudFeedback.escapeText(row) .. ")"
 		)
 		table.insert(lines, if me then '<font color="#FFC83C">' .. line .. "</font>" else line)
 	end
@@ -1072,9 +1112,19 @@ end
 
 -- Countdowns and Krampus distance change at most a few times a second, so the
 -- HUD refreshes every 0.1 s instead of every frame.
+local lastTick = Util.now()
 while true do
 	task.wait(0.1)
 	fitToScreen() -- phones rotate and resize
+	-- Cutscenes own the screen: the HUD hides under the letterbox, and
+	-- banners wait for it (HudFeedback.feedTick).
+	local cutscene = CutscenePlayer.isPlaying()
+	gui.Enabled = not cutscene
+	local nowClock = Util.now()
+	if HudFeedback.feedTick(bannerFeed, nowClock - lastTick, cutscene) then
+		drawBanners()
+	end
+	lastTick = nowClock
 	if stopState and stopState.stop > 0 and stopState.phase ~= "Flight" then
 		local left = secondsLeft(stopState.departAt)
 		setText(timerLabel, Util.clock(left))

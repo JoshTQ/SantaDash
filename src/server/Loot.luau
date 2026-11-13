@@ -309,6 +309,7 @@ export type ResultRow = {
 	loot: number,
 	coal: number,
 	escaped: boolean,
+	bonus: number?, -- the escape multiplier actually earned (1 = no Naughty List)
 	grabs: number,
 }
 
@@ -325,6 +326,7 @@ function Loot.results(entries: { { any } }): { ResultRow }
 			loot = loot,
 			coal = coal or math.floor(loot * Config.Coal.PerLootValue),
 			escaped = state.escapeMultiplier ~= nil,
+			bonus = state.escapeMultiplier,
 			grabs = state.grabs,
 		})
 	end

@@ -100,6 +100,11 @@ Staging.
 | 18 | **Music** button (top-left in the hub, beside Back to hub in a run): tap it, then rejoin | Music stops (sound effects and cutscenes keep playing), the button says Music: OFF, and it's still off after rejoining or teleporting to the run place |
 | 19 | Results | "You got +N Coal!" counts up and swells when it lands; under the list: "You grabbed N presents · escaped x2!"; on a first heist also "Spend Coal in the Shop" |
 | 20 | Lair: let Krampus get within ~100 studs while you look away from him, then turn round | A red arrow with KRAMPUS! on the screen edge points at him, follows smoothly as you turn, gets brighter as he closes in, and goes the moment he's on screen. Never shows while hiding, snatched or in a cutscene |
+| 21 | **Round 2 (11 Nov)**: Lair with 3+ players: Krampus arrives while someone grabs the List and someone gets iced | Up to three banner pills under the timer (newest at the bottom, biggest); "KRAMPUS IS COMING!" stays while crew news comes and goes. The big CUCKOO words sit above the banners, never on them |
+| 22 | Watch the take-off, Krampus and getaway cutscenes | No HUD under the letterbox (stats, buttons, tips all hidden); it all comes back the moment the cutscene ends, and a banner sent during it then shows for about 3 s |
+| 23 | Hide in a wardrobe, come out, then get Frost Zapped | The ice-cube panel has only TAP!, no "Come out" |
+| 24 | Phone: carry the Naughty List; pick up a dog treat | Buttons say PASS LIST and BONE (no Q or G); their banners say "PASS LIST to a friend" / "Throw it with BONE" |
+| 25 | Escape the Lair WITHOUT the Naughty List, then with it | Results say "(escaped)" without it (it used to say "escaped x2" either way), "(escaped x2)" with it |
 
 ## 3. Lobby to Run place (Staging only)
 

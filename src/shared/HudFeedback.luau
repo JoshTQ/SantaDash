@@ -71,6 +71,10 @@ end
 local KEYS = {
 	Tap = { word = "TAP!", Keyboard = "Space", Gamepad = "A" },
 	Throw = { word = "THROW", Keyboard = "F", Gamepad = "R2" },
+	PassList = { word = "PASS LIST", Keyboard = "Q", Gamepad = "L1" },
+	Bone = { word = "BONE", Keyboard = "G", Gamepad = "L2" },
+	Launch = { word = "LAUNCH", Keyboard = "R", Gamepad = "R1" },
+	Glitter = { word = "GLITTER", Keyboard = "T", Gamepad = "Y" },
 }
 
 function HudFeedback.keyHint(action: string, device: string): string
@@ -107,13 +111,31 @@ function HudFeedback.countUp(total: number, elapsed: number, duration: number?):
 end
 
 -- Results: one line about your own run, plus where Coal goes on a first heist.
-function HudFeedback.summary(row: { grabs: number?, escaped: boolean }, firstHeist: boolean): string
+-- How a results row says you got away: the multiplier you actually earned
+-- (escaping without the Naughty List is x1, so no "x2" then).
+export type ResultRow = { grabs: number?, escaped: boolean, bonus: number? }
+
+function HudFeedback.escapeText(row: ResultRow): string
+	if not row.escaped then
+		return "missed the sleigh"
+	end
+	local bonus = row.bonus
+	if bonus and bonus > 1 then
+		return "escaped x"
+			.. (if bonus == math.floor(bonus) then tostring(bonus) else string.format("%.1f", bonus))
+	end
+	return "escaped"
+end
+
+function HudFeedback.summary(row: ResultRow, firstHeist: boolean): string
 	local grabs = row.grabs or 0
+	local escape = HudFeedback.escapeText(row)
 	local line = string.format(
-		"You grabbed %d %s · %s",
+		"You grabbed %d %s · %s%s",
 		grabs,
 		if grabs == 1 then "present" else "presents",
-		if row.escaped then "escaped x2!" else "missed the sleigh"
+		escape,
+		if row.escaped then "!" else ""
 	)
 	if firstHeist then
 		line ..= "\nFirst heist! Spend Coal in the Shop."
@@ -156,6 +178,57 @@ function HudFeedback.edgeArrow(
 		y = cy + dy * scale,
 		rotation = math.deg(math.atan2(dy, dx)),
 	}
+end
+
+-- Banner feed: busy moments (Lair: Krampus, the List, ice cubes, the
+-- cuckoo) sent several banners a second and each one wiped the last, so
+-- "KRAMPUS IS COMING!" could vanish under "Sam grabbed the List!". Now up
+-- to BannerMax show at once (oldest drops first), a repeat just refreshes,
+-- and time only counts while the HUD is showing: during a cutscene the HUD
+-- is hidden, so a banner waits and then shows for at most DeferredMax.
+HudFeedback.BannerMax = 3
+HudFeedback.DeferredMax = 3
+
+export type FeedEntry = { text: string, seconds: number, seen: number, paused: boolean }
+
+function HudFeedback.feedAdd(feed: { FeedEntry }, text: string, seconds: number)
+	if text == "" then
+		return
+	end
+	for _, e in feed do
+		if e.text == text then
+			e.seconds = math.max(e.seconds - e.seen, seconds)
+			e.seen = 0
+			e.paused = false
+			return
+		end
+	end
+	table.insert(feed, { text = text, seconds = seconds, seen = 0, paused = false })
+	while #feed > HudFeedback.BannerMax do
+		table.remove(feed, 1)
+	end
+end
+
+-- Advance the feed by dt seconds; hidden = the HUD is hidden (cutscene).
+-- Returns true if an entry went away.
+function HudFeedback.feedTick(feed: { FeedEntry }, dt: number, hidden: boolean): boolean
+	local changed = false
+	for i = #feed, 1, -1 do
+		local e = feed[i]
+		if hidden then
+			if not e.paused then
+				e.paused = true
+				e.seconds = math.min(e.seconds, e.seen + HudFeedback.DeferredMax)
+			end
+		else
+			e.seen += dt
+		end
+		if e.seen >= e.seconds then
+			table.remove(feed, i)
+			changed = true
+		end
+	end
+	return changed
 end
 
 HudFeedback.ConfirmSeconds = 3

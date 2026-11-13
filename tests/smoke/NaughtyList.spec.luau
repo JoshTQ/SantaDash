@@ -99,6 +99,7 @@ describe("the Naughty List is the escape bonus", function()
 		end)
 		local row = lastResults(engine, santa).rows[1]
 		expect(row.escaped).toBe(true)
+		expect(row.bonus).toBe(2) -- the results screen says x2
 		expect(row.loot).toBeGreaterThanOrEqual(2 * 250 * 0.8) -- the book's own 250, doubled, at solo 80%
 	end)
 
@@ -121,6 +122,8 @@ describe("the Naughty List is the escape bonus", function()
 			expect(getaway.swap["LOOT x2"]).toBe("NO LIST, NO x2")
 		end)
 		expect(lastResults(engine, santa).rows[1].escaped).toBe(true)
+		-- Regression (11 Nov): the results screen said "escaped x2" without the List.
+		expect(lastResults(engine, santa).rows[1].bonus).toBe(1)
 	end)
 
 	it("the carrier is Marked: slower, can't hide, and rattles", function()
