@@ -18,7 +18,18 @@ PR "Approve model: <Name>" with thumbnails and model.glb → you merge → deplo
 ```
 
 Merging is the final art approval (the strict rule: 3D preview → approval →
-gallery and game). Claude builds the rotatable preview from `model.glb` in the
+gallery and game).
+
+**Cleaned textures.** If `art/meshy/<Name>/texture.png` exists, upload.py sends
+it instead of Meshy's colour map, so re-imports keep it. Santa's comes from
+`tools/meshy/clean_texture.py` (stains out, UV gutters padded so seams don't
+go dark at a distance).
+
+**Animation frames.** Roblox's FBX import turns each bone's local frame half
+way round about +Y (x and z negated) compared with the Meshy GLB. anims.py
+turns the poses the same way, and anim_rbxm.luau fails if the imported bones
+don't match, because poses in the wrong frame bend every joint backwards
+(13 Nov 2026: Santa ran with his arms straight out). Claude builds the rotatable preview from `model.glb` in the
 PR and adds the model to the gallery once it's merged.
 
 ## One-time setup (about 10 minutes)

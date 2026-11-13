@@ -13,6 +13,9 @@
 	Fails if the model Roblox imported has no bones or lacks one of its
 	bones, so a clip that can't play never gets uploaded. The exception is leaf
 	"_end" bones (head_end), which Roblox drops on import: they're left out.
+	Also fails if an imported bone's rest rotation isn't the one anims.py
+	turned the poses for (half a turn about +Y from the GLB): poses written in
+	the wrong frame bend every joint the wrong way.
 ]]
 
 local fs = require("@lune/fs")
@@ -40,16 +43,40 @@ local data = serde.decode("json", fs.readFile(dir .. "/anims.json"))
 
 -- The imported rig must have the bones the clips drive.
 local imported = {}
+local importedRest = {}
 if fs.isFile(dir .. "/imported.rbxm") then
 	for _, root in roblox.deserializeModel(fs.readFile(dir .. "/imported.rbxm")) do
 		for _, d in root:GetDescendants() do
 			if d:IsA("Bone") then
 				imported[d.Name] = true
+				importedRest[d.Name] = d.CFrame
 			end
 		end
 		if root:IsA("Bone") then
 			imported[root.Name] = true
+			importedRest[root.Name] = root.CFrame
 		end
+	end
+	-- The frame check: the turned GLB rest rotation must match the import's.
+	local wrong = {}
+	for bone, info in data.bones do
+		local got = importedRest[bone]
+		local rest = info.rest
+		if got and rest then
+			local want = CFrame.new(0, 0, 0, rest[1], rest[2], rest[3], rest[4])
+			local _, angle = (want:Inverse() * got.Rotation):ToAxisAngle()
+			if math.abs(angle) > math.rad(2) then
+				table.insert(wrong, ("%s (%.0f deg off)"):format(bone, math.deg(angle)))
+			end
+		end
+	end
+	if #wrong > 0 then
+		table.sort(wrong)
+		fail(
+			name
+				.. ": the imported bones aren't in the frames anims.py turned the poses into, so the clips would bend the wrong way: "
+				.. table.concat(wrong, ", ")
+		)
 	end
 	-- Roblox drops the leaf "_end" bones (head_end) on import. They carry no
 	-- skin, so leave them out of the clips; any other missing bone fails.
