@@ -15,6 +15,7 @@ local RunService = game:GetService("RunService")
 local Config = require(ReplicatedStorage.Shared.Config)
 local Cutscenes = require(ReplicatedStorage.Shared.Cutscenes)
 local Maps = require(ReplicatedStorage.Shared.Maps)
+local PromptSight = require(ReplicatedStorage.Shared.PromptSight)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local SantaMoves = require(ReplicatedStorage.Shared.SantaMoves)
 local Puppets = require(ReplicatedStorage.Shared.Puppets)
@@ -24,6 +25,7 @@ local AlarmDogs = require(script.Parent.AlarmDogs)
 local YardDogs = require(script.Parent.YardDogs)
 local Assets = require(script.Parent.Assets)
 local ElfBot = require(script.Parent.ElfBot)
+local Toys = require(script.Parent.Toys)
 local ElfBrain = require(script.Parent.ElfBrain)
 local Loot = require(script.Parent.Loot)
 local CuckooWatch = require(script.Parent.CuckooWatch)
@@ -44,6 +46,8 @@ local SantaCharacter = require(script.Parent.SantaCharacter)
 local HouseKit = require(script.Parent.HouseKit)
 local LairBuilder = require(script.Parent.LairBuilder)
 local Store = require(script.Parent.Store)
+local StopGate = require(script.Parent.StopGate)
+local Knockback = require(script.Parent.Knockback)
 local ServerWardrobe = require(script.Parent.Wardrobe)
 local StoreRules = require(ReplicatedStorage.Shared.StoreRules)
 local Wardrobe = require(ReplicatedStorage.Shared.Wardrobe)
@@ -68,6 +72,10 @@ type PlayerState = Loot.PlayerState & {
 	skidUntil: number?, -- skidding on Frost Stomp frost
 	carryingList: boolean?, -- Marked: the Naughty List hovers over their head
 	bones: number?, -- dog treats bought this run (Config.DogAI.Bone)
+	launcher: boolean?, -- owns a Snowball Launcher this run (server/Toys)
+	snowballs: number?,
+	glitters: number?, -- Glitter Bombs
+	lastLaunchAt: number?,
 }
 
 local TICK = 0.25
@@ -135,6 +143,13 @@ function Run.new(
 		sleigh = Assets.clone("Sleigh", { "Body", "Seat1", "Hitch" }),
 		reindeer = Assets.get("Reindeer"),
 	})
+	-- Every present knows its stop (or on-foot gap), so the gate can lock it.
+	local gapSizes = {}
+	for i, list in onFoot do
+		gapSizes[i] = #list
+	end
+	StopGate.tag(self.route, gapSizes)
+	self.gateBannerAt = {} :: { [Player]: number }
 	self.deck = self.route.startDeck
 	self.eventPlan = MapEventBrain.plan(rng, map, Config.Run.StopKinds)
 
@@ -287,6 +302,7 @@ function Run:_addPlayer(player: Player)
 			end
 			self:_applyPerks(player)
 			ServerWardrobe.dress(player, st.wardrobe) -- warm gear survives a respawn
+			Toys.dress(self, player) -- and so do the toys
 			local root = character:FindFirstChild("HumanoidRootPart")
 			if self.flightSeats and root then
 				-- Mid-flight: ride the rest of the way in a seat, not fall off.
@@ -367,6 +383,7 @@ function Run:_resetCharacter(player: Player)
 	player:SetAttribute(BodyHeat.ATTRIBUTE, nil)
 	player:SetAttribute(BodyHeat.FROZEN_ATTRIBUTE, nil)
 	ServerWardrobe.undress(player) -- warm gear is for this run only
+	Toys.undress(player)
 	local humanoid = humanoidOf(player)
 	if humanoid then
 		humanoid.WalkSpeed = Config.Player.WalkSpeed
@@ -393,7 +410,13 @@ end
 function Run:_wirePrompts()
 	-- Prompts live under the route model, so destroying it disconnects these.
 	local function on(prompt: ProximityPrompt, handler: (Player) -> ())
-		prompt.Triggered:Connect(handler)
+		prompt.Triggered:Connect(function(player)
+			-- No grabbing, searching or hiding through a wall (Josh, 13 Nov);
+			-- the client hides those prompts too (client/PromptSight).
+			if PromptSight.serverAllows(player.Character, prompt) then
+				handler(player)
+			end
+		end)
 	end
 	local function wirePresents(list)
 		for _, present in list do
@@ -404,26 +427,46 @@ function Run:_wirePrompts()
 	end
 	for _, stop in self.route.stops do
 		wirePresents(stop.presents)
-		on(stop.cocoaPrompt, function(player)
+		-- Buys, hiding, chimneys in and searches only work once the sleigh has
+		-- reached this stop (StopGate). Doors and chimneys out stay open, so
+		-- nobody is ever shut in.
+		local function onStop(prompt: ProximityPrompt, handler: (Player) -> ())
+			on(prompt, function(player)
+				if self:_gateOpen(player, stop.plan.index) then
+					handler(player)
+				end
+			end)
+		end
+		onStop(stop.cocoaPrompt, function(player)
 			self:_buyPeppermintRush(player)
 		end)
 		if stop.bonePrompt then
-			on(stop.bonePrompt, function(player)
+			onStop(stop.bonePrompt, function(player)
 				self:_buyBone(player)
 			end)
 		end
+		if stop.launcherPrompt then
+			on(stop.launcherPrompt, function(player)
+				Toys.buyLauncher(self, player)
+			end)
+		end
+		if stop.glitterPrompt then
+			on(stop.glitterPrompt, function(player)
+				Toys.buyGlitter(self, player)
+			end)
+		end
 		for id, prompt in stop.wardrobePrompts or {} do
-			on(prompt, function(player)
+			onStop(prompt, function(player)
 				ServerWardrobe.buy(self, player, id)
 			end)
 		end
 		if stop.vaultPrompt then
-			on(stop.vaultPrompt, function(player)
+			onStop(stop.vaultPrompt, function(player)
 				self:_buyVault(player, stop)
 			end)
 		end
 		for _, chimney in stop.chimneys do
-			on(chimney.down, function(player)
+			onStop(chimney.down, function(player)
 				if self:_free(player) then
 					Util.teleport(player, chimney.inside)
 					SoundPlayer.at("ChimneySlide", chimney.inside.Position)
@@ -437,19 +480,19 @@ function Run:_wirePrompts()
 			end)
 		end
 		for _, spot in stop.hideSpots do
-			on(spot.prompt, function(player)
+			onStop(spot.prompt, function(player)
 				self:_hide(player, spot)
 			end)
 		end
 		for _, secret in stop.secrets or {} do
 			-- A soft bell twinkle from the hiding place, heard from the next room.
 			secret.hum = SoundPlayer.loop("SecretHum", secret.trigger)
-			on(secret.prompt, function(player)
+			onStop(secret.prompt, function(player)
 				self:_findSecret(player, stop, secret)
 			end)
 		end
 		for _, spot in stop.searchSpots or {} do
-			on(spot.prompt, function(player)
+			onStop(spot.prompt, function(player)
 				self:_searchSpot(player, stop, spot)
 			end)
 		end
@@ -468,7 +511,94 @@ function Run:_wirePrompts()
 	wirePresents(self.route.onFootPresents)
 end
 
+----------------------------------------------------------------------------
+-- Stop gate: no robbing a stop before the sleigh lands there (StopGate)
+----------------------------------------------------------------------------
+
+-- Tells a Santa (at most every BannerCooldown seconds) why it didn't work.
+function Run:_gateRefused(player: Player)
+	local t = now()
+	if (self.gateBannerAt[player] or -math.huge) + Config.StopGate.BannerCooldown <= t then
+		self.gateBannerAt[player] = t
+		self:_banner(player, StopGate.lockedText(), 2)
+	end
+end
+
+-- Whether stop `index`'s prompts work right now; tells the player if not.
+function Run:_gateOpen(player: Player, index: number): boolean
+	if StopGate.stopLive(index, self.stopIndex, self.phase) then
+		return true
+	end
+	self:_gateRefused(player)
+	return false
+end
+
+-- Pop-in gifts are added to a stop after the build: tag them on first sight.
+function Run:_presentLive(present): boolean
+	if not present.stopIndex and not present.footGap then
+		for i, stop in self.route.stops do
+			if table.find(stop.presents, present) then
+				present.stopIndex = i
+				break
+			end
+		end
+	end
+	return StopGate.presentLive(present, self.stopIndex, self.phase)
+end
+
+-- The ward: Santas inside a street the sleigh hasn't reached yet get
+-- BOINGed back towards the path; deep inside (a teleport, a fast skate),
+-- they're put back on it. Riders, captives and the iced are left alone.
+function Run:_wardTick()
+	local footZ = self.route.map.layout.FootPathZ or Config.Map.FootPathZ
+	for player, st in self.players do
+		local root = rootOf(player)
+		if root and not st.captive and not st.iced and not st.frozen and not root.Anchored then
+			for i, stop in self.route.stops do
+				if StopGate.warded(i, self.stopIndex, self.phase) then
+					local depth = StopGate.depth(stop.origin, footZ, root.Position)
+					if depth then
+						self:_unhide(player)
+						if depth > Config.StopGate.SnapDepth then
+							Util.teleport(
+								player,
+								CFrame.new(StopGate.safeSpot(stop.origin, footZ, root.Position))
+							)
+						else
+							Knockback.apply(root, StopGate.pushVelocity(stop.origin, footZ, root.Position))
+						end
+						SoundPlayer.at("Boing", root.Position)
+						self:_gateRefused(player)
+						break
+					end
+				end
+			end
+		end
+	end
+end
+
+function Run:_startWard()
+	task.spawn(function()
+		while not self.ended do
+			task.wait(Config.StopGate.TickSeconds)
+			if self.ended then
+				break
+			end
+			local ok, err = pcall(self._wardTick, self)
+			if not ok then
+				warn("[Run] stop ward: " .. tostring(err))
+			end
+		end
+	end)
+end
+
 function Run:_grab(player: Player, present)
+	if not self:_presentLive(present) then
+		if not present.taken and self.players[player] then
+			self:_gateRefused(player)
+		end
+		return
+	end
 	if present.plan.naughtyList and self.list and self.list.present == present then
 		if self:_free(player) then
 			self.list:take(player)
@@ -556,7 +686,7 @@ end
 
 -- A present goes into player's sack (grabbed by them or fetched by their elf).
 function Run:_collect(player: Player, st: PlayerState, present, from: Vector3)
-	if present.taken then
+	if present.taken or not self:_presentLive(present) then
 		return
 	end
 	local jingleBefore = st.jingle
@@ -628,7 +758,11 @@ function Run:presentCandidates(): { ElfBrain.PresentCandidate }
 	if stop then
 		add(stop.presents)
 	end
-	add(self.route.onFootPresents)
+	for _, present in self.route.onFootPresents do
+		if StopGate.gapLive(present.footGap or 1, self.stopIndex) then
+			add({ present })
+		end
+	end
 	return list
 end
 
@@ -971,9 +1105,18 @@ function Run:onInput(player: Player, action: string)
 		end
 	elseif action == "Bone" then
 		self:_throwBone(player)
+	elseif action == "Launch" then
+		Toys.launch(self, player)
+	elseif action == "Glitter" then
+		Toys.glitter(self, player)
 	elseif self.eventInput then
 		self.eventInput(player, action) -- e.g. "Throw" during a Blizzard
 	end
+end
+
+-- Inside a Glitter Bomb cloud (server/Toys): guards and the cuckoo can't see.
+function Run:inGlitter(position: Vector3): boolean
+	return Toys.inGlitter(self, position)
 end
 
 function Run:_addNoise(amount: number)
@@ -1639,6 +1782,7 @@ end
 ----------------------------------------------------------------------------
 
 function Run:start()
+	self:_startWard()
 	task.spawn(function()
 		local ok, err = pcall(self._main, self)
 		if not ok then

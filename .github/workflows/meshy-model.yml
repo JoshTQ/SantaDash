@@ -25,8 +25,16 @@ on:
         description: Shape preview only (cheap check; no Roblox upload, no PR)
         type: boolean
         default: false
+      files_from_run:
+        description: >-
+          Reuse the raw Meshy files kept by an earlier run of this workflow
+          (its run id) instead of calling Meshy: for re-imports once Meshy
+          has dropped the finished tasks. No credits.
+        required: false
+        default: ""
 
 permissions:
+  actions: read # files_from_run downloads an earlier run's artifact
   contents: write
   pull-requests: write
 
@@ -83,7 +91,17 @@ jobs:
           echo "Runs: $runs"
           echo "runs=$runs" >> "$GITHUB_OUTPUT"
 
+      - name: Reuse an earlier run's Meshy files
+        if: ${{ inputs.files_from_run != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: meshy-${{ inputs.files_from_run }}
+          path: build/meshy
+          run-id: ${{ inputs.files_from_run }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Generate in Meshy
+        if: ${{ inputs.files_from_run == '' }}
         env:
           MESHY_API_KEY: ${{ secrets.MESHY_API_KEY }}
           RUNS: ${{ steps.runs.outputs.runs }}

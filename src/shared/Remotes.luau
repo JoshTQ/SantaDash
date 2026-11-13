@@ -4,10 +4,12 @@
 	Hud (server -> client): fire(kind: string, data: table). Kinds:
 		Queue, QueueClear, Stop, Banner, Noise, Player, Results, RunEnd,
 		Krampus, KrampusTease, Hide, Captive, MapEvent, Weather, Snowballs, Splat, Cutscene,
+		Bones, List, Cuckoo, Toys (server/Toys: launcher, snowballs, glitters),
 		Puppets (shared/Puppets: scripted sleigh and Krampus paths each client poses),
 		Tip, TipDone, Guide (first-time player tips, server/Onboarding.luau)
 	LeaveCrew (client -> server): leave the queue or the current run.
 	Input (client -> server): "Tap" (breath / wiggle), "Unhide", "Throw" (snowball),
+		"Launch" / "Glitter" (server/Toys), "Bone", "PassList",
 		"Breakout" (use an Instant Break-out while snatched), or
 		"TipsReady" / "TipsOff" (first-time tips).
 	Store (both ways): see server/Store.luau.

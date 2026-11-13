@@ -122,6 +122,22 @@ Config.Player = {
 
 -- Hazard bumps (security dogs): a LinearVelocity push for a moment, so it
 -- works on client-owned Santas (server/Knockback.luau).
+-- Stop gate (Josh, 13 Nov 2026: "You can just run to the next stop, and
+-- steal everything before they spawn in"). A stop can't be robbed until the
+-- sleigh lands there (old streets stay open: "Let them do old streets"). The
+-- server refuses every grab, buy, hide and search at stops ahead, and a ward
+-- bounces Santas out of them (server/StopGate). Stop space: +Z down the street.
+Config.StopGate = {
+	Enabled = true,
+	HalfWidth = 220, -- ward reaches this far either side of the street (stops are 700 apart)
+	PathClearance = 26, -- ward starts this far past FootPathZ, so the path/main canal stays open
+	Length = 900, -- and runs this far down the street (the Lair lake ends at 640)
+	PushSpeed = 70, -- studs/s back towards the path: a slapstick BOING
+	SnapDepth = 40, -- this deep inside (teleport, skating fast) = put back on the path
+	TickSeconds = 0.2,
+	BannerCooldown = 3, -- seconds between "too early" banners for one Santa
+}
+
 Config.Knockback = {
 	Lift = 18, -- studs/s upward: a little hop off the ground
 	Seconds = 0.2, -- how long the push holds before physics takes over
@@ -524,6 +540,36 @@ Config.CuckooWatch = {
 	SpottedNoise = 8,
 	SummonMinRange = 14, -- closer than this he's on you anyway: no blink
 	DenPadding = 2, -- studs added round the Lair's footprint
+}
+
+-- Toys to fight back (Josh, 11 Nov 2026: "Can we use the toys against them,
+-- like snow guns etc" ... "Build them"). Bought at the toy stand by every
+-- Sleigh Stop with Jingle, never Robux. Red-team rules: toys, never guns;
+-- guards and dogs get knocked over, Krampus only flinches (once per
+-- KrampusCooldown for the whole crew) and never drops his basket (bells stay
+-- the only rescue); crew hits do nothing. Looks: the Candy Cane Catapult and
+-- Shaken Snow Globe (Josh picked C + C, approved the 3D 13 Nov), server/ToyBuilder.
+Config.Toys = {
+	Enabled = true,
+	Launcher = {
+		Cost = 500, -- the launcher and a full load
+		Refill = 200, -- a full load again
+		Ammo = 8,
+		Range = 40, -- studs: soft auto-aim at the nearest guard or Krampus in front
+		AimCone = 35, -- degrees either side of where you face
+		Speed = 80, -- studs/s, how fast the snowball flies
+		Cooldown = 0.5,
+		GuardDown = 4, -- seconds a hit guard or dog lies there
+		KrampusFlinch = 0.5, -- seconds he stops (and any wind-up is cancelled)
+		KrampusCooldown = 6, -- crew-wide: no stun-locking the boss
+	},
+	Glitter = {
+		Cost = 400,
+		Max = 2,
+		Throw = 18, -- studs ahead
+		Radius = 12,
+		Seconds = 6, -- guards, dogs and the cuckoo can't see anyone inside
+	},
 }
 
 -- Random map events (game-design.md "Random map events"). One roll per run;
@@ -1117,10 +1163,10 @@ Config.Wardrobe = {
 }
 
 -- The Sleigh-Cart Pop-up shops (server/ShopStalls, Josh picked option C on
--- 11 Nov 2026). Off until he approves the 3D preview: until then the
--- approved Meshy cocoa booth and the greybox Wardrobe rack are used.
+-- 11 Nov 2026 and approved the 3D on 13 Nov). Switched off, the approved
+-- Meshy cocoa booth and the greybox Wardrobe rack come back.
 Config.ShopCarts = {
-	Enabled = false,
+	Enabled = true, -- Josh approved the 3D (13 Nov 2026: "Prefer them")
 }
 
 -- Sound mix (Sounds.luau has the catalogue). Phone speakers clip easily, so

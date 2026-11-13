@@ -518,6 +518,31 @@ end)
 keyed[boneButton] = "Bone"
 relabel()
 
+-- Toys (server/Toys): the Snowball Launcher and Glitter Bombs.
+local toysPanel = panel(UDim2.fromOffset(190, 96), spots.toys, Vector2.new(1, 0))
+local toysLabel = label(toysPanel, UDim2.new(1, 0, 0, 30), UDim2.fromOffset(0, 4), 18)
+local launchButton = button(
+	toysPanel,
+	"LAUNCH (R)",
+	UDim2.new(0.5, -12, 0, 50),
+	UDim2.fromOffset(8, 38),
+	function()
+		input:FireServer("Launch")
+	end
+)
+local glitterButton = button(
+	toysPanel,
+	"GLITTER (T)",
+	UDim2.new(0.5, -12, 0, 50),
+	UDim2.new(0.5, 4, 0, 38),
+	function()
+		input:FireServer("Glitter")
+	end
+)
+
+launchButton.TextSize = 16
+glitterButton.TextSize = 16
+
 -- Full-screen splat when a crewmate's snowball hits you (cosmetic only).
 local splatFrame = Instance.new("Frame")
 splatFrame.Size = UDim2.fromScale(1, 1)
@@ -989,6 +1014,37 @@ function handlers.Bones(data)
 	end
 end
 
+local function bindToy(name: string, on: boolean, action: string, key: Enum.KeyCode, pad: Enum.KeyCode)
+	if on then
+		ContextActionService:BindAction(name, function(_, state)
+			if state == Enum.UserInputState.Begin then
+				input:FireServer(action)
+			end
+			return Enum.ContextActionResult.Sink
+		end, false, key, pad)
+	else
+		ContextActionService:UnbindAction(name)
+	end
+end
+
+function handlers.Toys(data)
+	local launcher = data.launcher == true
+	local glitters = data.glitters or 0
+	toysPanel.Visible = launcher or glitters > 0
+	local parts = {}
+	if launcher then
+		table.insert(parts, "Snow " .. (data.snowballs or 0))
+	end
+	if glitters > 0 then
+		table.insert(parts, "Glitter " .. glitters)
+	end
+	toysLabel.Text = table.concat(parts, "  ")
+	launchButton.Visible = launcher
+	glitterButton.Visible = glitters > 0
+	bindToy("SleighHeistLaunch", launcher, "Launch", Enum.KeyCode.R, Enum.KeyCode.ButtonR1)
+	bindToy("SleighHeistGlitter", glitters > 0, "Glitter", Enum.KeyCode.T, Enum.KeyCode.ButtonY)
+end
+
 function handlers.Splat(data)
 	splatUntil = Util.now() + data.seconds
 	splatLabel.Text = "SPLAT! (" .. data.by .. ")"
@@ -1012,6 +1068,7 @@ function handlers.RunEnd()
 	handlers.List({ carrying = false })
 	handlers.Cuckoo({ state = "Off" })
 	handlers.Bones({ count = 0 })
+	handlers.Toys({})
 	setInRun(false)
 	setTapMode(false)
 	handlers.Krampus({})

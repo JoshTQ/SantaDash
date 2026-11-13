@@ -246,10 +246,8 @@ end)
 test(
 	"every Sleigh Stop has the two real shops as sleigh carts, clear of the pavement and each other",
 	function()
-		Config.ShopCarts.Enabled = true
-		local ok, route, map = pcall(build, 6)
-		Config.ShopCarts.Enabled = false
-		assert(ok, route)
+		expect(Config.ShopCarts.Enabled).toBe(true) -- Josh approved them (13 Nov 2026)
+		local route, map = build(6)
 		local edge = map.layout.RoadWidth / 2 + Config.Canal.Promenade
 		for i, stop in route.stops do
 			local mugModel = stop.cocoaPrompt.Parent.Parent
@@ -287,10 +285,12 @@ test(
 	end
 )
 
-test("until the carts are approved, the cocoa and the Wardrobe rack stand on the ground", function()
+test("with the carts switched off, the cocoa and the Wardrobe rack stand on the ground", function()
 	-- Josh's staging playtest (13 Nov 2026): "shop is floating in the air".
-	expect(Config.ShopCarts.Enabled).toBe(false)
-	local route = build(7)
+	Config.ShopCarts.Enabled = false
+	local ok, route = pcall(build, 7)
+	Config.ShopCarts.Enabled = true
+	assert(ok, route)
 	for i, stop in route.stops do
 		local stopModel = stop.cocoaPrompt.Parent.Parent
 		expect(stopModel:FindFirstChild("WardrobeStall")).toBeNil()

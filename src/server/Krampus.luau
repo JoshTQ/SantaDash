@@ -25,6 +25,7 @@ local KrampusMagic = require(script.Parent.KrampusMagic)
 local MapBuilder = require(script.Parent.MapBuilder)
 local Mover = require(script.Parent.Mover)
 local RigAnimator = require(script.Parent.RigAnimator)
+local ToyBrain = require(script.Parent.ToyBrain)
 
 local K = Config.Krampus
 local TICK = 0.25
@@ -300,6 +301,23 @@ function Krampus:wiggle(player: Player)
 	else
 		self.run:_send(player, "Captive", { captive = true, wiggles = self.wiggles, needed = needed })
 	end
+end
+
+-- A snowball hit (server/Toys): he flinches for a moment and any wind-up is
+-- cancelled, at most once per Config.Toys.Launcher.KrampusCooldown for the
+-- whole crew. He never drops his basket: bells stay the only rescue.
+function Krampus:flinch(t: number): boolean
+	local L = Config.Toys.Launcher
+	if t < self.stunnedUntil or not ToyBrain.canFlinch(self.lastFlinchAt, t) then
+		return false
+	end
+	self.lastFlinchAt = t
+	self.magic:cancel()
+	self.mover:stop()
+	self.stunnedUntil = t + L.KrampusFlinch
+	self.dizzyUntil = t + L.KrampusFlinch
+	SoundPlayer.at("KrampusDizzy", self.body.root)
+	return true
 end
 
 function Krampus:_ringBells(player: Player)

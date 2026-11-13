@@ -432,7 +432,8 @@ function GuardDogs.start(
 		setIgnore(ignore)
 		for player in run.players do
 			local root = Util.rootOf(player)
-			if root and run:_free(player) then
+			-- Inside a Glitter Bomb cloud (server/Toys) the dogs can't see you.
+			if root and run:_free(player) and not (run.inGlitter and run:inGlitter(root.Position)) then
 				local position = root.Position
 				local v = root.AssemblyLinearVelocity
 				local santa = {
@@ -607,8 +608,27 @@ function GuardDogs.start(
 		end
 	end
 
-	-- Thrown bones (Run:_throwBone) reach every pack on the stop.
+	-- Thrown bones (Run:_throwBone) reach every pack on the stop, and
+	-- snowballs (server/Toys) aim at any dog that's up.
 	local pack = {
+		targets = function(): { any }
+			local list = {}
+			for _, dog in dogs do
+				if dog.model.Parent and dog.brain.mode ~= "Stunned" then
+					table.insert(list, {
+						kind = "Dog",
+						position = dog.root.Position,
+						hit = function(seconds: number)
+							if dog.model.Parent then
+								DogBrain.stun(dog.brain, seconds, Util.now())
+								dog.mover:stop()
+							end
+						end,
+					})
+				end
+			end
+			return list
+		end,
 		distract = function(position: Vector3): number
 			local n = 0
 			for _, dog in dogs do
