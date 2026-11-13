@@ -6,13 +6,14 @@ local Loot = load("ServerScriptService.Server.Loot")
 local MapBuilder = load("ServerScriptService.Server.MapBuilder")
 local Maps = load("ReplicatedStorage.Shared.Maps")
 local CanalTown = load("ServerScriptService.Server.CanalTown")
+local ShopStalls = load("ServerScriptService.Server.ShopStalls")
 
 local function build(seed)
 	local map = Maps.get("FrozenCanal")
 	local rng = Random.new(seed)
 	local plans, onFoot = {}, {}
 	for i = 1, #Config.Run.StopKinds do
-		plans[i] = Loot.planStop(rng, i, map.layout.Slots)
+		plans[i] = Loot.planStop(rng, i, map.layout.Slots, map.layout.StopSlots)
 		onFoot[i] = if i < #Config.Run.StopKinds then Loot.planOnFoot(rng) else nil
 	end
 	return MapBuilder.buildRoute(newFolder(), 1, rng, plans, onFoot, { map = map }), map
@@ -111,9 +112,9 @@ test("streets have gardens, fences, hedges and barriers; the market and rink are
 	for _, name in { "Lawn", "Picket", "Hedge", "Bollard", "Pavement", "IceSign", "BoostHoop" } do
 		expect(#named(stop1, name)).toBeGreaterThan(0)
 	end
-	expect(#named(stop1, "StallCounter")).toBeGreaterThan(10)
+	-- Decorative stalls that sold nothing are gone (Josh, 11 Nov 2026).
+	expect(#named(route.model, "StallCounter")).toBe(0)
 	expect(#route.stops[1].canal.dogs).toBe(Config.Canal.Dogs.Count)
-	expect(#named(stop2, "StallCounter")).toBe(0)
 	expect(#named(stop2, "RinkIce")).toBe(1)
 	expect(#route.stops[2].canal.rink.snowbanks).toBe(4)
 end)
@@ -236,6 +237,72 @@ test("the castle has a back gate too, so a chased Santa is never trapped", funct
 					and math.abs(l.Z) < part.Size.Z / 2
 				then
 					error(part.Name .. " blocks the back gate at " .. tostring(p))
+				end
+			end
+		end
+	end
+end)
+
+test(
+	"every Sleigh Stop has the two real shops as sleigh carts, clear of the pavement and each other",
+	function()
+		Config.ShopCarts.Enabled = true
+		local ok, route, map = pcall(build, 6)
+		Config.ShopCarts.Enabled = false
+		assert(ok, route)
+		local edge = map.layout.RoadWidth / 2 + Config.Canal.Promenade
+		for i, stop in route.stops do
+			local mugModel = stop.cocoaPrompt.Parent.Parent
+			local stopModel = mugModel.Parent
+			local mug = stopModel:FindFirstChild("CocoaMachine")
+			local hat = stopModel:FindFirstChild("WardrobeStall")
+			expect(mug).toBeTruthy()
+			expect(hat).toBeTruthy()
+			expect(stop.cocoaPrompt.Parent.Name).toBe("Counter")
+			for _, stall in { mug, hat } do
+				for _, p in stall:GetDescendants() do
+					if p:IsA("BasePart") then
+						local rel = stop.origin:ToObjectSpace(p.CFrame)
+						local l = rel.Position
+						local half = math.abs(rel.RightVector.X) * p.Size.X / 2
+							+ math.abs(rel.UpVector.X) * p.Size.Y / 2
+							+ math.abs(rel.LookVector.X) * p.Size.Z / 2
+						if l.X - half < edge - 0.01 then
+							error(("stop %d: %s pokes onto the pavement"):format(i, p:GetFullName()))
+						end
+					end
+				end
+			end
+			-- The two carts (awnings included) don't overlap.
+			local gap = stop.origin:VectorToObjectSpace(
+				hat.PrimaryPart.CFrame.Position - mug.PrimaryPart.CFrame.Position
+			)
+			local cart = ShopStalls.Cart
+			expect(math.abs(gap.X) > cart.width + 1.4 or math.abs(gap.Z) > cart.depth + 1.4).toBe(true)
+			expect(#named(mug, "Lantern")).toBe(1)
+			expect(#named(mug, "TopMug")).toBe(1)
+			expect(#named(hat, "TopMitten")).toBe(1)
+			expect(#named(hat, "WardrobeItem")).toBe(#Config.Wardrobe.Order)
+		end
+	end
+)
+
+test("until the carts are approved, the cocoa and the Wardrobe rack stand on the ground", function()
+	-- Josh's staging playtest (13 Nov 2026): "shop is floating in the air".
+	expect(Config.ShopCarts.Enabled).toBe(false)
+	local route = build(7)
+	for i, stop in route.stops do
+		local stopModel = stop.cocoaPrompt.Parent.Parent
+		expect(stopModel:FindFirstChild("WardrobeStall")).toBeNil()
+		for _, name in { "WardrobePost", "CocoaMachine" } do
+			local found = named(stopModel, name)
+			expect(#found > 0).toBe(true)
+			for _, p in found do
+				if p:IsA("BasePart") then
+					local bottom = stop.origin:PointToObjectSpace(p.CFrame.Position).Y - p.Size.Y / 2
+					if math.abs(bottom) > 0.05 then
+						error(("stop %d: %s floats %.1f studs up"):format(i, name, bottom))
+					end
 				end
 			end
 		end

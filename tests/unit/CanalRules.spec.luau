@@ -97,7 +97,7 @@ test("forest and hills fill the bands and stay off the canal", function()
 	local regions = { { x0 = 90, x1 = 350, z0 = -115, z1 = 630 } }
 	local canal = { x0 = -1e4, x1 = 1e4, z0 = -70, z1 = -10 }
 	local trees, hills = CanalRules.woodland(Random.new(3), regions, { canal })
-	expect(#trees).toBeGreaterThan(80)
+	expect(#trees).toBeGreaterThan(60) -- TreeChance 0.36 since 13 Nov 2026
 	expect(#hills).toBeGreaterThan(5)
 	local lit, raised = 0, 0
 	for _, t in trees do

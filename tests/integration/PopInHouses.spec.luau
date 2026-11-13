@@ -17,7 +17,7 @@ local function build(seed)
 	local rng = Random.new(seed)
 	local plans, onFoot = {}, {}
 	for i = 1, #Config.Run.StopKinds do
-		plans[i] = Loot.planStop(rng, i, map.layout.Slots)
+		plans[i] = Loot.planStop(rng, i, map.layout.Slots, map.layout.StopSlots)
 		onFoot[i] = if i < #Config.Run.StopKinds then Loot.planOnFoot(rng) else nil
 	end
 	return MapBuilder.buildRoute(newFolder(), 1, rng, plans, onFoot, { map = map })
@@ -75,7 +75,7 @@ test("nearly every filler townhouse has a real front door now", function()
 		end
 	end
 	local entries = allEntries()
-	expect(blocks > 30).toBeTruthy()
+	expect(blocks > 12).toBeTruthy() -- thinned 13 Nov 2026 (Config.Canal.Terraces)
 	expect(#entries).toBe(blocks)
 	for _, e in entries do
 		expect(e.entry.door.Name).toBe("PopInDoor")

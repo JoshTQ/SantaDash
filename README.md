@@ -88,7 +88,7 @@ Krampus and the sleigh. `Maps/SnowyStreet.luau` is the reference shape.
   Stop 3 the Lair on a lake island with the bell bridge, and 8 s in Krampus
   stomps the lake into floes (fall in = SPLOOSH back onto a floe).
   `CanalTown.breakZone(part)` breaks any `IceZone` part into floes (Thin Ice
-  uses it on `CrackZone` canal pieces). Stalls, hoops, rink, floes and the
+  uses it on `CrackZone` canal pieces). Hoops, rink, floes and the
   bridge are greybox until the canal kit is approved.
 - **Dressing:** an approved Model in `ServerStorage.Maps.<dressing>` with
   `StopDressing` (cloned at every stop) and `RouteDressing` (once). Art only.

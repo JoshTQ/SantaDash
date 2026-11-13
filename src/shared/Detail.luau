@@ -87,6 +87,7 @@ Detail.KeepModels = {
 	LairHouse = true, -- LairAnimator moves the clockwork every frame
 	KrampusStandIn = true,
 	CocoaMachine = true,
+	WardrobeStall = true, -- a landmark: the shops read from across the street
 	SnowPile = true,
 	Snowball = true,
 	FrontDoor = true,

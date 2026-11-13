@@ -21,8 +21,9 @@ test("every registered map resolves and is playable", function()
 			expect(Config.Rings[slot.Ring] ~= nil).toBeTruthy()
 			expect(slot.Side == -1 or slot.Side == 1).toBeTruthy()
 		end
-		for _, kindName in Config.Run.StopKinds do
-			for _, slotIndex in Config.StopKinds[kindName].Slots do
+		for stopIndex, kindName in Config.Run.StopKinds do
+			local picks = map.layout.StopSlots and map.layout.StopSlots[stopIndex]
+			for _, slotIndex in picks or Config.StopKinds[kindName].Slots do
 				expect(map.layout.Slots[slotIndex] ~= nil).toBeTruthy()
 			end
 		end

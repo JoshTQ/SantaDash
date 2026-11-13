@@ -95,7 +95,7 @@ test("a map can put each Sleigh Stop where it wants", function()
 	local rng = Random.new(4)
 	local plans, onFoot = {}, {}
 	for i = 1, #Config.Run.StopKinds do
-		plans[i] = Loot.planStop(rng, i, map.layout.Slots)
+		plans[i] = Loot.planStop(rng, i, map.layout.Slots, map.layout.StopSlots)
 		onFoot[i] = if i < #Config.Run.StopKinds then Loot.planOnFoot(rng) else nil
 	end
 	local route = MapBuilder.buildRoute(newFolder(), 1, rng, plans, onFoot, { map = map })
@@ -229,7 +229,7 @@ test("a map's palette, layout and features shape the built route", function()
 	local rng = Random.new(2)
 	local plans, onFoot = {}, {}
 	for i = 1, #Config.Run.StopKinds do
-		plans[i] = Loot.planStop(rng, i, map.layout.Slots)
+		plans[i] = Loot.planStop(rng, i, map.layout.Slots, map.layout.StopSlots)
 		onFoot[i] = if i < #Config.Run.StopKinds then Loot.planOnFoot(rng) else nil
 	end
 	local route = MapBuilder.buildRoute(newFolder(), 1, rng, plans, onFoot, { map = map })
@@ -251,7 +251,7 @@ test("every registered map builds a full route", function()
 		local rng = Random.new(1)
 		local plans, onFoot = {}, {}
 		for i = 1, #Config.Run.StopKinds do
-			plans[i] = Loot.planStop(rng, i, map.layout.Slots)
+			plans[i] = Loot.planStop(rng, i, map.layout.Slots, map.layout.StopSlots)
 			onFoot[i] = if i < #Config.Run.StopKinds then Loot.planOnFoot(rng) else nil
 		end
 		local route = MapBuilder.buildRoute(newFolder(), 1, rng, plans, onFoot, { map = map })
@@ -275,7 +275,7 @@ test("maps can place stops anywhere and the paths follow them", function()
 	local rng = Random.new(8)
 	local plans, onFoot = {}, {}
 	for i = 1, #Config.Run.StopKinds do
-		plans[i] = Loot.planStop(rng, i, map.layout.Slots)
+		plans[i] = Loot.planStop(rng, i, map.layout.Slots, map.layout.StopSlots)
 		onFoot[i] = if i < #Config.Run.StopKinds then Loot.planOnFoot(rng) else nil
 	end
 	local route = MapBuilder.buildRoute(newFolder(), 1, rng, plans, onFoot, { map = map })

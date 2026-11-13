@@ -137,7 +137,7 @@ describe("Matchmaking hardening: hiccups", function()
 		c.faults.teleport = 2
 		c:run(function()
 			local ann = c:join(lobby, "Ann")
-			waitForBoarding(c, lobby, "Public", 11)
+			waitForBoarding(c, lobby, "Public", 9.5)
 			board(c, lobby, "Public", { ann })
 			c:waitUntil(function()
 				return serverOf(c, "Ann").kind == "Run"
@@ -155,7 +155,7 @@ describe("Matchmaking hardening: hiccups", function()
 		c.faults.teleportInit = 1
 		c:run(function()
 			local ann = c:join(lobby, "Ann")
-			waitForBoarding(c, lobby, "Public", 11)
+			waitForBoarding(c, lobby, "Public", 9.5)
 			board(c, lobby, "Public", { ann })
 			c:waitUntil(function()
 				return serverOf(c, "Ann").kind == "Run"
@@ -173,7 +173,7 @@ describe("Matchmaking hardening: hiccups", function()
 		c.faults.teleportInit = true
 		c:run(function()
 			local ann = c:join(lobby, "Ann")
-			waitForBoarding(c, lobby, "Public", 11)
+			waitForBoarding(c, lobby, "Public", 9.5)
 			board(c, lobby, "Public", { ann })
 			c:waitUntil(function()
 				return #lobby.engine:hudMessages(ann, "QueueClear") > 0
@@ -203,7 +203,7 @@ describe("Matchmaking hardening: hiccups", function()
 		end
 		c:run(function()
 			local ann = c:join(lobby, "Ann")
-			waitForBoarding(c, lobby, "Public", 11)
+			waitForBoarding(c, lobby, "Public", 9.5)
 			board(c, lobby, "Public", { ann })
 			c:waitUntil(function()
 				return #lobby.engine:hudMessages(ann, "QueueClear") > 0
@@ -219,7 +219,7 @@ describe("Matchmaking hardening: hiccups", function()
 		local a, b = c:lobby(), c:lobby()
 		c:run(function()
 			local ann, bo = c:join(a, "Ann"), c:join(b, "Bo")
-			waitForBoarding(c, a, "Public", 11)
+			waitForBoarding(c, a, "Public", 9.5)
 			c.faults.memoryStore = 1 -- Ann's AddAsync fails once
 			board(c, a, "Public", { ann })
 			board(c, b, "Public", { bo })
@@ -242,7 +242,7 @@ describe("Matchmaking hardening: a batch that can't be removed", function()
 		c:run(function()
 			local early = joinAll(c, a, { "A1", "A2", "A3", "A4", "A5", "A6" })
 			local late = c:join(b, "B1")
-			waitForBoarding(c, a, "Public", 11)
+			waitForBoarding(c, a, "Public", 9.5)
 			c.faults.queueRemove = 3 -- every try of the first removal fails
 			board(c, a, "Public", early)
 			board(c, b, "Public", { late })
@@ -281,7 +281,7 @@ describe("Matchmaking hardening: a batch that can't be removed", function()
 		local lobby = c:lobby()
 		c:run(function()
 			local ann = c:join(lobby, "Ann")
-			waitForBoarding(c, lobby, "Public", 11)
+			waitForBoarding(c, lobby, "Public", 9.5)
 			board(c, lobby, "Public", { ann })
 			c:wait(1)
 			local ticket = c:queued(QUEUE)[1]
@@ -331,7 +331,7 @@ describe("Matchmaking hardening: load", function()
 					end
 					riders[i] = joinAll(c, world, group)
 				end
-				waitForBoarding(c, lobbies[1], "Public", 11)
+				waitForBoarding(c, lobbies[1], "Public", 9.5)
 				local startCalls, startAt = c.calls.memoryStore, c.now
 				for i, world in lobbies do
 					board(c, world, "Public", riders[i])
