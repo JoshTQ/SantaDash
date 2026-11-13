@@ -12,8 +12,9 @@
 	  Glitter Bomb       T / ButtonY throws it ahead: a sparkly cloud where
 	                     dogs and the cuckoo can't see anyone. Krampus can.
 
-	The looks are GREYBOX stand-ins until Josh picks them
-	(models/toys/toys-options.html). Clouds live in run.glitterClouds;
+	The looks (Josh approved 13 Nov, server/ToyBuilder): the Candy Cane
+	Catapult in Santa's right hand and the Shaken Snow Globe in his left, held
+	while he has them; both on the toy stand too. Clouds live in run.glitterClouds;
 	GuardDogs and CuckooWatch ask run:inGlitter(position).
 ]]
 
@@ -22,8 +23,10 @@ local TweenService = game:GetService("TweenService")
 local Config = require(ReplicatedStorage.Shared.Config)
 local SoundPlayer = require(ReplicatedStorage.Shared.SoundPlayer)
 local Util = require(ReplicatedStorage.Shared.Util)
+local GearAttach = require(ReplicatedStorage.Shared.GearAttach)
 local Onboarding = require(script.Parent.Onboarding)
 local ToyBrain = require(script.Parent.ToyBrain)
+local ToyBuilder = require(script.Parent.ToyBuilder)
 
 local T = Config.Toys
 local SNOW = Color3.fromRGB(240, 248, 255)
@@ -31,9 +34,60 @@ local GLITTER = Color3.fromRGB(255, 120, 220)
 
 local Toys = {}
 
+-- Puts the toys a Santa has in his hands (GearAttach, like the warm gear),
+-- and takes away the ones he hasn't. The spoon's snowball hides when empty.
+function Toys.dress(run, player: Player)
+	local st = run.players[player]
+	local character = player.Character
+	if not st or not character then
+		return
+	end
+	local held = { Catapult = st.launcher == true, Globe = (st.glitters or 0) > 0 }
+	for id, name in ToyBuilder.MODELS do
+		if not held[id] then
+			GearAttach.unequip(character, name)
+		elseif not Toys.holding(player, id) then
+			local toy = ToyBuilder.gear(id)
+			if toy then
+				GearAttach.equip(character, toy, name)
+				toy:Destroy()
+			end
+		end
+	end
+	local catapult = Toys.holding(player, "Catapult")
+	local ball = catapult and catapult:FindFirstChild("Snowball", true)
+	if ball and ball:IsA("BasePart") then
+		ball.Transparency = if (st.snowballs or 0) > 0 then 0 else 1
+	end
+end
+
+-- The toy model a Santa holds, or nil.
+function Toys.holding(player: Player, id: string): Model?
+	local folder = player.Character and player.Character:FindFirstChild(GearAttach.FOLDER)
+	if folder then
+		for _, child in folder:GetChildren() do
+			if child:GetAttribute(GearAttach.ID_ATTRIBUTE) == ToyBuilder.MODELS[id] then
+				return child :: Model
+			end
+		end
+	end
+	return nil
+end
+
+-- Run over: both toys out of his hands.
+function Toys.undress(player: Player)
+	local character = player.Character
+	if character then
+		for _, name in ToyBuilder.MODELS do
+			GearAttach.unequip(character, name)
+		end
+	end
+end
+
 function Toys.send(run, player: Player)
 	local st = run.players[player]
 	if st then
+		Toys.dress(run, player)
 		run:_send(player, "Toys", {
 			launcher = st.launcher == true,
 			snowballs = st.snowballs or 0,
@@ -119,7 +173,7 @@ function Toys.targets(run): { ToyBrain.Target }
 	return list
 end
 
--- GREYBOX snowball: an anchored ball tweened to where it's going.
+-- The flying snowball: an anchored ball tweened to where it's going.
 local function lob(run, from: Vector3, to: Vector3, seconds: number)
 	local ball = Instance.new("Part")
 	ball.Name = "LauncherSnowball"
@@ -179,7 +233,7 @@ function Toys.launch(run, player: Player)
 	end
 end
 
--- GREYBOX cloud: a see-through pink ball of sparkles.
+-- The glitter cloud: a see-through pink ball of sparkles (as in the 3D preview).
 local function cloudPart(run, at: Vector3): BasePart
 	local G = T.Glitter
 	local puff = Instance.new("Part")

@@ -531,8 +531,8 @@ Config.CuckooWatch = {
 -- Sleigh Stop with Jingle, never Robux. Red-team rules: toys, never guns;
 -- guards and dogs get knocked over, Krampus only flinches (once per
 -- KrampusCooldown for the whole crew) and never drops his basket (bells stay
--- the only rescue); crew hits do nothing. GREYBOX stand-ins until Josh picks
--- the looks (models/toys/toys-options.html).
+-- the only rescue); crew hits do nothing. Looks: the Candy Cane Catapult and
+-- Shaken Snow Globe (Josh picked C + C, approved the 3D 13 Nov), server/ToyBuilder.
 Config.Toys = {
 	Enabled = true,
 	Launcher = {

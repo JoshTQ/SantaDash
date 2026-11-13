@@ -292,6 +292,7 @@ function Run:_addPlayer(player: Player)
 			end
 			self:_applyPerks(player)
 			ServerWardrobe.dress(player, st.wardrobe) -- warm gear survives a respawn
+			Toys.dress(self, player) -- and so do the toys
 			local root = character:FindFirstChild("HumanoidRootPart")
 			if self.flightSeats and root then
 				-- Mid-flight: ride the rest of the way in a seat, not fall off.
@@ -372,6 +373,7 @@ function Run:_resetCharacter(player: Player)
 	player:SetAttribute(BodyHeat.ATTRIBUTE, nil)
 	player:SetAttribute(BodyHeat.FROZEN_ATTRIBUTE, nil)
 	ServerWardrobe.undress(player) -- warm gear is for this run only
+	Toys.undress(player)
 	local humanoid = humanoidOf(player)
 	if humanoid then
 		humanoid.WalkSpeed = Config.Player.WalkSpeed

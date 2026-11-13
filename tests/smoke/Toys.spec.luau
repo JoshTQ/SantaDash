@@ -105,6 +105,44 @@ describe("the toy stand", function()
 		end)
 	end)
 
+	it("shows the approved toys on the stand, and Santa holds what he buys", function()
+		local world, engine, Run, players = setup({ "Holder" })
+		local santa = players[1]
+		world.run(function()
+			local run = startRun(Run, players)
+			local Toys = world.load("ServerScriptService.Server.Toys")
+			for _, stop in run.route.stops do
+				local stand = stop.launcherPrompt.Parent
+				expect(stand.Material).toBe(Enum.Material.Wood)
+			end
+			expect(run.route.model:FindFirstChild("ToyCatapult", true)).never.toBeNil()
+			expect(run.route.model:FindFirstChild("ToyGlobe", true)).never.toBeNil()
+			waitUntil(world, function()
+				return run.stopIndex == 1 and run.phase == "Sneak"
+			end, 200, "Stop 1")
+			expect(Toys.holding(santa, "Catapult")).toBeNil()
+			buyKit(engine, run, santa)
+			local catapult = Toys.holding(santa, "Catapult")
+			local globe = Toys.holding(santa, "Globe")
+			expect(catapult).never.toBeNil()
+			expect(globe).never.toBeNil()
+			local ball = catapult:FindFirstChild("Snowball", true)
+			expect(ball.Transparency).toBe(0)
+			expect(ball:GetAttribute("FollowBone")).toBe("RightHand")
+			expect(globe:FindFirstChild("Glass", true):GetAttribute("FollowBone")).toBe("LeftHand")
+			-- Out of snowballs: the spoon is empty. Out of glitter: the globe goes.
+			run.players[santa].snowballs = 1
+			run:onInput(santa, "Launch")
+			expect(ball.Transparency).toBe(1)
+			run:onInput(santa, "Glitter")
+			expect(Toys.holding(santa, "Globe")).toBeNil()
+			expect(Toys.holding(santa, "Catapult")).never.toBeNil()
+			-- Run over: empty hands.
+			run:_resetCharacter(santa)
+			expect(Toys.holding(santa, "Catapult")).toBeNil()
+		end)
+	end)
+
 	it("an empty launcher says so, and the cooldown stops spam", function()
 		local world, engine, Run, players = setup({ "Spammer" })
 		local santa = players[1]
