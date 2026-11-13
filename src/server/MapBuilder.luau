@@ -720,11 +720,17 @@ local function buildStop(
 	end
 
 	-- The two shops (Peppermint Rush cocoa and the Wardrobe's warm gear) by
-	-- the landing house, Near ring: Sleigh-Cart Pop-ups (server/ShopStalls),
-	-- fronts facing back up towards the Sleigh Stop.
+	-- the landing house, Near ring. Sleigh-Cart Pop-ups (server/ShopStalls)
+	-- once Josh approves them (Config.ShopCarts); until then the approved
+	-- Meshy cocoa booth and the greybox Wardrobe rack, both on the ground.
 	local machineAt = origin * CFrame.new(map.CocoaMachine)
 	local cocoaGround = origin * CFrame.new(map.CocoaMachine.X, 0, map.CocoaMachine.Z)
-	if cocoaTemplate then
+	if ShopStalls.enabled() then
+		local cost = Config.Buys.PeppermintRush.Cost
+		local _, counter = ShopStalls.cocoa(model, cocoaGround, ShopStalls.commas(cost))
+		addLabel(counter, "PEPPERMINT RUSH\n" .. cost .. " Jingle", Color3.new(1, 1, 1), 9)
+		stop.cocoaPrompt = addPrompt(counter, "Buy perk", "Peppermint Rush", 0.5)
+	elseif cocoaTemplate then
 		-- Approved booth at the same spot, standing on the street; prompt at BuyPrompt.
 		local booth = cocoaTemplate:Clone()
 		booth.Name = "CocoaMachine"
@@ -736,14 +742,24 @@ local function buildStop(
 		local at = booth:FindFirstChild("BuyPrompt", true)
 		stop.cocoaPrompt = addPrompt(at :: Instance, "Buy perk", "Peppermint Rush", 0.5)
 	else
-		local cost = Config.Buys.PeppermintRush.Cost
-		local _, counter = ShopStalls.cocoa(model, cocoaGround, ShopStalls.commas(cost))
-		addLabel(counter, "PEPPERMINT RUSH\n" .. cost .. " Jingle", Color3.new(1, 1, 1), 9)
-		stop.cocoaPrompt = addPrompt(counter, "Buy perk", "Peppermint Rush", 0.5)
+		local machine = newPart(
+			model,
+			"CocoaMachine",
+			Vector3.new(4, 7, 3),
+			cocoaGround * CFrame.new(0, 3.5, 0),
+			Color3.fromRGB(120, 70, 40)
+		)
+		addLabel(
+			machine,
+			"PEPPERMINT RUSH\n" .. Config.Buys.PeppermintRush.Cost .. " Jingle",
+			Color3.new(1, 1, 1),
+			6
+		)
+		stop.cocoaPrompt = addPrompt(machine, "Buy perk", "Peppermint Rush", 0.5)
 	end
 
 	-- Wardrobe stall (warm gear) beside the cocoa, on the side away from the
-	-- street; off until approved.
+	-- street, standing on the ground (it used to float 3.5 studs up).
 	local offset = Config.Wardrobe.StandOffset
 	local outward = if map.CocoaMachine.X < 0 then -1 else 1
 	stop.wardrobePrompts =

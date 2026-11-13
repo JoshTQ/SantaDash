@@ -21,6 +21,9 @@
 	  ShopStalls.wardrobe(parent, at) -> (Model, Rail)
 ]]
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage.Shared.Config)
 local Parts = require(script.Parent.Parts)
 
 local ShopStalls = {}
@@ -38,6 +41,12 @@ local COCOA = Color3.fromRGB(106, 58, 34)
 local MUG = Color3.fromRGB(70, 200, 120)
 local MITTEN = Color3.fromRGB(58, 111, 224)
 local GLOW = Color3.fromRGB(255, 214, 140)
+
+-- The carts replace the cocoa booth and the Wardrobe rack only once Josh
+-- approves the 3D (art rule); Config.ShopCarts.Enabled.
+function ShopStalls.enabled(): boolean
+	return Config.ShopCarts ~= nil and Config.ShopCarts.Enabled == true
+end
 
 -- Cart sizes in studs (tests read these).
 ShopStalls.Cart = {

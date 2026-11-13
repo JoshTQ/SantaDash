@@ -246,7 +246,10 @@ end)
 test(
 	"every Sleigh Stop has the two real shops as sleigh carts, clear of the pavement and each other",
 	function()
-		local route, map = build(6)
+		Config.ShopCarts.Enabled = true
+		local ok, route, map = pcall(build, 6)
+		Config.ShopCarts.Enabled = false
+		assert(ok, route)
 		local edge = map.layout.RoadWidth / 2 + Config.Canal.Promenade
 		for i, stop in route.stops do
 			local mugModel = stop.cocoaPrompt.Parent.Parent
@@ -283,3 +286,25 @@ test(
 		end
 	end
 )
+
+test("until the carts are approved, the cocoa and the Wardrobe rack stand on the ground", function()
+	-- Josh's staging playtest (13 Nov 2026): "shop is floating in the air".
+	expect(Config.ShopCarts.Enabled).toBe(false)
+	local route = build(7)
+	for i, stop in route.stops do
+		local stopModel = stop.cocoaPrompt.Parent.Parent
+		expect(stopModel:FindFirstChild("WardrobeStall")).toBeNil()
+		for _, name in { "WardrobePost", "CocoaMachine" } do
+			local found = named(stopModel, name)
+			expect(#found > 0).toBe(true)
+			for _, p in found do
+				if p:IsA("BasePart") then
+					local bottom = stop.origin:PointToObjectSpace(p.CFrame.Position).Y - p.Size.Y / 2
+					if math.abs(bottom) > 0.05 then
+						error(("stop %d: %s floats %.1f studs up"):format(i, name, bottom))
+					end
+				end
+			end
+		end
+	end
+end)

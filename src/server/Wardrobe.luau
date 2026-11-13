@@ -94,6 +94,9 @@ function Wardrobe.build(model: Instance, at: CFrame, newPart, addPrompt): { [str
 		return prompts
 	end
 	local ids = Rules.onSale()
+	if not ShopStalls.enabled() then
+		return Wardrobe.buildRack(model, at, ids, newPart, addPrompt)
+	end
 	local stall, rail = ShopStalls.wardrobe(model, at)
 	local width = rail.width
 	for i, id in ids do
@@ -118,6 +121,34 @@ function Wardrobe.build(model: Instance, at: CFrame, newPart, addPrompt): { [str
 		)
 		tag.CanCollide = false
 		ShopStalls.text(tag, tostring(item.price), GOLD, DARK)
+		prompts[id] = addPrompt(hanger, "Buy " .. item.price .. " Jingle", item.name, 0.4)
+	end
+	return prompts
+end
+
+-- The greybox clothes rack (until the Wardrobe cart is approved): one
+-- prompt per piece, standing on the ground at `at`.
+function Wardrobe.buildRack(model: Instance, at: CFrame, ids: { string }, newPart, addPrompt)
+	local prompts = {}
+	local width = math.max(6, #ids * 3)
+	newPart(model, "WardrobeRail", Vector3.new(width, 0.4, 0.4), at * CFrame.new(0, 6, 0), WOOD)
+	for _, side in { -1, 1 } do
+		newPart(
+			model,
+			"WardrobePost",
+			Vector3.new(0.4, 6, 0.4),
+			at * CFrame.new(side * width / 2, 3, 0),
+			WOOD
+		)
+	end
+	for i, id in ids do
+		local item = Rules.item(id) :: Rules.Item
+		local x = -width / 2 + (i - 0.5) * width / #ids
+		local hanger =
+			newPart(model, "WardrobeItem", Vector3.new(0.3, 0.8, 0.3), at * CFrame.new(x, 5.6, 0), WOOD)
+		hanger.CanCollide = false
+		hanger:SetAttribute("WardrobeId", id)
+		display(model, id, at * CFrame.new(x, 2.2, 0))
 		prompts[id] = addPrompt(hanger, "Buy " .. item.price .. " Jingle", item.name, 0.4)
 	end
 	return prompts
