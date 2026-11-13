@@ -132,7 +132,7 @@ describe("Sleigh Station lobby (single server)", function()
 			local first = table.clone(riders)
 			local seventh = table.remove(first)
 			-- Walk on one at a time so the sixth fills the sleigh.
-			waitForBoarding(world, 10)
+			waitForBoarding(world, 9.5)
 			for _, rider in first do
 				walkOn(world, { rider })
 			end
@@ -257,8 +257,15 @@ describe("Sleigh Station lobby (single server)", function()
 		end)
 	end)
 
-	it("makes a full server's fifth crew wait for a free street", function()
-		local world, engine, Config = boot()
+	it("makes a full server's extra crew wait for a free street", function()
+		-- Two streets, so the extra crew boards while the first runs are still
+		-- going, however quick the sleigh timetable is (idle crews miss the
+		-- sleigh and end their run early).
+		local world, engine, Config = boot({
+			configure = function(Config)
+				Config.Lobby.MaxRunsPerServer = 2
+			end,
+		})
 		world.run(function()
 			local crews = Config.Lobby.MaxRunsPerServer + 1
 			local firsts = {}
@@ -276,7 +283,7 @@ describe("Sleigh Station lobby (single server)", function()
 			waitUntil(world, function()
 				local queue = last(engine, firsts[crews], "Queue")
 				return queue ~= nil and queue.waiting == true
-			end, 30, "the fifth crew to wait")
+			end, 30, "the extra crew to wait")
 			expect(inRun(engine, firsts[crews])).toBe(false)
 			waitUntil(world, function()
 				return inRun(engine, firsts[crews])
