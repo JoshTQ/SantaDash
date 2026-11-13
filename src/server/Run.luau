@@ -25,6 +25,7 @@ local AlarmDogs = require(script.Parent.AlarmDogs)
 local YardDogs = require(script.Parent.YardDogs)
 local Assets = require(script.Parent.Assets)
 local ElfBot = require(script.Parent.ElfBot)
+local Toys = require(script.Parent.Toys)
 local ElfBrain = require(script.Parent.ElfBrain)
 local Loot = require(script.Parent.Loot)
 local CuckooWatch = require(script.Parent.CuckooWatch)
@@ -71,6 +72,10 @@ type PlayerState = Loot.PlayerState & {
 	skidUntil: number?, -- skidding on Frost Stomp frost
 	carryingList: boolean?, -- Marked: the Naughty List hovers over their head
 	bones: number?, -- dog treats bought this run (Config.DogAI.Bone)
+	launcher: boolean?, -- owns a Snowball Launcher this run (server/Toys)
+	snowballs: number?,
+	glitters: number?, -- Glitter Bombs
+	lastLaunchAt: number?,
 }
 
 local TICK = 0.25
@@ -297,6 +302,7 @@ function Run:_addPlayer(player: Player)
 			end
 			self:_applyPerks(player)
 			ServerWardrobe.dress(player, st.wardrobe) -- warm gear survives a respawn
+			Toys.dress(self, player) -- and so do the toys
 			local root = character:FindFirstChild("HumanoidRootPart")
 			if self.flightSeats and root then
 				-- Mid-flight: ride the rest of the way in a seat, not fall off.
@@ -377,6 +383,7 @@ function Run:_resetCharacter(player: Player)
 	player:SetAttribute(BodyHeat.ATTRIBUTE, nil)
 	player:SetAttribute(BodyHeat.FROZEN_ATTRIBUTE, nil)
 	ServerWardrobe.undress(player) -- warm gear is for this run only
+	Toys.undress(player)
 	local humanoid = humanoidOf(player)
 	if humanoid then
 		humanoid.WalkSpeed = Config.Player.WalkSpeed
@@ -436,6 +443,16 @@ function Run:_wirePrompts()
 		if stop.bonePrompt then
 			onStop(stop.bonePrompt, function(player)
 				self:_buyBone(player)
+			end)
+		end
+		if stop.launcherPrompt then
+			on(stop.launcherPrompt, function(player)
+				Toys.buyLauncher(self, player)
+			end)
+		end
+		if stop.glitterPrompt then
+			on(stop.glitterPrompt, function(player)
+				Toys.buyGlitter(self, player)
 			end)
 		end
 		for id, prompt in stop.wardrobePrompts or {} do
@@ -1088,9 +1105,18 @@ function Run:onInput(player: Player, action: string)
 		end
 	elseif action == "Bone" then
 		self:_throwBone(player)
+	elseif action == "Launch" then
+		Toys.launch(self, player)
+	elseif action == "Glitter" then
+		Toys.glitter(self, player)
 	elseif self.eventInput then
 		self.eventInput(player, action) -- e.g. "Throw" during a Blizzard
 	end
+end
+
+-- Inside a Glitter Bomb cloud (server/Toys): guards and the cuckoo can't see.
+function Run:inGlitter(position: Vector3): boolean
+	return Toys.inGlitter(self, position)
 end
 
 function Run:_addNoise(amount: number)

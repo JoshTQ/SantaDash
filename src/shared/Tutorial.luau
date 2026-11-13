@@ -60,6 +60,14 @@ Tutorial.Lessons = {
 	lesson("Krampus", "Krampus! Hide in a wardrobe or run!", nil, 5, "show", true),
 	lesson("Cuckoo", "Cuckoo! Freeze while it looks!", nil, 4, "show", false),
 	lesson("List", "It rattles! Pass it with Q!", "It rattles! Tap PASS LIST!", 5, "show", false),
+	lesson(
+		"Toys",
+		"Snowballs knock guards over! Press R!",
+		"Snowballs knock guards over! Tap LAUNCH!",
+		5,
+		"show",
+		false
+	),
 	lesson("Hide", "Tap fast to hold your breath!", nil, 4, "show", false),
 	lesson("Snatched", "Tap fast to wiggle out of the basket!", nil, 4, "show", false),
 	lesson("IceCube", "Ice cube! Tap fast to crack out!", nil, 4, "show", false),

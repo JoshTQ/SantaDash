@@ -19,6 +19,7 @@ local MapFeatures = require(script.Parent.MapFeatures)
 local Parts = require(script.Parent.Parts)
 local Wardrobe = require(script.Parent.Wardrobe)
 local ShopStalls = require(script.Parent.ShopStalls)
+local ToyBuilder = require(script.Parent.ToyBuilder)
 
 local MapBuilder = {}
 
@@ -285,6 +286,8 @@ export type Stop = {
 	hideSpots: { HideSpot },
 	cocoaPrompt: ProximityPrompt,
 	bonePrompt: ProximityPrompt?, -- dog treats at the Sleigh Stop (Config.DogAI.Bone)
+	launcherPrompt: ProximityPrompt?, -- toy stand (Config.Toys, server/Toys)
+	glitterPrompt: ProximityPrompt?,
 	dogFlaps: { any }?, -- front doors as dog flaps (GuardDogs.flapsFor), built on first use
 	wardrobePrompts: { [string]: ProximityPrompt }, -- server/Wardrobe stand, empty while off
 	vaultPrompt: ProximityPrompt?,
@@ -717,6 +720,29 @@ local function buildStop(
 		)
 		addLabel(tin, "DOG TREATS\n" .. Config.DogAI.Bone.Cost .. " Jingle", Color3.new(1, 1, 1), 4)
 		stop.bonePrompt = addPrompt(tin, "Buy bone", "Dog treat", 0.3)
+	end
+
+	-- Toy stand (Config.Toys) on the sign's other side, every stop (the Lair
+	-- too: that's where Krampus is): a wooden table each, the approved toy
+	-- on top (server/ToyBuilder).
+	if Config.Toys.Enabled then
+		local function stand(name: string, id: string, z: number, label: string, cost: number)
+			local table_ = newPart(
+				model,
+				name,
+				Vector3.new(2.6, 2, 2.2),
+				landing * CFrame.new(radius - 1, 1, z),
+				Color3.fromRGB(201, 138, 84),
+				Enum.Material.Wood
+			)
+			ToyBuilder.display(id, model, landing * CFrame.new(radius - 1, 2, z))
+			addLabel(table_, label .. "\n" .. cost .. " Jingle", Color3.new(1, 1, 1), 4.5)
+			return table_
+		end
+		local launcher = stand("ToyLauncher", "Catapult", -3, "SNOWBALL LAUNCHER", Config.Toys.Launcher.Cost)
+		stop.launcherPrompt = addPrompt(launcher, "Buy", "Snowball Launcher", 0.3)
+		local glitter = stand("ToyGlitter", "Globe", -6.2, "GLITTER BOMB", Config.Toys.Glitter.Cost)
+		stop.glitterPrompt = addPrompt(glitter, "Buy", "Glitter Bomb", 0.3)
 	end
 
 	-- The two shops (Peppermint Rush cocoa and the Wardrobe's warm gear) by

@@ -542,6 +542,36 @@ Config.CuckooWatch = {
 	DenPadding = 2, -- studs added round the Lair's footprint
 }
 
+-- Toys to fight back (Josh, 11 Nov 2026: "Can we use the toys against them,
+-- like snow guns etc" ... "Build them"). Bought at the toy stand by every
+-- Sleigh Stop with Jingle, never Robux. Red-team rules: toys, never guns;
+-- guards and dogs get knocked over, Krampus only flinches (once per
+-- KrampusCooldown for the whole crew) and never drops his basket (bells stay
+-- the only rescue); crew hits do nothing. Looks: the Candy Cane Catapult and
+-- Shaken Snow Globe (Josh picked C + C, approved the 3D 13 Nov), server/ToyBuilder.
+Config.Toys = {
+	Enabled = true,
+	Launcher = {
+		Cost = 500, -- the launcher and a full load
+		Refill = 200, -- a full load again
+		Ammo = 8,
+		Range = 40, -- studs: soft auto-aim at the nearest guard or Krampus in front
+		AimCone = 35, -- degrees either side of where you face
+		Speed = 80, -- studs/s, how fast the snowball flies
+		Cooldown = 0.5,
+		GuardDown = 4, -- seconds a hit guard or dog lies there
+		KrampusFlinch = 0.5, -- seconds he stops (and any wind-up is cancelled)
+		KrampusCooldown = 6, -- crew-wide: no stun-locking the boss
+	},
+	Glitter = {
+		Cost = 400,
+		Max = 2,
+		Throw = 18, -- studs ahead
+		Radius = 12,
+		Seconds = 6, -- guards, dogs and the cuckoo can't see anyone inside
+	},
+}
+
 -- Random map events (game-design.md "Random map events"). One roll per run;
 -- a hit plays one event from the map's own pool at one stop. Rules: one big
 -- moment per stop, never in a Krampus stop, never blocks the way back to the
