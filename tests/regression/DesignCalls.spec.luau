@@ -291,3 +291,39 @@ describe("riders queue the moment they board; takeoff is only an animation (Josh
 		expect(string.find(line, "In the queue!", 1, true)).toBe(1)
 	end)
 end)
+
+describe("a Public sleigh about every 15 s (Josh, 13 Nov)", function()
+	local StationClock = load("ReplicatedStorage.Shared.StationClock")
+	local lm = Config.LobbyMap
+
+	it("the Public bay runs a full cycle in at most 16 s", function()
+		expect(StationClock.cycleLength("Public")).toBeLessThanOrEqual(16)
+	end)
+
+	it("Public boarding stays open at least as long as a Public crew waits for riders", function()
+		expect(lm.BoardSeconds.Public).toBeGreaterThanOrEqual(Config.Matchmaking.PublicWaitSeconds)
+	end)
+
+	it("the next sleigh is boardable at most 6 s after the last one starts to leave", function()
+		expect(lm.DepartSeconds + lm.GapSeconds + lm.ArriveSeconds).toBeLessThanOrEqual(6)
+	end)
+
+	it("timetable: Departing at t, Boarding again by t + 6 s, on every bay", function()
+		for _, kind in { "Public", "Party", "Private" } do
+			for number = 1, 3 do
+				local t = 1.7e9
+				local p = StationClock.phaseAt(kind, number, t)
+				while p.name ~= "Departing" do
+					t = p.endsAt + 0.01
+					p = StationClock.phaseAt(kind, number, t)
+				end
+				local left = p.startsAt
+				while p.name ~= "Boarding" do
+					t = p.endsAt + 0.01
+					p = StationClock.phaseAt(kind, number, t)
+				end
+				expect(p.startsAt - left).toBeLessThanOrEqual(6 + 1e-6)
+			end
+		end
+	end)
+end)
