@@ -1117,10 +1117,10 @@ Config.Wardrobe = {
 }
 
 -- The Sleigh-Cart Pop-up shops (server/ShopStalls, Josh picked option C on
--- 11 Nov 2026). Off until he approves the 3D preview: until then the
--- approved Meshy cocoa booth and the greybox Wardrobe rack are used.
+-- 11 Nov 2026 and approved the 3D on 13 Nov). Switched off, the approved
+-- Meshy cocoa booth and the greybox Wardrobe rack come back.
 Config.ShopCarts = {
-	Enabled = false,
+	Enabled = true, -- Josh approved the 3D (13 Nov 2026: "Prefer them")
 }
 
 -- Sound mix (Sounds.luau has the catalogue). Phone speakers clip easily, so
