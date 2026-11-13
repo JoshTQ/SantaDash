@@ -6,14 +6,14 @@
     "Humanoid",
     "HumanoidRootPart"
   ],
-  "imageAssetId": 72969887725141,
+  "imageAssetId": 89887149607585,
   "meshParts": 1,
   "meshStuds": [
     4,
     5,
     1.2
   ],
-  "modelAssetId": 83082044525828,
+  "modelAssetId": 80561272267704,
   "name": "ElfA",
   "primaryPart": "HumanoidRootPart",
   "removed": 1,
