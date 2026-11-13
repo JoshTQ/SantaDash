@@ -11,6 +11,12 @@ Each pose is the bone's offset from its rest pose in its own space (what
 Roblox's Bone.Transform expects): rotation conj(rest) * anim, translation
 rotated into the rest frame and scaled from metres to the model's studs.
 Horizontal root motion is dropped: the Humanoid does the moving.
+
+Roblox's FBX import turns the rig half way round about +Y: every imported
+bone's local frame is the GLB one turned by that half turn (x and z
+negated), so the poses are turned the same way before they're written
+(see turn() below; Josh's playtest 13 Nov 2026: written in the GLB's frames,
+each bend went the opposite way and the walk held Santa's arms straight out).
 Standard library only.
 """
 import json
@@ -55,6 +61,13 @@ def qslerp(a, b, t):
         r = tuple(wa * x + wb * y for x, y in zip(a, b))
     n = math.sqrt(sum(x * x for x in r))
     return tuple(x / n for x in r)
+
+
+def turn(v):
+    """A GLB bone-local quaternion (x, y, z, w) or offset (x, y, z) in the
+    frame Roblox's import gives that bone: half a turn about +Y, which
+    negates x and z (tools/meshy/to_rbxm.luau's IMPORT_TURN)."""
+    return (-v[0], v[1], -v[2]) + tuple(v[3:])
 
 
 def read_glb(path):
@@ -119,7 +132,10 @@ def main():
     for j in joints:
         n = nodes[j]
         p = parent.get(j)
-        bones[n["name"]] = {"parent": nodes[p]["name"] if p in joints else None}
+        # rest: the local rotation the imported bone should have, for
+        # anim_rbxm.luau to check the import really turned the rig this way
+        bones[n["name"]] = {"parent": nodes[p]["name"] if p in joints else None,
+                            "rest": [round(v, 5) for v in turn(tuple(n.get("rotation", (0, 0, 0, 1))))]}
     clips = {}
     by_name = {a.get("name"): a for a in gltf["animations"]}
     for game_name, clip_name in cfg["clips"].items():
@@ -163,6 +179,7 @@ def main():
                     # keep the bob, drop the travel (in the parent's frame)
                     world = tuple(a - b for a, b in zip(p, rest_t))
                     dt = qrot(qconj(rest_r), (0.0, world[1], 0.0))
+                dt, dq = turn(dt), turn(dq)
                 poses[n["name"]] = [round(v * scale, 4) for v in dt] + [round(v, 5) for v in dq]
             frames.append({"t": round(t, 4), "poses": poses})
         clips[game_name] = {"source": clip_name, "duration": duration,

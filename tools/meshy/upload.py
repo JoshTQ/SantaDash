@@ -7,7 +7,9 @@ imported, ready for tools/meshy/to_rbxm.luau.
     ... python3 tools/meshy/upload.py Krampus --animations   (after anim_rbxm.luau)
 
 Reads build/meshy/<Name>/ (from generate.py) and:
-1. uploads color.png as an Image asset (its id becomes MeshPart.TextureID);
+1. uploads color.png as an Image asset (its id becomes MeshPart.TextureID),
+   or art/meshy/<Name>/texture.png when that exists: a hand-cleaned texture
+   (tools/meshy/clean_texture.py) that a re-import must not throw away;
 2. uploads rigged.fbx (or game.fbx) as a Model asset: Roblox imports it into
    MeshParts, the only way to get mesh assets made without Studio;
 3. downloads that Model asset back as build/meshy/<Name>/imported.rbxm;
@@ -154,7 +156,12 @@ def main():
         sys.exit(f"::error::Run tools/meshy/generate.py {name} first (needs color.png and an .fbx)")
 
     print(f"== Uploading {name} to Roblox ==")
-    image_id = upload(creator, "Image", f"{name} texture", f"{out}/color.png", "image/png")
+    texture = os.path.join(ROOT, "art", "meshy", name, "texture.png")
+    if os.path.isfile(texture):
+        print(f"  using the cleaned texture art/meshy/{name}/texture.png")
+    else:
+        texture = f"{out}/color.png"
+    image_id = upload(creator, "Image", f"{name} texture", texture, "image/png")
     model_id = upload(creator, "Model", name, model, "model/fbx")
     with open(f"{out}/imported.rbxm", "wb") as f:
         f.write(download(model_id))
